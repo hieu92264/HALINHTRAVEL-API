@@ -1,59 +1,123 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Ha Linh Travel API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 API chạy trong Docker với Nginx, PHP-FPM 8.2, MySQL 8.4 và Redis.
 
-## About Laravel
+## Yêu cầu
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- [Git](https://git-scm.com/downloads)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) đang chạy (bật **Linux containers**)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Không cần cài PHP, Composer, MySQL, Redis hoặc Node.js trên máy.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Cài đặt và chạy dự án
 
-## Learning Laravel
+Mở PowerShell hoặc Terminal và thực hiện lần lượt:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```powershell
+git clone <GIT_REPOSITORY_URL>
+cd halinhtravel-api
+Copy-Item .env.example .env
+docker compose up -d --build
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Thay `<GIT_REPOSITORY_URL>` bằng URL repository thực tế. Nếu tên thư mục sau khi clone khác `halinhtravel-api`, dùng tên thư mục đó ở lệnh `cd`.
 
-## Laravel Sponsors
+Sau khi hoàn tất, các dịch vụ có tại:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+| Dịch vụ | Địa chỉ |
+| --- | --- |
+| API Laravel | http://localhost:8080 |
+| phpMyAdmin | http://localhost:8081 |
+| MySQL từ máy host | `127.0.0.1:3307` |
+| Redis từ máy host | `127.0.0.1:6380` |
 
-### Premium Partners
+Đăng nhập phpMyAdmin bằng user `root` và mật khẩu `DB_ROOT_PASSWORD` trong file `.env` (mặc định là `root`).
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Cấu hình môi trường
 
-## Contributing
+File `.env` không được commit vào Git. File này chứa cấu hình chạy local, gồm cả các giá trị mà Docker Compose dùng để khởi tạo MySQL:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```env
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=halinhtravel_db
+DB_USERNAME=halinhtravel_user
+DB_PASSWORD=secret
+DB_ROOT_PASSWORD=root
 
-## Code of Conduct
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+`db` và `redis` là tên service Docker, vì vậy ứng dụng kết nối nội bộ qua cổng `3306` và `6379`, không dùng các cổng đã publish ra máy host.
 
-## Security Vulnerabilities
+> Đổi mật khẩu MySQL chỉ có hiệu lực khi database được tạo lần đầu. Xem phần “Làm mới database” nếu bạn đã chạy dự án trước đó.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Frontend assets (nếu có thay đổi Vite)
 
-## License
+```powershell
+docker compose exec app npm install
+docker compose exec app npm run build
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Để chạy Vite development server:
+
+```powershell
+docker compose exec app npm run dev
+```
+
+## Các lệnh thường dùng
+
+```powershell
+# Xem trạng thái và log
+docker compose ps
+docker compose logs -f
+
+# Chạy lệnh Artisan
+docker compose exec app php artisan route:list
+docker compose exec app php artisan migrate
+
+# Dừng containers, vẫn giữ database và Redis
+docker compose down
+
+# Khởi động lại
+docker compose up -d
+```
+
+## Làm mới database local
+
+Lệnh dưới đây xóa toàn bộ dữ liệu MySQL và Redis của dự án rồi khởi tạo lại. Chỉ dùng cho môi trường local.
+
+```powershell
+docker compose down -v
+docker compose up -d --build
+docker compose exec app composer install
+docker compose exec app php artisan migrate
+```
+
+## Khắc phục sự cố
+
+**Cổng 8080, 8081, 3307 hoặc 6380 đã được sử dụng**
+
+Đổi phần bên trái trong `ports` tại `compose.yaml`. Ví dụ `"8082:80"` sẽ mở API tại `http://localhost:8082`; đồng thời cập nhật `APP_URL` trong `.env`.
+
+**Không kết nối được Docker**
+
+Mở Docker Desktop, chờ trạng thái Engine đang chạy, rồi chạy lại `docker compose up -d --build`.
+
+**Laravel báo lỗi database hoặc Redis sau khi đổi `.env`**
+
+```powershell
+docker compose exec app php artisan config:clear
+docker compose exec app php artisan cache:clear
+```
+
+Nếu bạn đổi thông tin MySQL sau lần khởi tạo đầu tiên, hãy làm mới database theo phần phía trên.
+
+## Lưu ý triển khai production
+
+Cấu hình này phục vụ development local. Trước khi deploy, cần dùng secret thật, tắt `APP_DEBUG`, không public trực tiếp MySQL/Redis/phpMyAdmin và bổ sung HTTPS, queue worker cùng scheduler.

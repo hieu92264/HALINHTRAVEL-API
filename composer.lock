@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "53b5d56b3b7e3cbac1713e68c8850f6c",
+    "content-hash": "6386b6a2679370ff334ffce05d4cc585",
     "packages": [
         {
             "name": "brick/math",
@@ -1060,6 +1060,63 @@
                 }
             ],
             "time": "2026-08-24T09:15:32+00:00"
+        },
+        {
+            "name": "hieu-dev-92264/laravel-modules",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/hieu92264/laravel-modules-package.git",
+                "reference": "d15e77cd2fb4978f1b5f8bfb66d338ac459d4de9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/hieu92264/laravel-modules-package/zipball/d15e77cd2fb4978f1b5f8bfb66d338ac459d4de9",
+                "reference": "d15e77cd2fb4978f1b5f8bfb66d338ac459d4de9",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/filesystem": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "HieuDev92264\\LaravelModules\\LaravelModuleServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "HieuDev92264\\LaravelModules\\": "src/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php tests/verify.php"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "hieu92264",
+                    "email": "nguyenthehieu20182021@gmail.com"
+                }
+            ],
+            "description": "personalization module generator",
+            "support": {
+                "source": "https://github.com/hieu92264/laravel-modules-package/tree/v1.0.0",
+                "issues": "https://github.com/hieu92264/laravel-modules-package/issues"
+            },
+            "time": "2026-09-18T08:44:11+00:00"
         },
         {
             "name": "laravel/framework",
@@ -8401,5 +8458,5 @@
         "php": "^8.2"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
