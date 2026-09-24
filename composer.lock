@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "36cce85a5311aab0dd3cbaa89a33ac00",
+    "content-hash": "d6d5a7edbae1f9a0d6b09649752ae422",
     "packages": [
         {
             "name": "brick/math",
@@ -65,6 +65,71 @@
                 }
             ],
             "time": "2026-02-10T14:33:43+00:00"
+        },
+        {
+            "name": "buglinjo/laravel-webp",
+            "version": "v3.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/buglinjo/laravel-webp.git",
+                "reference": "69ebaa98cf89556303f1b8d87952ef4d693cf19a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/buglinjo/laravel-webp/zipball/69ebaa98cf89556303f1b8d87952ef4d693cf19a",
+                "reference": "69ebaa98cf89556303f1b8d87952ef4d693cf19a",
+                "shasum": ""
+            },
+            "require": {
+                "ext-gd": "*",
+                "laravel/framework": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.0|^8.1"
+            },
+            "require-dev": {
+                "phpunit/phpunit": ">=5.4.3",
+                "squizlabs/php_codesniffer": "^2.3|^3.6"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "Webp": "Buglinjo\\LaravelWebp\\Webp"
+                    },
+                    "providers": [
+                        "Buglinjo\\LaravelWebp\\WebpServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Buglinjo\\LaravelWebp\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Irakli Tchitadze",
+                    "email": "irakli.tchitadze@gmail.com",
+                    "homepage": "https://irakli.dev",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Laravel package for WebP image formatting.",
+            "homepage": "https://github.com/buglinjo/laravel-webp",
+            "keywords": [
+                "Buglinjo",
+                "LaravelWebp",
+                "Webp",
+                "laravel"
+            ],
+            "support": {
+                "issues": "https://github.com/buglinjo/laravel-webp/issues",
+                "source": "https://github.com/buglinjo/laravel-webp/tree/v3.2.0"
+            },
+            "time": "2026-02-25T20:46:47+00:00"
         },
         {
             "name": "carbonphp/carbon-doctrine-types",
@@ -8521,5 +8586,5 @@
         "php": "^8.2"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }
