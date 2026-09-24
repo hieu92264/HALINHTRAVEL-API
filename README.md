@@ -1,17 +1,17 @@
 # Ha Linh Travel API
 
-Laravel 12 API chạy trong Docker với Nginx, PHP-FPM 8.2, MySQL 8.4 và Redis.
+Laravel API chạy local bằng Docker với Nginx, PHP-FPM, MySQL và Redis.
 
 ## Yêu cầu
 
-- [Git](https://git-scm.com/downloads)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) đang chạy (bật **Linux containers**)
+- Git
+- Docker Desktop đang chạy, sử dụng Linux containers
 
-Không cần cài PHP, Composer, MySQL, Redis hoặc Node.js trên máy.
+Không cần cài PHP, Composer, MySQL, Redis hoặc Node.js trên Windows.
 
-## Cài đặt và chạy dự án
+## Cài đặt lần đầu
 
-Mở PowerShell hoặc Terminal và thực hiện lần lượt:
+Mở PowerShell trong thư mục bạn muốn lưu source, sau đó chạy:
 
 ```powershell
 git clone <GIT_REPOSITORY_URL>
@@ -23,101 +23,111 @@ docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate
 ```
 
-Thay `<GIT_REPOSITORY_URL>` bằng URL repository thực tế. Nếu tên thư mục sau khi clone khác `halinhtravel-api`, dùng tên thư mục đó ở lệnh `cd`.
+Thay `<GIT_REPOSITORY_URL>` bằng URL GitHub của dự án. Lệnh `--build` chỉ cần dùng lần đầu hoặc khi thay đổi Dockerfile/Compose.
 
-Sau khi hoàn tất, các dịch vụ có tại:
-
-| Dịch vụ | Địa chỉ |
-| --- | --- |
-| API Laravel | http://localhost:8080 |
-| phpMyAdmin | http://localhost:8081 |
-| MySQL từ máy host | `127.0.0.1:3307` |
-| Redis từ máy host | `127.0.0.1:6380` |
-
-Đăng nhập phpMyAdmin bằng user `root` và mật khẩu `DB_ROOT_PASSWORD` trong file `.env` (mặc định là `root`).
-
-## Cấu hình môi trường
-
-File `.env` không được commit vào Git. File này chứa cấu hình chạy local, gồm cả các giá trị mà Docker Compose dùng để khởi tạo MySQL:
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=db
-DB_PORT=3306
-DB_DATABASE=halinhtravel_db
-DB_USERNAME=halinhtravel_user
-DB_PASSWORD=secret
-DB_ROOT_PASSWORD=root
-
-REDIS_HOST=redis
-REDIS_PORT=6379
-```
-
-`db` và `redis` là tên service Docker, vì vậy ứng dụng kết nối nội bộ qua cổng `3306` và `6379`, không dùng các cổng đã publish ra máy host.
-
-> Đổi mật khẩu MySQL chỉ có hiệu lực khi database được tạo lần đầu. Xem phần “Làm mới database” nếu bạn đã chạy dự án trước đó.
-
-## Frontend assets (nếu có thay đổi Vite)
+Nếu dự án có thay đổi frontend Vite, chạy thêm:
 
 ```powershell
 docker compose exec app npm install
 docker compose exec app npm run build
 ```
 
-Để chạy Vite development server:
+## Khởi chạy dự án hằng ngày
+
+1. Mở Docker Desktop và chờ trạng thái **Engine running**.
+2. Mở terminal tại thư mục dự án.
+3. Chạy:
 
 ```powershell
-docker compose exec app npm run dev
+docker compose up -d
+```
+
+Kiểm tra containers:
+
+```powershell
+docker compose ps
+```
+
+Truy cập các dịch vụ:
+
+| Dịch vụ | Địa chỉ |
+| --- | --- |
+| Laravel API | http://localhost:8080 |
+| phpMyAdmin | http://localhost:8081 |
+| MySQL từ Navicat / DBeaver | `127.0.0.1:3307` |
+| Redis từ máy Windows | `127.0.0.1:6380` |
+
+## Dừng dự án
+
+Để dừng containers nhưng giữ nguyên MySQL và Redis:
+
+```powershell
+docker compose down
+```
+
+Lần sau chỉ cần mở Docker Desktop và chạy lại:
+
+```powershell
+docker compose up -d
 ```
 
 ## Các lệnh thường dùng
 
 ```powershell
-# Xem trạng thái và log
-docker compose ps
+# Theo dõi log của tất cả services
 docker compose logs -f
 
-# Chạy lệnh Artisan
-docker compose exec app php artisan route:list
+# Log riêng Laravel/PHP
+docker compose logs -f app
+
+# Chạy Artisan trong container PHP
 docker compose exec app php artisan migrate
+docker compose exec app php artisan route:list
 
-# Dừng containers, vẫn giữ database và Redis
-docker compose down
+# Cài PHP package bằng Composer
+docker compose exec app composer require vendor/package
 
-# Khởi động lại
-docker compose up -d
+# Build lại image khi sửa Dockerfile hoặc compose.yaml
+docker compose up -d --build
 ```
 
-## Làm mới database local
+Bạn vẫn sửa code trực tiếp bằng IDE như bình thường. Source trên máy được mount vào container nên chỉ cần refresh API sau khi lưu file PHP.
 
-Lệnh dưới đây xóa toàn bộ dữ liệu MySQL và Redis của dự án rồi khởi tạo lại. Chỉ dùng cho môi trường local.
+## Kết nối MySQL bằng Navicat
+
+```text
+Host: 127.0.0.1
+Port: 3307
+Database: halinhtravel_db
+Username: halinhtravel_user
+Password: secret
+```
+
+Nếu bạn đã thay đổi các biến `DB_*` trong `.env`, dùng thông tin tương ứng. Không dùng host `db` trong Navicat: tên này chỉ có hiệu lực bên trong Docker network.
+
+## Làm mới toàn bộ database local
+
+> Cảnh báo: lệnh dưới đây xóa toàn bộ dữ liệu MySQL và Redis của dự án.
 
 ```powershell
 docker compose down -v
 docker compose up -d --build
-docker compose exec app composer install
 docker compose exec app php artisan migrate
 ```
 
 ## Khắc phục sự cố
 
-**Cổng 8080, 8081, 3307 hoặc 6380 đã được sử dụng**
+**Docker báo không kết nối được Engine**
 
-Đổi phần bên trái trong `ports` tại `compose.yaml`. Ví dụ `"8082:80"` sẽ mở API tại `http://localhost:8082`; đồng thời cập nhật `APP_URL` trong `.env`.
+Mở Docker Desktop, chờ **Engine running**, rồi chạy lại lệnh Docker.
 
-**Không kết nối được Docker**
+**Cổng 8080 hoặc 3307 đã được dùng**
 
-Mở Docker Desktop, chờ trạng thái Engine đang chạy, rồi chạy lại `docker compose up -d --build`.
+Đổi cổng phía bên trái trong `compose.yaml`, ví dụ `"8082:80"`. Nếu đổi cổng API, cập nhật `APP_URL` trong `.env`.
 
-**Laravel báo lỗi database hoặc Redis sau khi đổi `.env`**
+**Laravel không nhận cấu hình `.env` mới**
 
 ```powershell
 docker compose exec app php artisan config:clear
 docker compose exec app php artisan cache:clear
 ```
-
-Nếu bạn đổi thông tin MySQL sau lần khởi tạo đầu tiên, hãy làm mới database theo phần phía trên.
-
-## Lưu ý triển khai production
-
-Cấu hình này phục vụ development local. Trước khi deploy, cần dùng secret thật, tắt `APP_DEBUG`, không public trực tiếp MySQL/Redis/phpMyAdmin và bổ sung HTTPS, queue worker cùng scheduler.
