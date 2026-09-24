@@ -21,7 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->appendToGroup('web', SetLocale::class);
+        $middleware->appendToGroup('api', SetLocale::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->respond(function (HttpResponse $response, Throwable $exception, Request $request): HttpResponse {
