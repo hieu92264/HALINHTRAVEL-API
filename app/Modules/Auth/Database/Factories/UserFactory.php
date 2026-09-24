@@ -4,7 +4,6 @@ namespace App\Modules\Auth\Database\Factories;
 
 use App\Modules\Auth\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
@@ -32,10 +31,11 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'user_name' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            // The User model hashes this attribute through its cast.
+            'password_hash' => static::$password ??= 'password',
             'remember_token' => Str::random(10),
         ];
     }

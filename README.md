@@ -1,5 +1,7 @@
 # Ha Linh Travel API
 
+Hướng dẫn phân quyền role/permission: [docs/authorization.md](docs/authorization.md).
+
 Laravel API chạy local bằng Docker với Nginx, PHP-FPM, MySQL và Redis.
 
 ## Yêu cầu
