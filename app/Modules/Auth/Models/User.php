@@ -3,14 +3,16 @@
 namespace App\Modules\Auth\Models;
 
 use App\Modules\Auth\Database\Factories\UserFactory;
+use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasBaseMetadata, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -18,9 +20,11 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'user_name',
         'email',
-        'password',
+        'password_hash',
+        'last_login_at',
+        'email_verified_at',
     ];
 
     /**
@@ -29,7 +33,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $hidden = [
-        'password',
+        'password_hash',
         'remember_token',
     ];
 
@@ -40,10 +44,11 @@ class User extends Authenticatable
      */
     protected function casts(): array
     {
-        return [
+        return array_merge($this->baseMetadataCasts(), [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+            'last_login_at' => 'datetime',
+            'password_hash' => 'hashed',
+        ]);
     }
 
     /**
@@ -52,5 +57,25 @@ class User extends Authenticatable
     protected static function newFactory(): UserFactory
     {
         return UserFactory::new();
+    }
+
+    /**
+     * Get the identifier that will be stored in the subject claim of the JWT.
+     *
+     * @return mixed
+     */
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    /**
+     * Return a key value array, containing any custom claims to be added to the JWT.
+     *
+     * @return array
+     */
+    public function getJWTCustomClaims()
+    {
+        return [];
     }
 }
