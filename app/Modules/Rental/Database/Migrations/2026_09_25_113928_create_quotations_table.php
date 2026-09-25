@@ -37,7 +37,8 @@ return new class extends Migration
                 ->comment('draft / sent / approved / rejected / expired');
 
             // Thông tin duyệt & Người tạo
-            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('approved_by', 100)->nullable();
+            $table->foreign('approved_by')->references('user_name')->on('users')->nullOnDelete();
             $table->dateTime('approved_at')->nullable();
         });
     }

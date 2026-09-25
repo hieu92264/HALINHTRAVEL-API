@@ -26,7 +26,8 @@ return new class extends Migration
             // Thời gian & Người ban hành
             $table->dateTime('issued_at'); // DATETIME[cite: 20]
             // Không có NULL theo thiết kế, nên dùng restrictOnDelete để tránh lỗi mất người ban hành
-            $table->foreignId('issued_by')->constrained('users')->restrictOnDelete();
+            $table->string('issued_by', 100);
+            $table->foreign('issued_by')->references('user_name')->on('users')->restrictOnDelete();
 
             // Dữ liệu thực tế chuyến đi
             $table->dateTime('actual_start_at')->nullable(); // DATETIME NULL[cite: 20]

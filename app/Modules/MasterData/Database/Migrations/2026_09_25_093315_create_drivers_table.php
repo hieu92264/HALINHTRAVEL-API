@@ -18,7 +18,8 @@ return new class extends Migration
 
             // Thông tin định danh & Phân loại
             $table->string('code', 50)->unique()->comment('Ví dụ: LX0001');
-            $table->foreignId('user_id')->nullable()->unique()->constrained('users')->nullOnDelete();
+            $table->string('user_name', 100)->nullable()->unique();
+            $table->foreign('user_name')->references('user_name')->on('users')->nullOnDelete();
             $table->foreignId('partner_id')->nullable()->constrained('partners')->nullOnDelete()
                 ->comment('Đối tác nếu tài xế ngoài');
             $table->enum('type', \App\Shared\Enums\OwnershipTypeEnum::values())->comment('Loại tài xế: công ty hay đối tác');

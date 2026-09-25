@@ -24,12 +24,13 @@ return new class extends Migration
             $table->date('to_date');
 
             // Trạng thái
-            $table->enum('status', \App\Shared\Enums\PaymentMethodEnum::values())
+            $table->enum('status', \App\Shared\Enums\PayrollStatusEnum::values())
                 ->default(\App\Shared\Enums\PayrollStatusEnum::DRAFT)
                 ->comment('draft / calculated / approved / paid / locked');
 
             // Người duyệt
-            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('approved_by', 100)->nullable();
+            $table->foreign('approved_by')->references('user_name')->on('users')->nullOnDelete();
             $table->dateTime('approved_at')->nullable();
 
             $table->unique(['month', 'year'], 'payrolls_month_year_unique');

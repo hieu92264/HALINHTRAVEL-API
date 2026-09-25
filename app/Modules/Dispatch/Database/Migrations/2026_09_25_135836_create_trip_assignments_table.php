@@ -35,7 +35,8 @@ return new class extends Migration
 
             // Thời gian & Người thực hiện
             $table->dateTime('assigned_at');
-            $table->foreignId('assigned_by')->constrained('users')->restrictOnDelete();
+            $table->string('assigned_by', 100);
+            $table->foreign('assigned_by')->references('user_name')->on('users')->restrictOnDelete();
 
             $table->boolean('is_current')->default(true);
             $table->index(['vehicle_id', 'is_current'], 'idx_vehicle_current');

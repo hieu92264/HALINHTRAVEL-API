@@ -23,7 +23,8 @@ return new class extends Migration
             $table->unsignedBigInteger('file_size')->nullable(); // BIGINT UNSIGNED NULL[cite: 22]
 
             // Người tải lên
-            $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('uploaded_by', 100)->nullable();
+            $table->foreign('uploaded_by')->references('user_name')->on('users')->nullOnDelete();
         });
     }
 
