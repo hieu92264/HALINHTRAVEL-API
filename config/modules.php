@@ -3,7 +3,16 @@
 return [
     'base_path' => app_path('Modules'),
     'namespace' => 'App\\Modules',
-    'aliases' => [],
+    'aliases' => [
+        'auth' => 'Auth',
+        'md' => 'MasterData',
+        'disp' => 'Dispatch',
+        'ctr' => 'Contract',
+        'fin' => 'Finance',
+        'rental' => 'Rental',
+        'other' => 'Other',
+        'dp' => 'DriverPayroll'
+    ],
     'api_prefix' => 'api',
     'stubs_path' => base_path('stubs/modules'),
 
