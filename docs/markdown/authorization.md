@@ -13,23 +13,23 @@ php artisan db:wipe
 php artisan migrate --seed
 ```
 
-Seeder tạo các permission `users.view`, `users.manage`, `roles.manage`; role `admin` có toàn bộ quyền, còn `staff` có `users.view`. Tên permission tập trung tại `App\Modules\Auth\Enums\Permission`; hãy thêm case mới tại đây và chạy lại `php artisan db:seed`.
+Seeder tạo catalog permission theo resource; role `admin` có toàn bộ quyền. Tên permission tập trung tại `App\Shared\Enums\PermissionEnum`; hãy thêm case mới tại đây và chạy lại `php artisan db:seed`.
 
 ## Gán role hoặc quyền cho người dùng
 
 Ví dụ trong Tinker, seeder, service hoặc action:
 
 ```php
-use App\Modules\Auth\Enums\Permission;
-use App\Modules\Auth\Enums\Role;
+use App\Shared\Enums\PermissionEnum;
+use App\Shared\Enums\RoleEnum;
 use App\Modules\Auth\Models\User;
 
 $user = User::findOrFail(1);
-$user->assignRole(Role::Staff->value);
-$user->givePermissionTo(Permission::UsersManage->value); // quyền trực tiếp, nếu cần
+$user->assignRole(RoleEnum::SALES->value);
+$user->givePermissionTo(PermissionEnum::USERS_MANAGE->value); // quyền trực tiếp, nếu cần
 
 // Thay thế role hiện có:
-$user->syncRoles([Role::Admin->value]);
+$user->syncRoles([RoleEnum::ADMIN->value]);
 ```
 
 Không cần nhúng permission vào JWT: middleware lấy user từ token rồi kiểm tra quyền trong database/cache của Spatie.
@@ -39,17 +39,17 @@ Không cần nhúng permission vào JWT: middleware lấy user từ token rồi 
 Các alias `role`, `permission` và `role_or_permission` đã được đăng ký trong `bootstrap/app.php`. Luôn đặt `auth:api` trước middleware kiểm tra quyền.
 
 ```php
-use App\Modules\Auth\Enums\Permission;
-use App\Modules\Auth\Enums\Role;
+use App\Shared\Enums\PermissionEnum;
+use App\Shared\Enums\RoleEnum;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:api', 'permission:'.Permission::UsersView->value])
+Route::middleware(['auth:api', 'permission:'.PermissionEnum::USERS_VIEW->value])
     ->get('/users', ListUsersController::class);
 
-Route::middleware(['auth:api', 'role:'.Role::Admin->value])
+Route::middleware(['auth:api', 'role:'.RoleEnum::ADMIN->value])
     ->delete('/users/{user}', DeleteUserController::class);
 
-Route::middleware(['auth:api', 'role_or_permission:admin|'.Permission::RolesManage->value])
+Route::middleware(['auth:api', 'role_or_permission:admin|'.PermissionEnum::ROLES_MANAGE->value])
     ->put('/roles/{role}', UpdateRoleController::class);
 ```
 
@@ -58,13 +58,13 @@ Middleware trả về HTTP 403 khi user đã xác thực nhưng không có quy�
 ## Kiểm tra trong controller/service
 
 ```php
-use App\Modules\Auth\Enums\Permission;
+use App\Shared\Enums\PermissionEnum;
 
 public function update(Request $request, User $user): JsonResponse
 {
-    $this->authorize(Permission::UsersManage->value);
+    $this->authorize(PermissionEnum::USERS_MANAGE->value);
 
-    // Hoặc: abort_unless($request->user()->can(Permission::UsersManage->value), 403);
+    // Hoặc: abort_unless($request->user()->can(PermissionEnum::USERS_MANAGE->value), 403);
     // ...
 }
 ```

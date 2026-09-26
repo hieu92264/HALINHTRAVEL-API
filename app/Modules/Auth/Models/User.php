@@ -23,7 +23,7 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'user_name',
         'email',
-        'password_hash',
+        'password',
         'last_login_at',
         'email_verified_at',
     ];
@@ -34,7 +34,7 @@ class User extends Authenticatable implements JWTSubject
      * @var list<string>
      */
     protected $hidden = [
-        'password_hash',
+        'password',
         'remember_token',
     ];
 
@@ -48,7 +48,7 @@ class User extends Authenticatable implements JWTSubject
         return array_merge($this->baseMetadataCasts(), [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
-            'password_hash' => 'hashed',
+            'password' => 'hashed',
         ]);
     }
 
@@ -65,7 +65,7 @@ class User extends Authenticatable implements JWTSubject
      *
      * @return mixed
      */
-    public function getJWTIdentifier()
+    public function getJWTIdentifier(): mixed
     {
         return $this->getKey();
     }
@@ -75,7 +75,7 @@ class User extends Authenticatable implements JWTSubject
      *
      * @return array
      */
-    public function getJWTCustomClaims()
+    public function getJWTCustomClaims(): array
     {
         return [];
     }

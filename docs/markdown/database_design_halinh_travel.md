@@ -1062,7 +1062,7 @@ Các quyền `*-own` cần Policy kiểm tra `driver.user_id == auth()->id()` ch
 
 # 20. NHỮNG ĐIỂM NÊN SỬA TRONG DATABASE HIỆN TẠI
 
-1. `users.password_hash` -> `password` để đi đúng convention Laravel.
+1. `users.password` đã dùng đúng convention Laravel.
 2. `users.user_name` -> `username` hoặc dùng `name`; không nên dùng tên không nhất quán.
 3. `roles` / `permissions`: giữ schema do Spatie tạo, không cần tự thêm `is_active`, `user_name_created`, `user_name_updated`.
 4. Database hiện tại còn thiếu `role_has_permissions`.
@@ -1159,4 +1159,3 @@ payroll_items
 ```
 
 Có thể để `quotations`, `contract_schedule_rules`, `attachments`, `vehicle_maintenances`, `payroll_item_details` cho giai đoạn tiếp theo nếu deadline không cho phép.
-

@@ -35,7 +35,7 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             // The User model hashes this attribute through its cast.
-            'password_hash' => static::$password ??= 'password',
+            'password' => static::$password ??= 'password',
             'remember_token' => Str::random(10),
         ];
     }
