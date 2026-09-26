@@ -13,6 +13,8 @@ php artisan db:wipe
 php artisan migrate --seed
 ```
 
+Seeder cũng tạo sáu tài khoản ban đầu: `admin`, `director`, `sales`, `dispatcher`, `accountant` và `driver`. Email tương ứng là `<username>@halinhtravel.test`; mật khẩu lấy từ `AUTH_SEED_PASSWORD` (mặc định local: `password`). Đặt biến này trong `.env` trước khi seed môi trường không phải local.
+
 Seeder tạo catalog permission theo resource; role `admin` có toàn bộ quyền. Tên permission tập trung tại `App\Shared\Enums\PermissionEnum`; hãy thêm case mới tại đây và chạy lại `php artisan db:seed`.
 
 ## Gán role hoặc quyền cho người dùng

@@ -4,6 +4,7 @@ namespace App\Modules\Auth\Database\Seeds;
 
 use App\Modules\Auth\Models\Permission as PermissionModel;
 use App\Modules\Auth\Models\Role as RoleModel;
+use App\Modules\Auth\Models\User;
 use App\Shared\Enums\PermissionEnum;
 use App\Shared\Enums\RoleEnum;
 use Illuminate\Database\Seeder;
@@ -65,6 +66,8 @@ class AuthDatabaseSeeder extends Seeder
 
         $driver = RoleModel::findOrCreate(RoleEnum::DRIVER->value, 'api');
         $driver->syncPermissions([]);
+
+        $this->seedRoleAccounts();
     }
 
     /** @return list<string> */
@@ -101,5 +104,36 @@ class AuthDatabaseSeeder extends Seeder
         }
 
         return $permissions;
+    }
+
+    private function seedRoleAccounts(): void
+    {
+        foreach ($this->roleAccounts() as $account) {
+            $user = User::firstOrCreate(
+                ['user_name' => $account['user_name']],
+                [
+                    'email' => $account['email'],
+                    'password' => config('auth.seed_password'),
+                    'email_verified_at' => now(),
+                ],
+            );
+
+            $user->syncRoles([$account['role']->value]);
+        }
+    }
+
+    /**
+     * @return list<array{user_name: string, email: string, role: RoleEnum}>
+     */
+    private function roleAccounts(): array
+    {
+        return [
+            ['user_name' => 'admin', 'email' => 'admin@halinhtravel.test', 'role' => RoleEnum::ADMIN],
+            ['user_name' => 'director', 'email' => 'director@halinhtravel.test', 'role' => RoleEnum::DIRECTOR],
+            ['user_name' => 'sales', 'email' => 'sales@halinhtravel.test', 'role' => RoleEnum::SALES],
+            ['user_name' => 'dispatcher', 'email' => 'dispatcher@halinhtravel.test', 'role' => RoleEnum::DISPATCHER],
+            ['user_name' => 'accountant', 'email' => 'accountant@halinhtravel.test', 'role' => RoleEnum::ACCOUNTANT],
+            ['user_name' => 'driver', 'email' => 'driver@halinhtravel.test', 'role' => RoleEnum::DRIVER],
+        ];
     }
 }

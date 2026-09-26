@@ -114,4 +114,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Development Seed Credentials
+    |--------------------------------------------------------------------------
+    |
+    | This value is used only by AuthDatabaseSeeder when creating its initial
+    | role accounts. Set it in .env before seeding a non-local environment.
+    |
+    */
+
+    'seed_password' => env('AUTH_SEED_PASSWORD', 'password'),
+
 ];

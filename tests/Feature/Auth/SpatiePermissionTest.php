@@ -43,6 +43,19 @@ class SpatiePermissionTest extends TestCase
         $this->assertFalse($user->can(PermissionEnum::TRIP_SCHEDULES_MANAGE->value));
     }
 
+    public function test_seeder_creates_an_account_for_every_role(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+
+        foreach (RoleEnum::cases() as $role) {
+            $user = User::query()->where('user_name', $role->value)->firstOrFail();
+
+            $this->assertSame($role->value.'@halinhtravel.test', $user->email);
+            $this->assertTrue($user->hasRole($role->value));
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password', $user->password));
+        }
+    }
+
     public function test_user_password_is_hashed_and_used_by_laravel_authentication(): void
     {
         $user = User::factory()->create(['password' => 'secret-password']);
