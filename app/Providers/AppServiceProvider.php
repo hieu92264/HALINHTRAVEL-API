@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Modules\Auth\Interfaces\AuthServiceInterface;
+use App\Modules\Auth\Interfaces\AccessManagementServiceInterface;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Auth\Services\AccessManagementService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -18,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AuthServiceInterface::class, AuthService::class);
+        $this->app->singleton(AccessManagementServiceInterface::class, AccessManagementService::class);
     }
 
     /**

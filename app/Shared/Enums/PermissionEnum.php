@@ -11,6 +11,8 @@ enum PermissionEnum: string
     case USERS_VIEW = 'users.view';
     case USERS_MANAGE = 'users.manage';
     case ROLES_MANAGE = 'roles.manage';
+    case PERMISSIONS_VIEW = 'permissions.view';
+    case PERMISSIONS_MANAGE = 'permissions.manage';
 
     case CUSTOMERS_VIEW = 'customers.view';
     case CUSTOMERS_MANAGE = 'customers.manage';

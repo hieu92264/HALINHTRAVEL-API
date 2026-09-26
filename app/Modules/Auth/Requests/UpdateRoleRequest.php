@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Modules\Auth\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateRoleRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:100', 'regex:/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*$/', Rule::unique('roles', 'name')->ignore($this->route('role'))->where('guard_name', 'api')],
+        ];
+    }
+}

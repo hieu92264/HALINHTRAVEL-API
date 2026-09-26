@@ -8,4 +8,10 @@ use Spatie\Permission\Models\Role as SpatieRole;
 class Role extends SpatieRole
 {
     use HasBaseMetadata;
+
+    protected $fillable = [
+        'name',
+        'guard_name',
+        'is_active',
+    ];
 }
