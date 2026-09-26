@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
+use App\Modules\Auth\Interfaces\AuthServiceInterface;
 use App\Modules\Auth\Models\Permission as PermissionModel;
 use App\Modules\Auth\Models\Role as RoleModel;
 use App\Modules\Auth\Models\User;
@@ -62,5 +63,31 @@ class SpatiePermissionTest extends TestCase
 
         $this->assertNotSame('secret-password', $user->password);
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check('secret-password', $user->getAuthPassword()));
+    }
+
+    public function test_an_active_seeded_user_can_log_in_with_jwt(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+
+        $result = app(AuthServiceInterface::class)->login([
+            'user_name' => 'admin',
+            'password' => 'password',
+        ]);
+
+        $this->assertNotEmpty($result['access_token']);
+        $this->assertSame('bearer', $result['token_type']);
+        $this->assertGreaterThan(0, $result['expires_in']);
+        $this->assertNotNull(User::query()->where('user_name', 'admin')->value('last_login_at'));
+    }
+
+    public function test_login_route_uses_the_registered_login_rate_limiter(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+
+        $this->postJson('/api/auth/login', [
+            'user_name' => 'admin',
+            'password' => 'password',
+        ])->assertOk()
+            ->assertJsonPath('metadata.token_type', 'bearer');
     }
 }
