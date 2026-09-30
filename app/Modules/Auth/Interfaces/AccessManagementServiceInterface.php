@@ -6,10 +6,14 @@ use App\Modules\Auth\Models\Permission;
 use App\Modules\Auth\Models\Role;
 use App\Modules\Auth\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface AccessManagementServiceInterface
 {
     public function users(int $perPage = 15): LengthAwarePaginator;
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function allUsers(): Collection;
 
     /** @return array<string, mixed> */
     public function user(User $user): array;
@@ -30,6 +34,9 @@ interface AccessManagementServiceInterface
 
     public function roles(int $perPage = 15): LengthAwarePaginator;
 
+    /** @return Collection<int, array<string, mixed>> */
+    public function allRoles(): Collection;
+
     /** @return array<string, mixed> */
     public function role(Role $role): array;
 
@@ -45,6 +52,9 @@ interface AccessManagementServiceInterface
     public function syncRolePermissions(Role $role, array $permissionIds): array;
 
     public function permissions(int $perPage = 15): LengthAwarePaginator;
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function allPermissions(): Collection;
 
     /** @return array<string, mixed> */
     public function permission(Permission $permission): array;

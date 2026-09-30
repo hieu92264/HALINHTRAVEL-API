@@ -29,6 +29,33 @@ class AccessManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_retrieve_all_management_lists_without_pagination(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $admin = User::query()->where('user_name', 'admin')->firstOrFail();
+
+        $this->actingAs($admin, 'api')
+            ->getJson('/api/auth/users/all')
+            ->assertOk()
+            ->assertJsonCount(User::query()->count(), 'metadata');
+
+        $this->actingAs($admin, 'api')
+            ->getJson('/api/auth/roles/all')
+            ->assertOk()
+            ->assertJsonCount(Role::query()->count(), 'metadata');
+
+        $this->actingAs($admin, 'api')
+            ->getJson('/api/auth/permissions/all')
+            ->assertOk()
+            ->assertJsonCount(Permission::query()->count(), 'metadata');
+
+        $this->actingAs($admin, 'api')
+            ->getJson('/api/auth/users?per_page=1')
+            ->assertOk()
+            ->assertJsonPath('metadata.per_page', 1)
+            ->assertJsonCount(1, 'metadata.data');
+    }
+
     public function test_admin_can_create_user_and_sync_roles_and_permissions(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
