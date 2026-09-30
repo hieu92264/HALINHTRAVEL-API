@@ -16,13 +16,16 @@ class PermissionController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(private readonly AccessManagementServiceInterface $service)
-    {
-    }
+    public function __construct(private readonly AccessManagementServiceInterface $service) {}
 
     public function index(Request $request): JsonResponse
     {
         return $this->success($this->service->permissions($this->perPage($request)));
+    }
+
+    public function all(): JsonResponse
+    {
+        return $this->success($this->service->allPermissions());
     }
 
     public function show(Permission $permission): JsonResponse

@@ -17,13 +17,16 @@ class RoleController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(private readonly AccessManagementServiceInterface $service)
-    {
-    }
+    public function __construct(private readonly AccessManagementServiceInterface $service) {}
 
     public function index(Request $request): JsonResponse
     {
         return $this->success($this->service->roles($this->perPage($request)));
+    }
+
+    public function all(): JsonResponse
+    {
+        return $this->success($this->service->allRoles());
     }
 
     public function show(Role $role): JsonResponse

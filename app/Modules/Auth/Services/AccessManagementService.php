@@ -10,6 +10,7 @@ use App\Shared\Enums\PermissionEnum;
 use App\Shared\Enums\RoleEnum;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class AccessManagementService implements AccessManagementServiceInterface
@@ -20,6 +21,16 @@ class AccessManagementService implements AccessManagementServiceInterface
         $users->setCollection($users->getCollection()->map(fn (User $user): array => $this->user($user)));
 
         return $users;
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function allUsers(): Collection
+    {
+        return User::query()
+            ->with(['roles', 'permissions'])
+            ->orderBy('id')
+            ->get()
+            ->map(fn (User $user): array => $this->user($user));
     }
 
     public function user(User $user): array
@@ -104,6 +115,16 @@ class AccessManagementService implements AccessManagementServiceInterface
         return $roles;
     }
 
+    /** @return Collection<int, array<string, mixed>> */
+    public function allRoles(): Collection
+    {
+        return Role::query()
+            ->with('permissions')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Role $role): array => $this->role($role));
+    }
+
     public function role(Role $role): array
     {
         return [
@@ -152,6 +173,15 @@ class AccessManagementService implements AccessManagementServiceInterface
         $permissions->setCollection($permissions->getCollection()->map(fn (Permission $permission): array => $this->permission($permission)));
 
         return $permissions;
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function allPermissions(): Collection
+    {
+        return Permission::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Permission $permission): array => $this->permission($permission));
     }
 
     public function permission(Permission $permission): array
@@ -229,13 +259,13 @@ class AccessManagementService implements AccessManagementServiceInterface
     }
 
     /** @param list<int> $roleIds */
-    private function activeRoles(array $roleIds): \Illuminate\Support\Collection
+    private function activeRoles(array $roleIds): Collection
     {
         return Role::query()->whereIn('id', $roleIds)->where('guard_name', 'api')->active()->get();
     }
 
     /** @param list<int> $permissionIds */
-    private function activePermissions(array $permissionIds): \Illuminate\Support\Collection
+    private function activePermissions(array $permissionIds): Collection
     {
         return Permission::query()->whereIn('id', $permissionIds)->where('guard_name', 'api')->active()->get();
     }

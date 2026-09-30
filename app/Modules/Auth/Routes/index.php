@@ -21,6 +21,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:api')->group(function () {
         Route::middleware('permission:'.PermissionEnum::USERS_VIEW->value)->group(function () {
             Route::get('/users', [UserController::class, 'index']);
+            Route::get('/users/all', [UserController::class, 'all']);
             Route::get('/users/{user}', [UserController::class, 'show']);
         });
         Route::middleware('permission:'.PermissionEnum::USERS_MANAGE->value)->group(function () {
@@ -34,6 +35,7 @@ Route::prefix('auth')->group(function () {
         Route::middleware('permission:'.PermissionEnum::ROLES_MANAGE->value)->group(function () {
             Route::get('/roles', [RoleController::class, 'index']);
             Route::post('/roles', [RoleController::class, 'store']);
+            Route::get('/roles/all', [RoleController::class, 'all']);
             Route::get('/roles/{role}', [RoleController::class, 'show']);
             Route::put('/roles/{role}', [RoleController::class, 'update']);
             Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
@@ -42,6 +44,7 @@ Route::prefix('auth')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::PERMISSIONS_VIEW->value)->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
+            Route::get('/permissions/all', [PermissionController::class, 'all']);
             Route::get('/permissions/{permission}', [PermissionController::class, 'show']);
         });
         Route::middleware('permission:'.PermissionEnum::PERMISSIONS_MANAGE->value)->group(function () {

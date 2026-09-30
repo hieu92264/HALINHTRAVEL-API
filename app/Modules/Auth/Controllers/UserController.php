@@ -9,22 +9,25 @@ use App\Modules\Auth\Requests\StoreUserRequest;
 use App\Modules\Auth\Requests\SyncPermissionsRequest;
 use App\Modules\Auth\Requests\SyncRolesRequest;
 use App\Modules\Auth\Requests\UpdateUserRequest;
+use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use HieuDev92264\LaravelModules\Traits\ApiResponse;
 
 class UserController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(private readonly AccessManagementServiceInterface $service)
-    {
-    }
+    public function __construct(private readonly AccessManagementServiceInterface $service) {}
 
     public function index(Request $request): JsonResponse
     {
         return $this->success($this->service->users($this->perPage($request)));
+    }
+
+    public function all(): JsonResponse
+    {
+        return $this->success($this->service->allUsers());
     }
 
     public function show(User $user): JsonResponse
