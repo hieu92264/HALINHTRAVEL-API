@@ -3,8 +3,10 @@
 namespace App\Modules\Auth\Models;
 
 use App\Modules\Auth\Database\Factories\UserFactory;
+use App\Modules\MasterData\Models\Driver;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -78,5 +80,10 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims(): array
     {
         return [];
+    }
+
+    public function driver(): HasOne
+    {
+        return $this->hasOne(Driver::class, 'user_name', 'user_name');
     }
 }
