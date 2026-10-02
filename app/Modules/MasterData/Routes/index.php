@@ -4,6 +4,7 @@ use App\Modules\MasterData\Controllers\CustomerController;
 use App\Modules\MasterData\Controllers\DriverController;
 use App\Modules\MasterData\Controllers\ExpenseTypeController;
 use App\Modules\MasterData\Controllers\PartnerController;
+use App\Modules\MasterData\Controllers\RouteRateController;
 use App\Modules\MasterData\Controllers\VehicleController;
 use App\Modules\MasterData\Controllers\VehicleTypeController;
 use App\Shared\Enums\PermissionEnum;
@@ -81,6 +82,19 @@ Route::prefix('master-data')->group(function () {
             Route::post('/expense-types', [ExpenseTypeController::class, 'store']);
             Route::put('/expense-types/{expenseType}', [ExpenseTypeController::class, 'update']);
             Route::delete('/expense-types/{expenseType}', [ExpenseTypeController::class, 'destroy']);
+        });
+
+        // Route rate routes
+        Route::middleware('permission:'.PermissionEnum::ROUTE_RATES_VIEW->value)->group(function () {
+            Route::get('/route-rates', [RouteRateController::class, 'index']);
+            Route::get('/route-rates/lookup', [RouteRateController::class, 'lookup']);
+            Route::get('/route-rates/{routeRate}', [RouteRateController::class, 'show']);
+        });
+
+        Route::middleware('permission:'.PermissionEnum::ROUTE_RATES_MANAGE->value)->group(function () {
+            Route::post('/route-rates', [RouteRateController::class, 'store']);
+            Route::patch('/route-rates/{routeRate}', [RouteRateController::class, 'update']);
+            Route::delete('/route-rates/{routeRate}', [RouteRateController::class, 'destroy']);
         });
     });
 });
