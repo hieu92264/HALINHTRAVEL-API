@@ -86,13 +86,13 @@ class AccessManagementService implements AccessManagementServiceInterface
         $newRoleNames = $roles->pluck('name')->all();
 
         if ($actor->is($user) && ! in_array(RoleEnum::ADMIN->value, $newRoleNames, true)) {
-            throw new AuthorizationException('You cannot remove your own administrator role.');
+            throw new AuthorizationException('Bạn không thể gỡ vai trò quản trị viên của chính mình.');
         }
 
         if ($user->is_active && $user->hasRole(RoleEnum::ADMIN->value)
             && ! in_array(RoleEnum::ADMIN->value, $newRoleNames, true)
             && $this->activeAdminCount() <= 1) {
-            throw new AuthorizationException('At least one active administrator is required.');
+            throw new AuthorizationException('Hệ thống phải có ít nhất một quản trị viên đang hoạt động.');
         }
 
         $user->syncRoles($roles);
@@ -221,25 +221,25 @@ class AccessManagementService implements AccessManagementServiceInterface
     private function ensureUserCanBeDeactivated(User $actor, User $user): void
     {
         if ($actor->is($user)) {
-            throw new AuthorizationException('You cannot deactivate your own account.');
+            throw new AuthorizationException('Bạn không thể ngừng hoạt động tài khoản của chính mình.');
         }
 
         if ($user->is_active && $user->hasRole(RoleEnum::ADMIN->value) && $this->activeAdminCount() <= 1) {
-            throw new AuthorizationException('At least one active administrator is required.');
+            throw new AuthorizationException('Hệ thống phải có ít nhất một quản trị viên đang hoạt động.');
         }
     }
 
     private function ensureCustomRole(Role $role): void
     {
         if ($this->isSystemRole($role)) {
-            throw new AuthorizationException('System roles cannot be modified.');
+            throw new AuthorizationException('Không thể chỉnh sửa vai trò hệ thống.');
         }
     }
 
     private function ensureCustomPermission(Permission $permission): void
     {
         if ($this->isSystemPermission($permission)) {
-            throw new AuthorizationException('System permissions cannot be modified.');
+            throw new AuthorizationException('Không thể chỉnh sửa quyền hệ thống.');
         }
     }
 

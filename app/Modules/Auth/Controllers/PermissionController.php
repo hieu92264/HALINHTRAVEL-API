@@ -20,34 +20,34 @@ class PermissionController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return $this->success($this->service->permissions($this->perPage($request)));
+        return $this->success($this->service->permissions($this->perPage($request)), 'Lấy danh sách quyền thành công.');
     }
 
     public function all(): JsonResponse
     {
-        return $this->success($this->service->allPermissions());
+        return $this->success($this->service->allPermissions(), 'Lấy danh sách quyền thành công.');
     }
 
     public function show(Permission $permission): JsonResponse
     {
-        return $this->success($this->service->permission($permission));
+        return $this->success($this->service->permission($permission), 'Lấy thông tin quyền thành công.');
     }
 
     public function store(StorePermissionRequest $request): JsonResponse
     {
-        return $this->success($this->service->createPermission($request->validated()), 'Permission created.', Response::HTTP_CREATED);
+        return $this->success($this->service->createPermission($request->validated()), 'Tạo quyền thành công.', Response::HTTP_CREATED);
     }
 
     public function update(UpdatePermissionRequest $request, Permission $permission): JsonResponse
     {
-        return $this->success($this->service->updatePermission($permission, $request->validated()), 'Permission updated.');
+        return $this->success($this->service->updatePermission($permission, $request->validated()), 'Cập nhật quyền thành công.');
     }
 
     public function destroy(Permission $permission): JsonResponse
     {
         $this->service->deletePermission($permission);
 
-        return $this->success(null, 'Permission deleted.');
+        return $this->success(null, 'Xóa quyền thành công.');
     }
 
     private function perPage(Request $request): int

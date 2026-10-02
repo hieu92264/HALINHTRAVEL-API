@@ -6,6 +6,8 @@ use App\Modules\Auth\Interfaces\AuthServiceInterface;
 use App\Modules\Auth\Interfaces\AccessManagementServiceInterface;
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\Auth\Services\AccessManagementService;
+use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
+use App\Modules\MasterData\Services\CustomerService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -21,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(AuthServiceInterface::class, AuthService::class);
         $this->app->singleton(AccessManagementServiceInterface::class, AccessManagementService::class);
+        $this->app->singleton(CustomerServiceInterface::class, CustomerService::class);
     }
 
     /**
@@ -31,7 +34,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', static function (Request $request): Limit {
             $login = Str::lower((string) $request->input('user_name'));
 
-            return Limit::perMinute(5)->by($login.'|'.$request->ip());
+            return Limit::perMinute(5)->by($login . '|' . $request->ip());
         });
     }
 }

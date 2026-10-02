@@ -18,9 +18,9 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -40,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             LocaleHelper::apply($request);
 
             $apiPrefix = trim((string) config('modules.api_prefix', 'api'), '/');
-            $isApiRequest = $request->is($apiPrefix) || $request->is($apiPrefix.'/*');
+            $isApiRequest = $request->is($apiPrefix) || $request->is($apiPrefix . '/*');
 
             if (! $isApiRequest) {
                 return $response;
@@ -58,14 +58,18 @@ return Application::configure(basePath: dirname(__DIR__))
             };
 
             $message = match (true) {
-                $exception instanceof ValidationException => 'The submitted data is invalid.',
-                $exception instanceof AuthenticationException => 'You are not authenticated.',
-                $exception instanceof AuthorizationException => 'You do not have permission to access this resource.',
-                $exception instanceof ModelNotFoundException => 'The requested data could not be found.',
-                $statusCode === HttpResponse::HTTP_NOT_FOUND => 'Route or resource not found.',
-                $statusCode === HttpResponse::HTTP_METHOD_NOT_ALLOWED => 'The request method is not allowed.',
-                $statusCode >= HttpResponse::HTTP_INTERNAL_SERVER_ERROR => 'Server error.',
-                default => $exception->getMessage() ?: 'An error occurred.',
+                $exception instanceof ValidationException => 'Dữ liệu gửi lên không hợp lệ.',
+                $exception instanceof AuthenticationException => 'Bạn chưa được xác thực.',
+                $exception instanceof AuthorizationException => 'Bạn không có quyền truy cập tài nguyên này.',
+                $exception instanceof ModelNotFoundException => 'Không tìm thấy dữ liệu được yêu cầu.',
+                $statusCode === HttpResponse::HTTP_BAD_REQUEST => 'Yêu cầu không hợp lệ.',
+                $statusCode === HttpResponse::HTTP_UNAUTHORIZED => 'Bạn chưa được xác thực.',
+                $statusCode === HttpResponse::HTTP_FORBIDDEN => 'Bạn không có quyền truy cập tài nguyên này.',
+                $statusCode === HttpResponse::HTTP_NOT_FOUND => 'Không tìm thấy đường dẫn hoặc tài nguyên.',
+                $statusCode === HttpResponse::HTTP_METHOD_NOT_ALLOWED => 'Phương thức gửi yêu cầu không được hỗ trợ.',
+                $statusCode === HttpResponse::HTTP_TOO_MANY_REQUESTS => 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.',
+                $statusCode >= HttpResponse::HTTP_INTERNAL_SERVER_ERROR => 'Đã xảy ra lỗi máy chủ.',
+                default => $exception->getMessage() ?: 'Đã xảy ra lỗi.',
             };
 
             $metadata = $exception instanceof ValidationException ? $exception->errors() : null;

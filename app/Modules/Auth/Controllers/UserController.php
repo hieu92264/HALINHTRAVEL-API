@@ -22,44 +22,44 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return $this->success($this->service->users($this->perPage($request)));
+        return $this->success($this->service->users($this->perPage($request)), 'Lấy danh sách người dùng thành công.');
     }
 
     public function all(): JsonResponse
     {
-        return $this->success($this->service->allUsers());
+        return $this->success($this->service->allUsers(), 'Lấy danh sách người dùng thành công.');
     }
 
     public function show(User $user): JsonResponse
     {
-        return $this->success($this->service->user($user));
+        return $this->success($this->service->user($user), 'Lấy thông tin người dùng thành công.');
     }
 
     public function store(StoreUserRequest $request): JsonResponse
     {
-        return $this->success($this->service->createUser($request->validated()), 'User created.', Response::HTTP_CREATED);
+        return $this->success($this->service->createUser($request->validated()), 'Tạo người dùng thành công.', Response::HTTP_CREATED);
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        return $this->success($this->service->updateUser($this->actor($request), $user, $request->validated()), 'User updated.');
+        return $this->success($this->service->updateUser($this->actor($request), $user, $request->validated()), 'Cập nhật người dùng thành công.');
     }
 
     public function destroy(Request $request, User $user): JsonResponse
     {
         $this->service->deactivateUser($this->actor($request), $user);
 
-        return $this->success(null, 'User deactivated.');
+        return $this->success(null, 'Ngừng hoạt động người dùng thành công.');
     }
 
     public function syncRoles(SyncRolesRequest $request, User $user): JsonResponse
     {
-        return $this->success($this->service->syncUserRoles($this->actor($request), $user, $request->validated('role_ids')), 'User roles updated.');
+        return $this->success($this->service->syncUserRoles($this->actor($request), $user, $request->validated('role_ids')), 'Cập nhật vai trò người dùng thành công.');
     }
 
     public function syncPermissions(SyncPermissionsRequest $request, User $user): JsonResponse
     {
-        return $this->success($this->service->syncUserPermissions($user, $request->validated('permission_ids')), 'User permissions updated.');
+        return $this->success($this->service->syncUserPermissions($user, $request->validated('permission_ids')), 'Cập nhật quyền người dùng thành công.');
     }
 
     private function actor(Request $request): User
