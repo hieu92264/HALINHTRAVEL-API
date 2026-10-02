@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\MasterData\Controllers\CustomerController;
+use App\Modules\MasterData\Controllers\DriverController;
 use App\Modules\MasterData\Controllers\PartnerController;
 use App\Modules\MasterData\Controllers\VehicleController;
 use App\Modules\MasterData\Controllers\VehicleTypeController;
@@ -55,6 +56,18 @@ Route::prefix('master-data')->group(function () {
             Route::post('/vehicles', [VehicleController::class, 'store']);
             Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update']);
             Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy']);
+        });
+
+        // Driver routes
+        Route::middleware('permission:'.PermissionEnum::DRIVERS_VIEW->value)->group(function () {
+            Route::get('/drivers', [DriverController::class, 'index']);
+            Route::get('/drivers/{driver}', [DriverController::class, 'show']);
+        });
+
+        Route::middleware('permission:'.PermissionEnum::DRIVERS_MANAGE->value)->group(function () {
+            Route::post('/drivers', [DriverController::class, 'store']);
+            Route::put('/drivers/{driver}', [DriverController::class, 'update']);
+            Route::delete('/drivers/{driver}', [DriverController::class, 'destroy']);
         });
     });
 });
