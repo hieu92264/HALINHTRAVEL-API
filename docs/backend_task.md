@@ -1,0 +1,243 @@
+# Backend task — API nghiệp vụ HaLinhTravel
+
+> Tài liệu này là đặc tả API nghiệp vụ cho backend HaLinhTravel. Tài liệu không mô tả API xác thực, JWT, tài khoản, vai trò hoặc phân quyền.
+
+## 1. Quy ước chung
+
+### 1.1. URL, dữ liệu và response
+
+- Base URL là `/api`. Mỗi endpoint nằm dưới prefix module của nó:
+
+  | Module | Prefix |
+  | --- | --- |
+  | `MasterData` | `/api/master-data` |
+  | `Rental` | `/api/rental` |
+  | `Contract` | `/api/contract` |
+  | `Dispatch` | `/api/dispatch` |
+  | `Finance` | `/api/finance` |
+  | `DriverPayroll` | `/api/driver-payroll` |
+  | `Other` | `/api/other` |
+
+- Request và response JSON dùng `snake_case`. Upload file dùng `multipart/form-data`.
+- `POST` dùng để tạo resource và thực hiện action; `PATCH` cập nhật phần dữ liệu được phép; `DELETE` ngừng sử dụng resource khi nghiệp vụ cho phép.
+- Response thành công giữ chuẩn hiện có của dự án:
+
+  ```json
+  { "message": "...", "metadata": {} }
+  ```
+
+  Tạo mới trả HTTP `201`; đọc, cập nhật, action và deactivate trả HTTP `200`.
+- Response lỗi dùng chuẩn middleware hiện có:
+
+  ```json
+  {
+    "message": "...",
+    "status_code": 422,
+    "metadata": { "field": ["..."] },
+    "path": "/api/...",
+    "timestamp": "2026-10-01T00:00:00.000000Z"
+  }
+  ```
+
+  Dùng `404` cho resource không có, `409` cho xung đột trạng thái/lịch/khóa dữ liệu, và `422` cho dữ liệu không hợp lệ.
+- Các endpoint collection trả toàn bộ tập dữ liệu phù hợp trong `metadata`; không nhận hoặc trả `page`, `per_page`, `total`, `last_page`. Frontend tự tìm kiếm, sắp xếp và phân trang.
+- Endpoint detail trả đầy đủ các quan hệ cần hiển thị. Endpoint collection trả bản ghi chính và thông tin nhận diện tối thiểu của quan hệ như `id`, `code`, `name`, `license_plate`.
+- `id`, timestamps, audit metadata, số chứng từ, trạng thái workflow, cờ khóa và các tổng/từng dòng do hệ thống tính không nhận từ client. Hệ thống tự gán hoặc tính trong transaction.
+- Giá trị tiền là `decimal` và được serialize dưới dạng chuỗi. Ngày dùng `YYYY-MM-DD`, giờ dùng `HH:mm:ss`, thời điểm dùng ISO-8601.
+- Mọi bản ghi có metadata chỉ được deactivate bằng `DELETE` (`is_active=false`), không hard-delete. Danh sách mặc định chỉ gồm bản ghi active. Bản ghi bị khóa hoặc đang được quy trình mở tham chiếu không được deactivate.
+
+### 1.2. Quy tắc dữ liệu dùng chung
+
+- Foreign key trong payload phải trỏ tới bản ghi active. Mọi mã và giá trị unique phải được kiểm tra trước khi tạo/cập nhật.
+- Tiền, số lượng, ODO, km và giờ chờ không âm; quantity lớn hơn `0`; thời điểm kết thúc không sớm hơn thời điểm bắt đầu.
+- Không cập nhật trực tiếp trạng thái workflow qua `PATCH`; chỉ action được liệt kê bên dưới mới thay đổi trạng thái.
+- Action thay đổi trạng thái, thay thế phân công, sinh dữ liệu hàng loạt, tính lương và khóa sổ phải chạy trong transaction và trả resource sau thay đổi.
+
+## 2. Module `MasterData`
+
+Prefix: `/api/master-data`.
+
+| Resource | Endpoint | Payload create/update | Ràng buộc chính |
+| --- | --- | --- | --- |
+| Customers | `GET, POST /customers`; `GET, PATCH, DELETE /customers/{id}` | `code`, `type` (`individual`, `company`), `name`, `phone`, `email`, `cccd`, `tax_code`, `address`, `contact_name`, `opening_balance` | `code` unique; không deactivate khi còn chứng từ hay quy trình mở. |
+| Partners | `GET, POST /partners`; `GET, PATCH, DELETE /partners/{id}` | `code`, `type` (`transport_company`, `vehicle_owner`, `garage`, `fuel_supplier`, `other`), liên hệ, CCCD/mã số thuế, địa chỉ, `bank_name`, `bank_account`, `opening_balance` | `code` unique; không deactivate khi còn xe, tài xế, chi phí hoặc thanh toán mở. |
+| Vehicle types | `GET, POST /vehicle-types`; `GET, PATCH, DELETE /vehicle-types/{id}` | `code`, `name`, `seats`, `tour_driver_commission_rate` | `code` unique; `seats > 0`; commission không âm. |
+| Vehicles | `GET, POST /vehicles`; `GET, PATCH, DELETE /vehicles/{id}` | `license_plate`, `vehicle_type_id`, `ownership_type` (`company`, `partner`), `partner_id`, `brand`, `model`, `manufacture_year`, `current_odometer`, `vehicle_status` (`available`, `assigned`, `maintenance`, `inactive`), `notes` | Biển số unique; xe `partner` cần `partner_id`, xe `company` không có `partner_id`; không chuyển xe có lịch hiện hành sang `maintenance`/`inactive`. |
+| Drivers | `GET, POST /drivers`; `GET, PATCH, DELETE /drivers/{id}` | `code`, `user_name`, `partner_id`, `type` (`company`, `partner`), `full_name`, `phone`, `cccd`, `license_number`, `license_class`, `license_issued_at`, `license_expired_at`, `base_salary`, `responsibility_allowance`, `joined_at`, `left_at` | `code`, `user_name` (nếu có), `cccd` (nếu có) và `license_number` unique; tài xế `partner` cần `partner_id`; không phân công tài xế đã nghỉ hoặc giấy phép hết hạn. |
+| Routes | `GET, POST /routes`; `GET, PATCH, DELETE /routes/{id}` | `code`, `customer_id`, `name`, `shift_name`, `pickup_location`, `dropoff_location`, `default_pickup_time`, `default_return_time`, `estimated_distance_km` | `code` unique; `customer_id` là tùy chọn. |
+| Route rates | `GET, POST /route-rates`; `GET, PATCH, DELETE /route-rates/{id}`; `GET /route-rates/lookup?route_id=&vehicle_type_id=&at_date=` | `route_id`, `vehicle_type_id`, `customer_price`, `driver_wage`, `effective_from`, `effective_to` | Unique theo `route_id`, `vehicle_type_id`, `effective_from`; không cho khoảng hiệu lực chồng lấn; lookup trả giá hiệu lực tại ngày yêu cầu. |
+| Expense types | `GET, POST /expense-types`; `GET, PATCH, DELETE /expense-types/{id}` | `code`, `name`, `scope` (`vehicle`, `trip`, `general`) | `code` unique; không deactivate khi còn chi phí chưa khóa. |
+
+Collection của `vehicles`, `drivers`, `routes`, `customers`, `partners`, `vehicle-types` và `expense-types` phải đủ dữ liệu cho select/search ở client; không tạo endpoint dropdown riêng.
+
+## 3. Module `Rental`
+
+Prefix: `/api/rental`.
+
+### 3.1. Yêu cầu thuê xe
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /requests` | Trả request cùng customer, số lượng item; detail `GET /requests/{id}` trả `items`, vehicle type và route. | Trả toàn bộ request active. |
+| `POST /requests` | `customer_id`, `source`, `requested_at`, `service_type` (`fixed`, `tourism`, `school`, `business`), `pickup_location`, `dropoff_location`, `start_at`, `end_at`, `note`, `items[]` với `vehicle_type_id`, `quantity`, `route_id`, `note`. | Sinh `request_no`, trạng thái `new`; tạo master-detail trong một transaction. |
+| `PATCH /requests/{id}`; `DELETE /requests/{id}` | Cùng payload create, không nhận `request_no`/`status`. | Chỉ request chưa `converted` và chưa `rejected` được sửa/deactivate. |
+| `POST /requests/{id}/mark-quoted` | Không có payload. | `new -> quoted`. |
+| `POST /requests/{id}/accept` | Không có payload. | `new` hoặc `quoted -> accepted`. |
+| `POST /requests/{id}/reject` | `note` tùy chọn. | `new` hoặc `quoted -> rejected`; ghi note nếu được gửi. |
+
+`customer_id` phải active; `end_at` không trước `start_at`; mỗi item có quantity lớn hơn `0`.
+
+### 3.2. Báo giá
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /quotations`; `GET /quotations/{id}` | List trả customer, request, `subtotal`, `discount_amount`, `total_amount`; detail trả `items`, route và vehicle type. | Trả toàn bộ báo giá active. |
+| `POST /quotations` | `customer_id`, `rental_request_id` tùy chọn, `quotation_date`, `valid_until`, `discount_amount`, `payment_terms`, `items[]` gồm `route_id`, `vehicle_type_id`, `description`, `quantity`, `unit_price`. | Sinh `quotation_no`; tính `amount` item, `subtotal`, `total_amount`; trạng thái `draft`. |
+| `PATCH /quotations/{id}`; `DELETE /quotations/{id}` | Cùng payload create, thay toàn bộ `items[]`. | Chỉ `draft` được sửa/deactivate. |
+| `POST /quotations/{id}/send` | Không có payload. | `draft -> sent`; phải có item và chưa quá `valid_until`. |
+| `POST /quotations/{id}/approve` | Không có payload. | `sent -> approved`; hệ thống ghi thời điểm duyệt. |
+| `POST /quotations/{id}/reject` | Không có payload. | `sent -> rejected`. |
+| `POST /quotations/{id}/expire` | Không có payload. | `sent -> expired` khi đã quá `valid_until`. |
+
+Nếu gắn `rental_request_id`, customer của báo giá phải trùng customer của request. Client không gửi `amount`, `subtotal` hoặc `total_amount`.
+
+## 4. Module `Contract`
+
+Prefix: `/api/contract`.
+
+### 4.1. Hợp đồng
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /contracts`; `GET /contracts/{id}` | Detail trả items, schedule rules/days, trip schedules, receipt summary và số dư. | Trả toàn bộ hợp đồng active. |
+| `POST /contracts` | `customer_id`, `rental_request_id` tùy chọn, `quotation_id` tùy chọn, `contract_type` (`trip`, `principle`), `signed_date`, `effective_from`, `effective_to`, `deposit_required`, `payment_terms`, `terms`, `items[]`. | Sinh `contract_no`, tính `total_amount`, trạng thái `draft`. |
+| `POST /contracts/from-quotation` | `quotation_id` cùng `contract_type`, ngày ký/hiệu lực, đặt cọc và điều khoản còn thiếu. | Chỉ nhận quotation `approved`; sao chép quotation items, liên kết request/quotation và đưa request liên quan sang `converted`. |
+| `PATCH /contracts/{id}`; `DELETE /contracts/{id}` | Cùng dữ liệu tạo, bao gồm thay toàn bộ `items[]`. | Chỉ `draft` được sửa; không deactivate khi đã có lịch, lệnh điều xe hoặc chứng từ. |
+| `POST /contracts/{id}/activate` | Không có payload. | `draft -> active`; cần item hợp lệ và thời gian hiệu lực hợp lệ. |
+| `POST /contracts/{id}/complete` | Không có payload. | `active -> completed` khi không còn chuyến mở. |
+| `POST /contracts/{id}/cancel` | Không có payload. | `draft`/`active -> cancelled`; chặn khi có lệnh hoàn thành hoặc chứng từ khóa. |
+
+Mỗi `items[]` gồm `route_id` tùy chọn, `vehicle_type_id`, `service_type`, `quantity`, `unit_price`, `driver_wage`, `pickup_location`, `dropoff_location`, `note`. `total_amount` là tổng `quantity × unit_price` do server tính.
+
+### 4.2. Quy tắc lịch và lịch cố định
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET, POST /contracts/{contract_id}/schedule-rules` | Create nhận `contract_item_id`, `route_id`, `effective_from`, `effective_to`, `default_vehicle_id`, `default_driver_id`, `note`. | Chỉ hợp đồng `active`; item phải thuộc hợp đồng. Xe/tài xế mặc định chỉ là gợi ý phân công. |
+| `GET /schedule-rules/{id}`; `PATCH, DELETE /schedule-rules/{id}` | Detail luôn gồm `days[]`. | Không sửa/deactivate rule đã sinh lịch trong quá khứ. |
+| `PUT /schedule-rules/{id}/days` | `days[]`: `weekday` (`Mon`…`Sun`), `pickup_time`, `return_time`, `shift_name`. | Thay toàn bộ ngày lịch trong transaction; unique theo rule + weekday + pickup time. |
+| `POST /schedule-rules/{id}/generate-trip-schedules` | `from_date`, `to_date`; response có `created`, `skipped`, `conflicts`. | Chỉ sinh ngày trong hiệu lực rule/hợp đồng; không tạo trùng lịch đã có. |
+
+## 5. Module `Dispatch`
+
+Prefix: `/api/dispatch`.
+
+### 5.1. Lịch chuyến và phân công
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /trip-schedules`; `GET /trip-schedules/{id}` | Detail gồm hợp đồng, item, rule, assignment hiện hành/lịch sử và dispatch order. | Trả toàn bộ lịch active. Status: `PLANNED`, `ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`. |
+| `POST /trip-schedules` | `contract_id`, `contract_item_id`, `schedule_rule_id`, `service_type`, `route_id`, `scheduled_start_at`, `scheduled_end_at`, `pickup_location`, `dropoff_location`, `journey`, `required_vehicle_type_id`, `note`. | Chỉ cho hợp đồng active; sinh `schedule_no`; mặc định `PLANNED`. |
+| `PATCH /trip-schedules/{id}`; `DELETE /trip-schedules/{id}` | Các field tạo được phép sửa. | Chỉ schedule `PLANNED` chưa có dispatch order. |
+| `POST /trip-schedules/{id}/cancel` | `note` tùy chọn. | `PLANNED`/`ASSIGNED -> CANCELLED`; chặn khi order đang chạy/đã hoàn thành. |
+| `GET /availability?start_at=&end_at=&required_vehicle_type_id=` | Trả `available_vehicles` và `available_drivers`; chấp nhận thêm `exclude_trip_schedule_id`, `ownership_type`, `partner_id`. | Kiểm tra trạng thái xe, tình trạng làm việc/hạn bằng của tài xế và các assignment giao thời gian. |
+| `GET /trip-schedules/{id}/assignments` | Trả đầy đủ lịch sử assignment, `is_current`, xe, tài xế, partner, lý do thay thế. | Có tối đa một assignment hiện hành. |
+| `POST /trip-schedules/{id}/assignments` | `vehicle_id`, `driver_id`, `partner_id` tùy chọn. | Tạo assignment `PRIMARY`, `is_current=true`, chuyển schedule `PLANNED -> ASSIGNED`. |
+| `POST /trip-schedules/{id}/assignments/substitute` | `vehicle_id`, `driver_id`, `partner_id` tùy chọn, `replace_reason`. | Đóng assignment hiện hành và tạo `SUBSTITUTE` liên kết assignment cũ trong một transaction. |
+| `DELETE /trip-assignments/{id}` | Không có payload. | Chỉ bỏ assignment hiện hành khi chưa có dispatch order; schedule trở về `PLANNED`; không xóa lịch sử. |
+
+Xe hoặc tài xế không được có assignment hiện hành cho hai schedule giao thời gian. Xe phải đúng loại xe yêu cầu; xe đối tác phải dùng đúng `partner_id` của xe. Tài xế không được nghỉ hoặc hết hạn bằng lái.
+
+### 5.2. Lệnh điều xe
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /dispatch-orders`; `GET /dispatch-orders/{id}` | Detail trả schedule, assignment, customer, route, chi phí và attendance liên quan. | Trả toàn bộ lệnh active. |
+| `POST /trip-schedules/{id}/dispatch-order` | Không có payload. | Chỉ schedule `ASSIGNED` có assignment hiện hành; sinh `order_no`, tạo một order duy nhất cho một schedule, trạng thái `ISSUED`. |
+| `POST /dispatch-orders/{id}/assign` | Không có payload. | `ISSUED -> ASSIGNED`; xác nhận assignment hiện hành còn hợp lệ. |
+| `POST /dispatch-orders/{id}/start` | `actual_start_at`, `start_odometer`, `note` tùy chọn. | `ISSUED`/`ASSIGNED -> IN_PROGRESS`; đồng bộ schedule. |
+| `POST /dispatch-orders/{id}/complete` | `actual_end_at`, `end_odometer`, `actual_distance_km`, `waiting_hours`, `customer_amount`, `partner_vehicle_cost`, `external_driver_cost`, `note`. | `IN_PROGRESS -> COMPLETED`; kiểm tra ODO/thời gian, cập nhật ODO xe và đồng bộ schedule. |
+| `POST /dispatch-orders/{id}/cancel` | `note`. | Chỉ trước `COMPLETED`; đổi order và schedule thành `CANCELLED`. |
+
+Không có `PATCH` trực tiếp cho dispatch order. `actual_end_at` không trước `actual_start_at`; `end_odometer` không nhỏ hơn `start_odometer`; các giá trị thực tế không âm.
+
+## 6. Module `Finance`
+
+Prefix: `/api/finance`.
+
+| Resource | Endpoint | Payload create/update | Ràng buộc chính |
+| --- | --- | --- | --- |
+| Receipts | `GET, POST /receipts`; `GET, PATCH, DELETE /receipts/{id}`; `POST /receipts/{id}/lock` | `customer_id`, `contract_id` tùy chọn, `receipt_type` (`deposit`, `contract_payment`, `other`), `received_at`, `amount`, `payment_method` (`cash`, `bank_transfer`), `payer_name`, `description` | Sinh `receipt_no`; `deposit`/`contract_payment` cần contract cùng customer và tổng thu không vượt giá trị contract; record locked bất biến. Detail trả `contract_total`, `received_total`, `outstanding_amount`. |
+| Expenses | `GET, POST /expenses`; `GET, PATCH, DELETE /expenses/{id}`; `POST /expenses/{id}/lock` | `expense_type_id`, `scope`, `vehicle_id`, `dispatch_order_id`, `partner_id`, `driver_id`, `expense_date`, `amount`, `payment_method`, `document_no`, `description` | Sinh `expense_no`; scope `vehicle` cần `vehicle_id`, `trip` cần `dispatch_order_id`, `general` không cần FK nghiệp vụ; record locked bất biến. |
+| Partner payments | `GET, POST /partner-payments`; `GET, PATCH, DELETE /partner-payments/{id}`; `POST /partner-payments/{id}/lock` | `partner_id`, `dispatch_order_id` tùy chọn, `paid_at`, `amount`, `payment_method` (`cash`, `bank_transfer`), `description` | Sinh `payment_no`; nếu gắn order, partner phải đúng partner của assignment/xe đối tác của chuyến; record locked bất biến. |
+
+## 7. Module `DriverPayroll`
+
+Prefix: `/api/driver-payroll`.
+
+### 7.1. Tạm ứng và chấm công
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET, POST /advances`; `GET, PATCH, DELETE /advances/{id}` | `driver_id`, `advance_date`, `amount`, `description`. | Sinh `advance_no`, mặc định `pending`; amount không âm. |
+| `POST /advances/{id}/confirm` | Không có payload. | `pending -> confirmed`; dữ liệu đã `payroll_locked` không sửa/deactivate. |
+| `GET /attendances`; `GET /attendances/{id}` | Trả driver, dispatch order, `work_date`, `work_type`, `work_units`, `base_amount`, `rate`, `calculated_wage`, status. | Status: `pending`, `confirmed`, `payroll_locked`. |
+| `POST /dispatch-orders/{id}/attendance` | `work_units` tùy chọn cho chuyến `fixed`/`school`; `rate` tùy chọn cho `business`. | Chỉ order `COMPLETED`; mỗi order tối đa một attendance; lấy driver và ngày làm từ order/assignment. |
+| `PATCH /attendances/{id}`; `POST /attendances/{id}/confirm` | Patch chỉ các dữ liệu cho phép của attendance pending. | Confirm `pending -> confirmed`; không xóa attendance để giữ liên kết order. |
+
+`fixed`/`school` tạo `work_type=fixed_trip`, lấy rate từ `contract_item.driver_wage`; `tourism` tạo `tourism_trip`, lấy base từ `customer_amount` và rate là commission của vehicle type; `business` tạo `other` và cần rate được gửi rõ ràng. Hệ thống tính `calculated_wage` từ base, work units và rate theo loại công.
+
+### 7.2. Bảng lương
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET, POST /payrolls`; `GET /payrolls/{id}`; `PATCH /payrolls/{id}` | Create: `month`, `year`, `from_date`, `to_date`; detail trả items và calculation details. | Sinh `code`, unique theo month/year, mặc định `draft`. |
+| `POST /payrolls/{id}/calculate` | Không có payload. | Dùng attendance và advance `confirmed` trong kỳ; tạo lại items/details trong transaction; `draft`/`calculated -> calculated`. |
+| `PATCH /payrolls/{id}/items/{item_id}` | `meal_allowance`, `other_allowance`, `deduction_amount`, `note`. | Chỉ payroll `calculated`; tính lại gross/net, không sửa thành phần tự tính. |
+| `POST /payrolls/{id}/approve`; `POST /payrolls/{id}/mark-paid`; `POST /payrolls/{id}/lock` | Không có payload. | Luồng `calculated -> approved -> paid -> locked`; lock đóng băng payroll cùng attendance/advance nguồn. |
+
+Payroll item gồm `base_salary`, `responsibility_allowance`, `meal_allowance`, `fixed_trip_wage`, `tourism_commission`, `other_allowance`, `advance_amount`, `deduction_amount`, `gross_salary`, `net_salary`, `note`. Detail chỉ lưu source attendance/order và các giá trị `calculation_type`, base, rate, amount do hệ thống tính.
+
+## 8. Module `Other`
+
+Prefix: `/api/other`.
+
+### 8.1. Tệp đính kèm
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /attachments` | Trả toàn bộ attachment active cùng `attachable_type`, `attachable_id`, `file_name`, `mime_type`, `file_size` và URL tải. | Chỉ trả file của đối tượng cha còn được phép xem. |
+| `POST /attachments` | Multipart: `file`, `attachable_type`, `attachable_id`. | Chỉ nhận parent: rental request, quotation, contract, dispatch order, receipt, expense, partner payment, advance. Hệ thống sinh/lưu path, metadata file và người upload; giới hạn MIME/kích thước theo cấu hình. |
+| `GET /attachments/{id}/download`; `DELETE /attachments/{id}` | Không có payload. | Download kiểm tra parent; chỉ xóa khi parent chưa bị khóa. |
+
+Client không gửi `file_name`, `file_path`, `mime_type`, `file_size` hoặc metadata upload.
+
+### 8.2. Dashboard và báo cáo
+
+Tất cả endpoint dưới đây chỉ đọc, không phân trang. Báo cáo nhận `from_date` và `to_date`; có thể nhận filter theo resource liên quan, và `format=json|csv` khi cần xuất. JSON trả dữ liệu bảng trong `metadata`, cùng `totals`/`chart` khi phù hợp.
+
+| Endpoint | Dữ liệu trả về |
+| --- | --- |
+| `GET /dashboard` | KPI hiện tại: doanh thu, thu, chi, lợi nhuận, công nợ, số chuyến theo trạng thái, xe/tài xế sắp bận, giấy phép sắp hết hạn, schedule chưa điều xe. |
+| `GET /reports/fixed-trips` | Chuyến `fixed`/`school`: route, customer, xe, tài xế, doanh thu, km và trạng thái. |
+| `GET /reports/tourism-trips` | Chuyến `tourism`/`business`: hành trình, thời gian, xe, tài xế, doanh thu và chi phí. |
+| `GET /reports/customer-debts` | Dư đầu kỳ, giá trị hợp đồng, phiếu thu và dư nợ theo customer/contract. |
+| `GET /reports/partner-debts` | Dư đầu kỳ, chi phí phải trả, partner payment và dư nợ theo partner. |
+| `GET /reports/cashflow` | Thu, chi phí, thanh toán partner, tạm ứng và tổng thu-chi theo ngày/tháng/phương thức. |
+| `GET /reports/driver-payroll` | Payroll cùng detail nguồn tính, lọc theo kỳ/tài xế/trạng thái. |
+| `GET /reports/expenses` | Chi phí theo type, scope, xe, chuyến, partner và chứng từ. |
+| `GET /reports/profit-loss` | Doanh thu, chi phí vận hành, thanh toán partner, lương và lợi nhuận theo tháng. Response phải nêu `basis` là `accrual` hoặc `cash`. |
+
+## 9. Ma trận vòng đời
+
+| Đối tượng | Chuyển trạng thái hợp lệ |
+| --- | --- |
+| Rental request | `new -> quoted -> accepted -> converted`; `new/quoted -> rejected` |
+| Quotation | `draft -> sent -> approved/rejected/expired` |
+| Contract | `draft -> active -> completed`; `draft/active -> cancelled` |
+| Trip schedule | `PLANNED -> ASSIGNED -> IN_PROGRESS -> COMPLETED`; `PLANNED/ASSIGNED -> CANCELLED` |
+| Dispatch order | `ISSUED -> ASSIGNED -> IN_PROGRESS -> COMPLETED`; `ISSUED/ASSIGNED/IN_PROGRESS -> CANCELLED` |
+| Driver attendance / advance | `pending -> confirmed -> payroll_locked` |
+| Payroll | `draft -> calculated -> approved -> paid -> locked` |
+
+Các trạng thái `locked` hoặc `payroll_locked` là bất biến: không sửa, deactivate hay đảo ngược bằng API nghiệp vụ. Khi state precondition không đúng hoặc dữ liệu vừa bị thay đổi bởi thao tác khác, API trả `409`.

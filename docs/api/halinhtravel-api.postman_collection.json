@@ -1,0 +1,293 @@
+{
+  "info": {
+    "_postman_id": "4f15b9d0-6f07-4bc1-a9d0-8d7c5e6a4f11",
+    "name": "Ha Linh Travel API",
+    "description": "JWT APIs currently implemented by the Auth module. Set base_url and use Login to populate access_token before calling protected requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "user_id", "value": "1", "type": "string" },
+    { "key": "role_id", "value": "1", "type": "string" },
+    { "key": "permission_id", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', response.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_name\": \"<your-user-name-or-email>\",\n  \"password\": \"<your-password>\",\n  \"remember_me\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/auth/login",
+            "description": "Authenticate with user_name or email. The test script stores data.access_token in the collection variable."
+          }
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/me"
+          }
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/auth/users?per_page=15", "query": [{ "key": "per_page", "value": "15", "description": "1-100; defaults to 15" }] }
+          }
+        },
+        {
+          "name": "List all users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/users/all"
+          }
+        },
+        {
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"user_name\": \"new_user\",\n  \"email\": \"new.user@example.test\",\n  \"password\": \"password123\",\n  \"is_active\": true,\n  \"role_ids\": [1]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/users"
+          }
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"updated.user@example.test\",\n  \"password\": \"newpassword123\",\n  \"is_active\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Deactivate user",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Sync user roles",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"role_ids\": [1]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/users/{{user_id}}/roles"
+          }
+        },
+        {
+          "name": "Sync user permissions",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"permission_ids\": [1]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/users/{{user_id}}/permissions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/auth/roles?per_page=15", "query": [{ "key": "per_page", "value": "15", "description": "1-100; defaults to 15" }] }
+          }
+        },
+        {
+          "name": "List all roles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/roles/all"
+          }
+        },
+        {
+          "name": "Get role",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/roles/{{role_id}}"
+          }
+        },
+        {
+          "name": "Create role",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"operations-manager\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/roles"
+          }
+        },
+        {
+          "name": "Update role",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"operations-lead\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/roles/{{role_id}}"
+          }
+        },
+        {
+          "name": "Delete role",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/roles/{{role_id}}"
+          }
+        },
+        {
+          "name": "Sync role permissions",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"permission_ids\": [1]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/roles/{{role_id}}/permissions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "item": [
+        {
+          "name": "List permissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/auth/permissions?per_page=15", "query": [{ "key": "per_page", "value": "15", "description": "1-100; defaults to 15" }] }
+          }
+        },
+        {
+          "name": "List all permissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/permissions/all"
+          }
+        },
+        {
+          "name": "Get permission",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/permissions/{{permission_id}}"
+          }
+        },
+        {
+          "name": "Create permission",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"reports.view\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/permissions"
+          }
+        },
+        {
+          "name": "Update permission",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"reports.manage\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/auth/permissions/{{permission_id}}"
+          }
+        },
+        {
+          "name": "Delete permission",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": "{{base_url}}/auth/permissions/{{permission_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}
