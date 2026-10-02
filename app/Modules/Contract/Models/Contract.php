@@ -2,6 +2,7 @@
 
 namespace App\Modules\Contract\Models;
 
+use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\Rental\Models\Quotation;
 use App\Modules\Rental\Models\RentalRequest;
@@ -63,5 +64,10 @@ class Contract extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ContractItem::class);
+    }
+
+    public function tripSchedules(): HasMany
+    {
+        return $this->hasMany(TripSchedule::class);
     }
 }

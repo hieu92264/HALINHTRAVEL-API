@@ -4,6 +4,7 @@ namespace App\Modules\MasterData\Models;
 
 use App\Modules\Contract\Models\ContractItem;
 use App\Modules\Contract\Models\ContractScheduleRule;
+use App\Modules\Dispatch\Models\TripSchedule;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,5 +51,10 @@ class Route extends Model
     public function contractScheduleRules(): HasMany
     {
         return $this->hasMany(ContractScheduleRule::class);
+    }
+
+    public function tripSchedules(): HasMany
+    {
+        return $this->hasMany(TripSchedule::class);
     }
 }

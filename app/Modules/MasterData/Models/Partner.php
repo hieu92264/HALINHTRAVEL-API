@@ -2,6 +2,7 @@
 
 namespace App\Modules\MasterData\Models;
 
+use App\Modules\Dispatch\Models\TripAssignment;
 use App\Shared\Enums\PartnerTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
@@ -41,5 +42,10 @@ class Partner extends Model
     public function drivers(): HasMany
     {
         return $this->hasMany(Driver::class);
+    }
+
+    public function tripAssignments(): HasMany
+    {
+        return $this->hasMany(TripAssignment::class);
     }
 }

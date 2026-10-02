@@ -3,9 +3,12 @@
 namespace App\Modules\Auth\Models;
 
 use App\Modules\Auth\Database\Factories\UserFactory;
+use App\Modules\Dispatch\Models\DispatchOrder;
+use App\Modules\Dispatch\Models\TripAssignment;
 use App\Modules\MasterData\Models\Driver;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -15,7 +18,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<UserFactory> */
-    use HasBaseMetadata, HasFactory, Notifiable, HasRoles;
+    use HasBaseMetadata, HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -64,8 +67,6 @@ class User extends Authenticatable implements JWTSubject
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.
-     *
-     * @return mixed
      */
     public function getJWTIdentifier(): mixed
     {
@@ -74,8 +75,6 @@ class User extends Authenticatable implements JWTSubject
 
     /**
      * Return a key value array, containing any custom claims to be added to the JWT.
-     *
-     * @return array
      */
     public function getJWTCustomClaims(): array
     {
@@ -85,5 +84,15 @@ class User extends Authenticatable implements JWTSubject
     public function driver(): HasOne
     {
         return $this->hasOne(Driver::class, 'user_name', 'user_name');
+    }
+
+    public function assignedTripAssignments(): HasMany
+    {
+        return $this->hasMany(TripAssignment::class, 'assigned_by', 'user_name');
+    }
+
+    public function issuedDispatchOrders(): HasMany
+    {
+        return $this->hasMany(DispatchOrder::class, 'issued_by', 'user_name');
     }
 }

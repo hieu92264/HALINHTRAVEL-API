@@ -3,6 +3,7 @@
 namespace App\Modules\MasterData\Models;
 
 use App\Modules\Contract\Models\ContractItem;
+use App\Modules\Dispatch\Models\TripSchedule;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -39,5 +40,10 @@ class VehicleType extends Model
     public function contractItems(): HasMany
     {
         return $this->hasMany(ContractItem::class);
+    }
+
+    public function tripSchedules(): HasMany
+    {
+        return $this->hasMany(TripSchedule::class, 'required_vehicle_type_id');
     }
 }

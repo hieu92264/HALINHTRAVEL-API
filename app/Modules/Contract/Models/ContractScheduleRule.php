@@ -2,6 +2,7 @@
 
 namespace App\Modules\Contract\Models;
 
+use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Route;
 use App\Modules\MasterData\Models\Vehicle;
@@ -55,5 +56,10 @@ class ContractScheduleRule extends Model
     public function scheduleDays(): HasMany
     {
         return $this->hasMany(ContractScheduleDay::class, 'schedule_rule_id');
+    }
+
+    public function tripSchedules(): HasMany
+    {
+        return $this->hasMany(TripSchedule::class, 'schedule_rule_id');
     }
 }

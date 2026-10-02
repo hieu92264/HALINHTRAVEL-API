@@ -3,6 +3,7 @@
 namespace App\Modules\MasterData\Models;
 
 use App\Modules\Contract\Models\ContractScheduleRule;
+use App\Modules\Dispatch\Models\TripAssignment;
 use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\VehicleStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
@@ -50,5 +51,10 @@ class Vehicle extends Model
     public function defaultContractScheduleRules(): HasMany
     {
         return $this->hasMany(ContractScheduleRule::class, 'default_vehicle_id');
+    }
+
+    public function tripAssignments(): HasMany
+    {
+        return $this->hasMany(TripAssignment::class);
     }
 }

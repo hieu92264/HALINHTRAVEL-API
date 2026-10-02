@@ -2,6 +2,7 @@
 
 namespace App\Modules\Contract\Models;
 
+use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\MasterData\Models\Route;
 use App\Modules\MasterData\Models\VehicleType;
 use App\Shared\Enums\RentalServiceTypeEnum;
@@ -55,5 +56,10 @@ class ContractItem extends Model
     public function scheduleRules(): HasMany
     {
         return $this->hasMany(ContractScheduleRule::class);
+    }
+
+    public function tripSchedules(): HasMany
+    {
+        return $this->hasMany(TripSchedule::class);
     }
 }
