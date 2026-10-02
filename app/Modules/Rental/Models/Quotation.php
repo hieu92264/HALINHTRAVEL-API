@@ -3,6 +3,7 @@
 namespace App\Modules\Rental\Models;
 
 use App\Modules\Auth\Models\User;
+use App\Modules\Contract\Models\Contract;
 use App\Modules\MasterData\Models\Customer;
 use App\Shared\Enums\QuotationStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
@@ -60,5 +61,10 @@ class Quotation extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by', 'user_name');
+    }
+
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(Contract::class);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Rental\Models;
 
+use App\Modules\Contract\Models\Contract;
 use App\Modules\MasterData\Models\Customer;
 use App\Shared\Enums\RentalRequestStatusEnum;
 use App\Shared\Enums\RentalServiceTypeEnum;
@@ -52,5 +53,10 @@ class RentalRequest extends Model
     public function quotations(): HasMany
     {
         return $this->hasMany(Quotation::class);
+    }
+
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(Contract::class);
     }
 }

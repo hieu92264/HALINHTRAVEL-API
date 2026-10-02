@@ -2,6 +2,7 @@
 
 namespace App\Modules\MasterData\Models;
 
+use App\Modules\Contract\Models\ContractItem;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,5 +34,10 @@ class VehicleType extends Model
     public function routeRates(): HasMany
     {
         return $this->hasMany(RouteRate::class);
+    }
+
+    public function contractItems(): HasMany
+    {
+        return $this->hasMany(ContractItem::class);
     }
 }

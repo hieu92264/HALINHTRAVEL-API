@@ -2,11 +2,13 @@
 
 namespace App\Modules\MasterData\Models;
 
+use App\Modules\Contract\Models\ContractScheduleRule;
 use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\VehicleStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vehicle extends Model
 {
@@ -43,5 +45,10 @@ class Vehicle extends Model
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
+    }
+
+    public function defaultContractScheduleRules(): HasMany
+    {
+        return $this->hasMany(ContractScheduleRule::class, 'default_vehicle_id');
     }
 }

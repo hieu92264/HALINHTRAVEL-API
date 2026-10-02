@@ -3,10 +3,12 @@
 namespace App\Modules\MasterData\Models;
 
 use App\Modules\Auth\Models\User;
+use App\Modules\Contract\Models\ContractScheduleRule;
 use App\Shared\Enums\OwnershipTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Driver extends Model
 {
@@ -51,5 +53,10 @@ class Driver extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_name', 'user_name');
+    }
+
+    public function defaultContractScheduleRules(): HasMany
+    {
+        return $this->hasMany(ContractScheduleRule::class, 'default_driver_id');
     }
 }
