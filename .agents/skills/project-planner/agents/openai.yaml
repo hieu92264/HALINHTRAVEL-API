@@ -1,0 +1,6 @@
+interface:
+  display_name: "Project Planner"
+  short_description: "Plan business software features before coding"
+  default_prompt: "Use $project-planner to analyze this feature and create an implementation plan."
+policy:
+  allow_implicit_invocation: true
