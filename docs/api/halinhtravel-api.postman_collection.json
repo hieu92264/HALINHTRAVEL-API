@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "4f15b9d0-6f07-4bc1-a9d0-8d7c5e6a4f11",
     "name": "Ha Linh Travel API",
-    "description": "JWT APIs currently implemented by the Auth module. Set base_url and use Login to populate access_token before calling protected requests.",
+    "description": "JWT APIs implemented by the Auth and MasterData modules. Set base_url and use Login to populate access_token before calling protected requests.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -10,7 +10,15 @@
     { "key": "access_token", "value": "", "type": "string" },
     { "key": "user_id", "value": "1", "type": "string" },
     { "key": "role_id", "value": "1", "type": "string" },
-    { "key": "permission_id", "value": "1", "type": "string" }
+    { "key": "permission_id", "value": "1", "type": "string" },
+    { "key": "customer_id", "value": "1", "type": "string" },
+    { "key": "partner_id", "value": "1", "type": "string" },
+    { "key": "vehicle_type_id", "value": "1", "type": "string" },
+    { "key": "vehicle_id", "value": "1", "type": "string" },
+    { "key": "driver_id", "value": "1", "type": "string" },
+    { "key": "expense_type_id", "value": "1", "type": "string" },
+    { "key": "route_id", "value": "1", "type": "string" },
+    { "key": "route_rate_id", "value": "1", "type": "string" }
   ],
   "item": [
     {
@@ -286,6 +294,125 @@
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
             "url": "{{base_url}}/auth/permissions/{{permission_id}}"
           }
+        }
+      ]
+    },
+    {
+      "name": "Master Data",
+      "description": "Master data APIs. All requests require an authenticated user with the resource-specific view or manage permission.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Customers",
+          "item": [
+            { "name": "List customers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/customers" } },
+            { "name": "Get customer", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/customers/{{customer_id}}" } },
+            {
+              "name": "Create customer",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('customer_id', String(response.metadata.id));", "}"] } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+                "body": { "mode": "raw", "raw": "{\n  \"type\": \"company\",\n  \"name\": \"Công ty Vận tải Ha Linh\",\n  \"phone\": \"0901234567\",\n  \"email\": \"contact@example.test\",\n  \"tax_code\": \"0201234567\",\n  \"address\": \"Hải Phòng\",\n  \"contact_name\": \"Nguyễn Văn A\",\n  \"opening_balance\": \"0.00\"\n}", "options": { "raw": { "language": "json" } } },
+                "url": "{{base_url}}/master-data/customers"
+              }
+            },
+            { "name": "Update customer", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"phone\": \"0909876543\",\n  \"opening_balance\": \"100000.00\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/customers/{{customer_id}}" } },
+            { "name": "Deactivate customer", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/customers/{{customer_id}}", "description": "Sets is_active to false; the record remains available in list and show responses." } }
+          ]
+        },
+        {
+          "name": "Partners",
+          "item": [
+            { "name": "List partners", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/partners" } },
+            { "name": "Get partner", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/partners/{{partner_id}}" } },
+            {
+              "name": "Create partner",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('partner_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"type\": \"vehicle_owner\",\n  \"name\": \"Đối tác chủ xe\",\n  \"phone\": \"0901234567\",\n  \"email\": \"partner@example.test\",\n  \"tax_code\": \"0207654321\",\n  \"address\": \"Hải Phòng\",\n  \"bank_name\": \"Vietcombank\",\n  \"bank_account\": \"123456789\",\n  \"opening_balance\": \"0.00\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/partners" }
+            },
+            { "name": "Update partner", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"phone\": \"0909876543\",\n  \"bank_account\": \"987654321\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/partners/{{partner_id}}" } },
+            { "name": "Deactivate partner", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/partners/{{partner_id}}", "description": "Sets is_active to false." } }
+          ]
+        },
+        {
+          "name": "Vehicle Types",
+          "item": [
+            { "name": "List vehicle types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/vehicle-types" } },
+            { "name": "Get vehicle type", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/vehicle-types/{{vehicle_type_id}}" } },
+            {
+              "name": "Create vehicle type",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('vehicle_type_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"code\": \"XE16\",\n  \"name\": \"Xe 16 chỗ\",\n  \"seats\": 16,\n  \"tour_driver_commission_rate\": \"5.00\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/vehicle-types" }
+            },
+            { "name": "Update vehicle type", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Xe 16 chỗ tiêu chuẩn\",\n  \"tour_driver_commission_rate\": \"6.50\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/vehicle-types/{{vehicle_type_id}}" } },
+            { "name": "Deactivate vehicle type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/vehicle-types/{{vehicle_type_id}}", "description": "Sets is_active to false." } }
+          ]
+        },
+        {
+          "name": "Vehicles",
+          "item": [
+            { "name": "List vehicles", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/vehicles" } },
+            { "name": "Get vehicle", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/vehicles/{{vehicle_id}}" } },
+            {
+              "name": "Create vehicle",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('vehicle_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"license_plate\": \"15A-12345\",\n  \"vehicle_type_id\": {{vehicle_type_id}},\n  \"ownership_type\": \"company\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Hiace\",\n  \"manufacture_year\": 2024,\n  \"current_odometer\": 0,\n  \"vehicle_status\": \"available\",\n  \"notes\": \"Xe mẫu\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/vehicles", "description": "Use ownership_type partner with partner_id when the vehicle belongs to a partner; company ownership clears partner_id." }
+            },
+            { "name": "Update vehicle", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"current_odometer\": 1000,\n  \"vehicle_status\": \"maintenance\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/vehicles/{{vehicle_id}}" } },
+            { "name": "Deactivate vehicle", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/vehicles/{{vehicle_id}}", "description": "Sets is_active to false." } }
+          ]
+        },
+        {
+          "name": "Drivers",
+          "item": [
+            { "name": "List drivers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/drivers" } },
+            { "name": "Get driver", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/drivers/{{driver_id}}" } },
+            {
+              "name": "Create driver",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('driver_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"type\": \"company\",\n  \"full_name\": \"Nguyễn Văn A\",\n  \"phone\": \"0901234567\",\n  \"cccd\": \"001234567890\",\n  \"license_number\": \"B2-123456\",\n  \"license_class\": \"B2\",\n  \"license_issued_at\": \"2024-01-01\",\n  \"license_expired_at\": \"2029-01-01\",\n  \"base_salary\": \"12000000.00\",\n  \"responsibility_allowance\": \"500000.00\",\n  \"joined_at\": \"2026-01-01\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/drivers", "description": "Use type partner with partner_id for partner drivers; company drivers do not require a user account." }
+            },
+            { "name": "Update driver", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"phone\": \"0909876543\",\n  \"base_salary\": \"12500000.00\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/drivers/{{driver_id}}" } },
+            { "name": "Deactivate driver", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/drivers/{{driver_id}}", "description": "Sets is_active to false." } }
+          ]
+        },
+        {
+          "name": "Expense Types",
+          "item": [
+            { "name": "List expense types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/expense-types" } },
+            { "name": "Get expense type", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/expense-types/{{expense_type_id}}" } },
+            {
+              "name": "Create expense type",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('expense_type_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"code\": \"FUEL\",\n  \"name\": \"Nhiên liệu\",\n  \"scope\": \"vehicle\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/expense-types", "description": "scope must be one of vehicle, trip, or general." }
+            },
+            { "name": "Update expense type", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Chi phí nhiên liệu\",\n  \"scope\": \"vehicle\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/expense-types/{{expense_type_id}}" } },
+            { "name": "Deactivate expense type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/expense-types/{{expense_type_id}}", "description": "Sets is_active to false." } }
+          ]
+        },
+        {
+          "name": "Route Rates",
+          "item": [
+            { "name": "List route rates", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/route-rates" } },
+            {
+              "name": "Lookup route rate",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Accept", "value": "application/json", "type": "text" }],
+                "url": { "raw": "{{base_url}}/master-data/route-rates/lookup?route_id={{route_id}}&vehicle_type_id={{vehicle_type_id}}&at_date=2026-01-01", "query": [{ "key": "route_id", "value": "{{route_id}}", "description": "Existing route ID" }, { "key": "vehicle_type_id", "value": "{{vehicle_type_id}}" }, { "key": "at_date", "value": "2026-01-01", "description": "Date in YYYY-MM-DD format" }] },
+                "description": "Returns the active rate whose effective period covers at_date. route_id must refer to an existing route; Route CRUD is not currently exposed."
+              }
+            },
+            { "name": "Get route rate", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/route-rates/{{route_rate_id}}" } },
+            {
+              "name": "Create route rate",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('route_rate_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"route_id\": {{route_id}},\n  \"vehicle_type_id\": {{vehicle_type_id}},\n  \"customer_price\": \"1250000.00\",\n  \"driver_wage\": \"300000.00\",\n  \"effective_from\": \"2026-01-01\",\n  \"effective_to\": null\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/route-rates", "description": "The effective period must not overlap an active rate for the same route and vehicle type." }
+            },
+            { "name": "Patch route rate", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_price\": \"1300000.00\",\n  \"effective_to\": null\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/route-rates/{{route_rate_id}}", "description": "PATCH supports partial updates; send effective_to null to clear its end date." } },
+            { "name": "Deactivate route rate", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/route-rates/{{route_rate_id}}", "description": "Sets is_active to false, so the rate is excluded from lookup." } }
+          ]
         }
       ]
     }
