@@ -2,6 +2,7 @@
 
 use App\Modules\MasterData\Controllers\CustomerController;
 use App\Modules\MasterData\Controllers\DriverController;
+use App\Modules\MasterData\Controllers\ExpenseTypeController;
 use App\Modules\MasterData\Controllers\PartnerController;
 use App\Modules\MasterData\Controllers\VehicleController;
 use App\Modules\MasterData\Controllers\VehicleTypeController;
@@ -68,6 +69,18 @@ Route::prefix('master-data')->group(function () {
             Route::post('/drivers', [DriverController::class, 'store']);
             Route::put('/drivers/{driver}', [DriverController::class, 'update']);
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy']);
+        });
+
+        // Expense type routes
+        Route::middleware('permission:'.PermissionEnum::EXPENSE_TYPES_VIEW->value)->group(function () {
+            Route::get('/expense-types', [ExpenseTypeController::class, 'index']);
+            Route::get('/expense-types/{expenseType}', [ExpenseTypeController::class, 'show']);
+        });
+
+        Route::middleware('permission:'.PermissionEnum::EXPENSE_TYPES_MANAGE->value)->group(function () {
+            Route::post('/expense-types', [ExpenseTypeController::class, 'store']);
+            Route::put('/expense-types/{expenseType}', [ExpenseTypeController::class, 'update']);
+            Route::delete('/expense-types/{expenseType}', [ExpenseTypeController::class, 'destroy']);
         });
     });
 });
