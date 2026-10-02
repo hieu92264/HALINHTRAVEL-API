@@ -2,6 +2,7 @@
 
 use App\Modules\MasterData\Controllers\CustomerController;
 use App\Modules\MasterData\Controllers\PartnerController;
+use App\Modules\MasterData\Controllers\VehicleController;
 use App\Modules\MasterData\Controllers\VehicleTypeController;
 use App\Shared\Enums\PermissionEnum;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,18 @@ Route::prefix('master-data')->group(function () {
             Route::post('/vehicle-types', [VehicleTypeController::class, 'store']);
             Route::put('/vehicle-types/{vehicleType}', [VehicleTypeController::class, 'update']);
             Route::delete('/vehicle-types/{vehicleType}', [VehicleTypeController::class, 'destroy']);
+        });
+
+        // Vehicle routes
+        Route::middleware('permission:'.PermissionEnum::VEHICLES_VIEW->value)->group(function () {
+            Route::get('/vehicles', [VehicleController::class, 'index']);
+            Route::get('/vehicles/{vehicle}', [VehicleController::class, 'show']);
+        });
+
+        Route::middleware('permission:'.PermissionEnum::VEHICLES_MANAGE->value)->group(function () {
+            Route::post('/vehicles', [VehicleController::class, 'store']);
+            Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update']);
+            Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy']);
         });
     });
 });

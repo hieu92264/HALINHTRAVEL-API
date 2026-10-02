@@ -8,9 +8,11 @@ use App\Modules\Auth\Services\AccessManagementService;
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Interfaces\PartnerServiceInterface;
+use App\Modules\MasterData\Interfaces\VehicleServiceInterface;
 use App\Modules\MasterData\Interfaces\VehicleTypeServiceInterface;
 use App\Modules\MasterData\Services\CustomerService;
 use App\Modules\MasterData\Services\PartnerService;
+use App\Modules\MasterData\Services\VehicleService;
 use App\Modules\MasterData\Services\VehicleTypeService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -30,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CustomerServiceInterface::class, CustomerService::class);
         $this->app->singleton(PartnerServiceInterface::class, PartnerService::class);
         $this->app->singleton(VehicleTypeServiceInterface::class, VehicleTypeService::class);
+        $this->app->singleton(VehicleServiceInterface::class, VehicleService::class);
     }
 
     /**
