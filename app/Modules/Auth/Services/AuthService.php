@@ -31,13 +31,13 @@ class AuthService implements AuthServiceInterface
         $credentials['is_active'] = true;
 
         if (! $token = $guard->attempt($credentials)) {
-            throw new AuthenticationException('Invalid credentials.');
+            throw new AuthenticationException('Thông tin đăng nhập không chính xác.');
         }
 
         $user = $guard->user();
 
         if (! $user instanceof User) {
-            throw new AuthenticationException();
+            throw new AuthenticationException;
         }
 
         $user->forceFill([
@@ -66,7 +66,7 @@ class AuthService implements AuthServiceInterface
         $user = $this->guard()->user();
 
         if (! $user instanceof User) {
-            throw new AuthenticationException();
+            throw new AuthenticationException;
         }
 
         return $this->userPayload($user);
@@ -82,7 +82,6 @@ class AuthService implements AuthServiceInterface
         return $this->respondWithToken($guard, $guard->refresh());
     }
 
-    /** @return void */
     public function logout(): void
     {
         $this->guard()->logout();
@@ -93,7 +92,7 @@ class AuthService implements AuthServiceInterface
         $guard = auth()->guard('api');
 
         if (! $guard instanceof JWTGuard) {
-            throw new LogicException('The api authentication guard must use JWTGuard.');
+            throw new LogicException('Guard xác thực API phải sử dụng JWTGuard.');
         }
 
         return $guard;

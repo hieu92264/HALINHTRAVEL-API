@@ -27,11 +27,12 @@ class LoginRequest extends FormRequest
         $isEmail = filter_var($loginInput, FILTER_VALIDATE_EMAIL);
 
         $column = $isEmail ? 'email' : 'user_name';
+
         return [
             $column => [
                 'required',
                 'string',
-                "exists:users,{$column}"
+                "exists:users,{$column}",
             ],
             'password' => ['required', 'string', 'min:8', 'max:255'],
             'remember_me' => ['boolean', 'nullable'],
@@ -42,7 +43,7 @@ class LoginRequest extends FormRequest
     {
         return [
             'user_name.exists' => 'Tài khoản hoặc email này không tồn tại trong hệ thống.',
+            'email.exists' => 'Tài khoản hoặc email này không tồn tại trong hệ thống.',
         ];
     }
 }
-

@@ -30,6 +30,7 @@ class FileHelper
                 $results[] = self::store($file, $directory, $disk);
             }
         }
+
         return $results;
     }
 
@@ -41,7 +42,7 @@ class FileHelper
         Storage::disk($disk)->makeDirectory($directory);
 
         $fileName = self::generateFileName($file, 'webp');
-        $fullPath = $directory . '/' . $fileName;
+        $fullPath = $directory.'/'.$fileName;
         $absolutePath = Storage::disk($disk)->path($fullPath);
 
         $webp = Webp::make($file);
@@ -50,7 +51,7 @@ class FileHelper
             return self::formatResponse($fullPath, $fileName, $file, $disk, true);
         }
 
-        throw new \Exception('Failed to convert and save WebP image.');
+        throw new \Exception('Không thể chuyển đổi và lưu ảnh WebP.');
     }
 
     /**
@@ -64,6 +65,7 @@ class FileHelper
                 $results[] = self::storeImageAsWebp($file, $directory, $disk, $quality);
             }
         }
+
         return $results;
     }
 
@@ -76,7 +78,9 @@ class FileHelper
 
     public static function delete(?string $path, ?string $disk = null): bool
     {
-        if (!$path) return false;
+        if (! $path) {
+            return false;
+        }
 
         $disk = $disk ?? self::$defaultDisk;
 
@@ -90,6 +94,7 @@ class FileHelper
     private static function generateFileName(UploadedFile $file, string $extension): string
     {
         $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
         return sprintf(
             '%s_%s_%s.%s',
             now()->format('YmdHis'),
@@ -102,14 +107,14 @@ class FileHelper
     private static function formatResponse(string $path, string $fileName, UploadedFile $file, string $disk, bool $isWebp = false): array
     {
         return [
-            'path'          => $path,
-            'name'          => $fileName,
+            'path' => $path,
+            'name' => $fileName,
             'original_name' => $file->getClientOriginalName(),
-            'extension'     => $isWebp ? 'webp' : $file->getClientOriginalExtension(),
-            'mime_type'     => $isWebp ? 'image/webp' : $file->getMimeType(),
-            'size'          => Storage::disk($disk)->size($path),
-            'disk'          => $disk,
-            'url'           => $disk === 'public' ? asset('storage/' . $path) : null,
+            'extension' => $isWebp ? 'webp' : $file->getClientOriginalExtension(),
+            'mime_type' => $isWebp ? 'image/webp' : $file->getMimeType(),
+            'size' => Storage::disk($disk)->size($path),
+            'disk' => $disk,
+            'url' => $disk === 'public' ? asset('storage/'.$path) : null,
         ];
     }
 }

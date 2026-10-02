@@ -21,39 +21,39 @@ class RoleController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return $this->success($this->service->roles($this->perPage($request)));
+        return $this->success($this->service->roles($this->perPage($request)), 'Lấy danh sách vai trò thành công.');
     }
 
     public function all(): JsonResponse
     {
-        return $this->success($this->service->allRoles());
+        return $this->success($this->service->allRoles(), 'Lấy danh sách vai trò thành công.');
     }
 
     public function show(Role $role): JsonResponse
     {
-        return $this->success($this->service->role($role));
+        return $this->success($this->service->role($role), 'Lấy thông tin vai trò thành công.');
     }
 
     public function store(StoreRoleRequest $request): JsonResponse
     {
-        return $this->success($this->service->createRole($request->validated()), 'Role created.', Response::HTTP_CREATED);
+        return $this->success($this->service->createRole($request->validated()), 'Tạo vai trò thành công.', Response::HTTP_CREATED);
     }
 
     public function update(UpdateRoleRequest $request, Role $role): JsonResponse
     {
-        return $this->success($this->service->updateRole($role, $request->validated()), 'Role updated.');
+        return $this->success($this->service->updateRole($role, $request->validated()), 'Cập nhật vai trò thành công.');
     }
 
     public function destroy(Role $role): JsonResponse
     {
         $this->service->deleteRole($role);
 
-        return $this->success(null, 'Role deleted.');
+        return $this->success(null, 'Xóa vai trò thành công.');
     }
 
     public function syncPermissions(SyncPermissionsRequest $request, Role $role): JsonResponse
     {
-        return $this->success($this->service->syncRolePermissions($role, $request->validated('permission_ids')), 'Role permissions updated.');
+        return $this->success($this->service->syncRolePermissions($role, $request->validated('permission_ids')), 'Cập nhật quyền của vai trò thành công.');
     }
 
     private function perPage(Request $request): int
