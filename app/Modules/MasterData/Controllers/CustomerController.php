@@ -3,8 +3,6 @@
 namespace App\Modules\MasterData\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\MasterData\DTOs\CreateCustomerData;
-use App\Modules\MasterData\DTOs\UpdateCustomerData;
 use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Requests\CreateCustomerRequest;
@@ -32,7 +30,7 @@ class CustomerController extends Controller
     public function store(CreateCustomerRequest $request): JsonResponse
     {
         return $this->success(
-            $this->service->create(CreateCustomerData::fromValidated($request->validated())),
+            $this->service->create($request->toDTO()),
             'Tạo khách hàng thành công.',
             Response::HTTP_CREATED,
         );
@@ -41,7 +39,7 @@ class CustomerController extends Controller
     public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse
     {
         return $this->success(
-            $this->service->update($customer, UpdateCustomerData::fromValidated($request->validated())),
+            $this->service->update($customer, $request->toDTO()),
             'Cập nhật khách hàng thành công.',
         );
     }

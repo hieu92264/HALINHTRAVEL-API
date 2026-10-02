@@ -2,6 +2,7 @@
 
 namespace App\Modules\MasterData\Requests;
 
+use App\Modules\MasterData\DTOs\UpdateCustomerData;
 use App\Modules\MasterData\Models\Customer;
 use App\Shared\Enums\CustomerEnum;
 use Illuminate\Foundation\Http\FormRequest;
@@ -63,5 +64,24 @@ class UpdateCustomerRequest extends FormRequest
                 $validator->errors()->add('tax_code', 'Trường mã số thuế là bắt buộc đối với khách hàng doanh nghiệp.');
             }
         });
+    }
+
+    public function toDTO(): UpdateCustomerData
+    {
+        $data = $this->validated();
+
+        return new UpdateCustomerData(
+            type: array_key_exists('type', $data) ? CustomerEnum::from($data['type']) : null,
+            name: $data['name'] ?? null,
+            phone: $data['phone'] ?? null,
+            email: $data['email'] ?? null,
+            cccd: $data['cccd'] ?? null,
+            tax_code: $data['tax_code'] ?? null,
+            address: $data['address'] ?? null,
+            contact_name: $data['contact_name'] ?? null,
+            opening_balance: array_key_exists('opening_balance', $data) ? (string) $data['opening_balance'] : null,
+            is_active: array_key_exists('is_active', $data) ? (bool) $data['is_active'] : null,
+            provided: array_keys($data),
+        );
     }
 }

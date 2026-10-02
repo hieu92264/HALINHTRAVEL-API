@@ -45,18 +45,31 @@ class CustomerApiTest extends TestCase
         ]);
     }
 
-    public function test_customer_type_requires_its_matching_identity_field(): void
+    public function test_sales_can_create_company_with_default_opening_balance(): void
     {
         $sales = $this->seededUser('sales');
 
         $this->actingAs($sales, 'api')->postJson('/api/master-data/customers', [
+            'type' => 'company',
+            'name' => 'Ha Linh Travel Co., Ltd.',
+            'tax_code' => '0312345678',
+        ])->assertCreated()
+            ->assertJsonPath('metadata.type', 'company')
+            ->assertJsonPath('metadata.opening_balance', '0.00');
+    }
+
+    public function test_customer_type_requires_its_matching_identity_field(): void
+    {
+        $sales = $this->seededUser('sales');
+
+        $this->withHeader('X-Locale', 'vi')->actingAs($sales, 'api')->postJson('/api/master-data/customers', [
             'type' => 'individual',
             'name' => 'Missing CCCD',
         ])->assertUnprocessable()
             ->assertJsonPath('message', 'Dữ liệu gửi lên không hợp lệ.')
             ->assertJsonPath('metadata.cccd.0', 'Trường CCCD là bắt buộc khi loại khách hàng là individual.');
 
-        $this->actingAs($sales, 'api')->postJson('/api/master-data/customers', [
+        $this->withHeader('X-Locale', 'vi')->actingAs($sales, 'api')->postJson('/api/master-data/customers', [
             'type' => 'company',
             'name' => 'Missing Tax Code',
         ])->assertUnprocessable()
@@ -106,6 +119,31 @@ class CustomerApiTest extends TestCase
             'cccd' => '009876543210',
         ])->assertCreated()
             ->assertJsonPath('metadata.code', 'KH0002');
+    }
+
+    public function test_update_preserves_omitted_fields_and_retains_identity_fields_when_type_changes(): void
+    {
+        $sales = $this->seededUser('sales');
+        $customer = $this->createCustomer('KH0001');
+        $customer->forceFill([
+            'phone' => '0901234567',
+            'tax_code' => '0311111111',
+        ])->save();
+
+        $this->actingAs($sales, 'api')->putJson("/api/master-data/customers/{$customer->id}", [
+            'phone' => null,
+        ])->assertOk()
+            ->assertJsonPath('metadata.phone', null)
+            ->assertJsonPath('metadata.cccd', '001234567890')
+            ->assertJsonPath('metadata.tax_code', '0311111111');
+
+        $this->actingAs($sales, 'api')->putJson("/api/master-data/customers/{$customer->id}", [
+            'type' => 'company',
+            'tax_code' => '0319999999',
+        ])->assertOk()
+            ->assertJsonPath('metadata.type', 'company')
+            ->assertJsonPath('metadata.cccd', '001234567890')
+            ->assertJsonPath('metadata.tax_code', '0319999999');
     }
 
     private function seededUser(string $userName): User

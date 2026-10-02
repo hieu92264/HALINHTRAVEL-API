@@ -6,17 +6,17 @@ use App\Modules\MasterData\DTOs\CreateCustomerData;
 use App\Modules\MasterData\DTOs\UpdateCustomerData;
 use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Models\Customer;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CustomerService implements CustomerServiceInterface
 {
-    public function customers(): Collection
+    public function customers(): array
     {
         return Customer::query()
             ->orderBy('id')
             ->get()
-            ->map(fn(Customer $customer): array => $this->customer($customer));
+            ->map(fn (Customer $customer): array => $this->customer($customer))
+            ->all();
     }
 
     public function customer(Customer $customer): array
@@ -41,14 +41,18 @@ class CustomerService implements CustomerServiceInterface
         ];
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function create(CreateCustomerData $data): array
     {
         return DB::transaction(function () use ($data): array {
-            $customer = Customer::create(array_merge(
-                ['opening_balance' => 0],
-                $data->attributes,
-                ['code' => $this->nextCode()],
-            ));
+            $customer = Customer::create(
+                [
+                    ...$data->toArray(),
+                    'code' => $this->nextCode(),
+                ]
+            );
 
             return $this->customer($customer);
         });
@@ -56,7 +60,7 @@ class CustomerService implements CustomerServiceInterface
 
     public function update(Customer $customer, UpdateCustomerData $data): array
     {
-        $customer->fill($data->attributes)->save();
+        $customer->fill($data->toArray())->save();
 
         return $this->customer($customer->fresh());
     }
@@ -80,6 +84,6 @@ class CustomerService implements CustomerServiceInterface
                 return max($highestSequence, (int) $matches[1]);
             }, 0);
 
-        return 'KH' . str_pad((string) ($highestSequence + 1), 4, '0', STR_PAD_LEFT);
+        return 'KH'.str_pad((string) ($highestSequence + 1), 4, '0', STR_PAD_LEFT);
     }
 }
