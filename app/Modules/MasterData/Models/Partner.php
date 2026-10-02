@@ -3,6 +3,8 @@
 namespace App\Modules\MasterData\Models;
 
 use App\Modules\Dispatch\Models\TripAssignment;
+use App\Modules\Finance\Models\Expense;
+use App\Modules\Finance\Models\PartnerPayment;
 use App\Shared\Enums\PartnerTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
@@ -47,5 +49,15 @@ class Partner extends Model
     public function tripAssignments(): HasMany
     {
         return $this->hasMany(TripAssignment::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    public function partnerPayments(): HasMany
+    {
+        return $this->hasMany(PartnerPayment::class);
     }
 }

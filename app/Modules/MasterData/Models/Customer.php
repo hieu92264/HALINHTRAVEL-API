@@ -3,6 +3,7 @@
 namespace App\Modules\MasterData\Models;
 
 use App\Modules\Contract\Models\Contract;
+use App\Modules\Finance\Models\Receipt;
 use App\Shared\Enums\CustomerEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
@@ -41,5 +42,10 @@ class Customer extends Model
     public function contracts(): HasMany
     {
         return $this->hasMany(Contract::class);
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(Receipt::class);
     }
 }

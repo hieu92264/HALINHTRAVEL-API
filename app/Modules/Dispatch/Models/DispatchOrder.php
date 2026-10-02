@@ -3,10 +3,13 @@
 namespace App\Modules\Dispatch\Models;
 
 use App\Modules\Auth\Models\User;
+use App\Modules\Finance\Models\Expense;
+use App\Modules\Finance\Models\PartnerPayment;
 use App\Shared\Enums\DispatchOrderStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DispatchOrder extends Model
 {
@@ -63,5 +66,15 @@ class DispatchOrder extends Model
     public function issuedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by', 'user_name');
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    public function partnerPayments(): HasMany
+    {
+        return $this->hasMany(PartnerPayment::class);
     }
 }
