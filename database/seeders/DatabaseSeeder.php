@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
+use App\Modules\MasterData\Database\Seeds\DriverDatabaseSeeder;
 use App\Modules\MasterData\Database\Seeds\PartnerDatabaseSeeder;
 use App\Modules\MasterData\Database\Seeds\VehicleDatabaseSeeder;
 use App\Modules\MasterData\Database\Seeds\VehicleTypeDatabaseSeeder;
@@ -22,5 +23,6 @@ class DatabaseSeeder extends Seeder
         $this->call(PartnerDatabaseSeeder::class);
         $this->call(VehicleTypeDatabaseSeeder::class);
         $this->call(VehicleDatabaseSeeder::class);
+        $this->call(DriverDatabaseSeeder::class);
     }
 }
