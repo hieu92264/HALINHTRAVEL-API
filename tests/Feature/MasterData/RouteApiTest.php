@@ -43,6 +43,7 @@ class RouteApiTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('metadata.code', 'TUYEN001')
             ->assertJsonPath('metadata.customer_id', $customer->id)
+            ->assertJsonPath('metadata.customer_name', 'Khách hàng tuyến xe')
             ->assertJsonPath('metadata.name', 'VSIP - Thủy Nguyên')
             ->assertJsonPath('metadata.estimated_distance_km', '42.50');
 
@@ -75,19 +76,22 @@ class RouteApiTest extends TestCase
     public function test_route_list_and_show_include_active_and_inactive_records_without_pagination(): void
     {
         $dispatcher = $this->seededUser('dispatcher');
-        $active = $this->createRoute('TUYEN001');
+        $customer = $this->createCustomer();
+        $active = $this->createRoute('TUYEN001', true, $customer);
         $inactive = $this->createRoute('TUYEN002', false);
 
         $this->actingAs($dispatcher, 'api')->getJson('/api/master-data/routes')
             ->assertOk()
             ->assertJsonCount(2, 'metadata')
             ->assertJsonFragment(['id' => $active->id, 'is_active' => true])
+            ->assertJsonFragment(['customer_name' => 'Khách hàng tuyến xe'])
             ->assertJsonFragment(['id' => $inactive->id, 'is_active' => false])
             ->assertJsonMissingPath('metadata.data');
 
         $this->actingAs($dispatcher, 'api')->getJson("/api/master-data/routes/{$inactive->id}")
             ->assertOk()
             ->assertJsonPath('metadata.code', 'TUYEN002')
+            ->assertJsonPath('metadata.customer_name', null)
             ->assertJsonPath('metadata.is_active', false);
     }
 

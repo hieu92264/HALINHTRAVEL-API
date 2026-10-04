@@ -13,6 +13,7 @@ class RouteService implements RouteServiceInterface
     public function routes(): array
     {
         return Route::query()
+            ->with('customer:id,name')
             ->orderBy('id')
             ->get()
             ->map(fn (Route $route): array => $this->route($route))
@@ -21,10 +22,13 @@ class RouteService implements RouteServiceInterface
 
     public function route(Route $route): array
     {
+        $route->loadMissing('customer:id,name');
+
         return [
             'id' => $route->id,
             'code' => $route->code,
             'customer_id' => $route->customer_id,
+            'customer_name' => $route->customer?->name,
             'name' => $route->name,
             'shift_name' => $route->shift_name,
             'pickup_location' => $route->pickup_location,
