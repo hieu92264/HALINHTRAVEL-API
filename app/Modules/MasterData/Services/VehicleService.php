@@ -13,6 +13,7 @@ class VehicleService implements VehicleServiceInterface
     public function vehicles(): array
     {
         return Vehicle::query()
+            ->with(['vehicleType:id,name', 'partner:id,name'])
             ->orderBy('id')
             ->get()
             ->map(fn (Vehicle $vehicle): array => $this->vehicle($vehicle))
@@ -21,12 +22,16 @@ class VehicleService implements VehicleServiceInterface
 
     public function vehicle(Vehicle $vehicle): array
     {
+        $vehicle->loadMissing(['vehicleType:id,name', 'partner:id,name']);
+
         return [
             'id' => $vehicle->id,
             'license_plate' => $vehicle->license_plate,
             'vehicle_type_id' => $vehicle->vehicle_type_id,
+            'vehicle_type_name' => $vehicle->vehicleType?->name,
             'ownership_type' => $vehicle->ownership_type?->value,
             'partner_id' => $vehicle->partner_id,
+            'partner_name' => $vehicle->partner?->name,
             'brand' => $vehicle->brand,
             'model' => $vehicle->model,
             'manufacture_year' => $vehicle->manufacture_year,

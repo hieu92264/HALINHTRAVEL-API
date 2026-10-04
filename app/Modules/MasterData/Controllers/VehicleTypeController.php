@@ -22,6 +22,11 @@ class VehicleTypeController extends Controller
         return $this->success($this->service->vehicleTypes(), 'Lấy danh sách loại xe thành công.');
     }
 
+    public function options(): JsonResponse
+    {
+        return $this->success($this->service->options(), 'Lấy danh sách lựa chọn loại xe thành công.');
+    }
+
     public function show(VehicleType $vehicleType): JsonResponse
     {
         return $this->success($this->service->vehicleType($vehicleType), 'Lấy thông tin loại xe thành công.');

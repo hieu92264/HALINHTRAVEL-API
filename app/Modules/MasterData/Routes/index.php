@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('master-data')->group(function () {
     Route::middleware('auth:api')->group(function () {
+        Route::middleware('permission:'.PermissionEnum::VEHICLES_MANAGE->value)->group(function () {
+            Route::get('/partners/options', [PartnerController::class, 'options']);
+            Route::get('/vehicle-types/options', [VehicleTypeController::class, 'options']);
+        });
+
         // Customer routes
         Route::middleware('permission:'.PermissionEnum::CUSTOMERS_VIEW->value)->group(function () {
             Route::get('/customers', [CustomerController::class, 'index']);

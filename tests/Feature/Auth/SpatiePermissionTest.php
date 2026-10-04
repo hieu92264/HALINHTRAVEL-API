@@ -9,12 +9,23 @@ use App\Modules\Auth\Models\Role as RoleModel;
 use App\Modules\Auth\Models\User;
 use App\Shared\Enums\PermissionEnum;
 use App\Shared\Enums\RoleEnum;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class SpatiePermissionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_database_seeder_assigns_admin_the_users_view_permission(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = RoleModel::findByName(RoleEnum::ADMIN->value, 'api');
+
+        $this->assertTrue($admin->hasPermissionTo(PermissionEnum::USERS_VIEW->value));
+    }
 
     public function test_a_role_grants_its_seeded_permissions(): void
     {
@@ -53,7 +64,7 @@ class SpatiePermissionTest extends TestCase
 
             $this->assertSame($role->value.'@halinhtravel.test', $user->email);
             $this->assertTrue($user->hasRole($role->value));
-            $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password', $user->password));
+            $this->assertTrue(Hash::check('password', $user->password));
         }
     }
 
@@ -62,7 +73,7 @@ class SpatiePermissionTest extends TestCase
         $user = User::factory()->create(['password' => 'secret-password']);
 
         $this->assertNotSame('secret-password', $user->password);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('secret-password', $user->getAuthPassword()));
+        $this->assertTrue(Hash::check('secret-password', $user->getAuthPassword()));
     }
 
     public function test_an_active_seeded_user_can_log_in_with_jwt(): void

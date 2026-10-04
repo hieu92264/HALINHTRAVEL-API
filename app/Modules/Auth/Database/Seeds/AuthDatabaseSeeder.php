@@ -23,6 +23,10 @@ class AuthDatabaseSeeder extends Seeder
             PermissionModel::findOrCreate($permission->value, 'api');
         }
 
+        // DatabaseSeeder suppresses model events, so refresh Spatie's in-memory
+        // permission collection after the permissions have been persisted.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         $admin = RoleModel::findOrCreate(RoleEnum::ADMIN->value, 'api');
         $admin->syncPermissions(PermissionEnum::values());
 

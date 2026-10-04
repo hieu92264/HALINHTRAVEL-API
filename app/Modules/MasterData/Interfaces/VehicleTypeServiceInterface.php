@@ -11,6 +11,9 @@ interface VehicleTypeServiceInterface
     /** @return list<array<string, mixed>> */
     public function vehicleTypes(): array;
 
+    /** @return list<array{id: int, name: string}> */
+    public function options(): array;
+
     /** @return array<string, mixed> */
     public function vehicleType(VehicleType $vehicleType): array;
 
