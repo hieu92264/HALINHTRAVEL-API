@@ -4,6 +4,7 @@ use App\Modules\MasterData\Controllers\CustomerController;
 use App\Modules\MasterData\Controllers\DriverController;
 use App\Modules\MasterData\Controllers\ExpenseTypeController;
 use App\Modules\MasterData\Controllers\PartnerController;
+use App\Modules\MasterData\Controllers\RouteController;
 use App\Modules\MasterData\Controllers\RouteRateController;
 use App\Modules\MasterData\Controllers\VehicleController;
 use App\Modules\MasterData\Controllers\VehicleTypeController;
@@ -75,6 +76,18 @@ Route::prefix('master-data')->group(function () {
             Route::post('/drivers', [DriverController::class, 'store']);
             Route::put('/drivers/{driver}', [DriverController::class, 'update']);
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy']);
+        });
+
+        // Route routes
+        Route::middleware('permission:'.PermissionEnum::ROUTES_VIEW->value)->group(function () {
+            Route::get('/routes', [RouteController::class, 'index']);
+            Route::get('/routes/{route}', [RouteController::class, 'show']);
+        });
+
+        Route::middleware('permission:'.PermissionEnum::ROUTES_MANAGE->value)->group(function () {
+            Route::post('/routes', [RouteController::class, 'store']);
+            Route::put('/routes/{route}', [RouteController::class, 'update']);
+            Route::delete('/routes/{route}', [RouteController::class, 'destroy']);
         });
 
         // Expense type routes
