@@ -11,6 +11,9 @@ interface CustomerServiceInterface
     /** @return list<array<string, mixed>> */
     public function customers(): array;
 
+    /** @return list<array{id: int, name: string}> */
+    public function options(): array;
+
     /** @return array<string, mixed> */
     public function customer(Customer $customer): array;
 

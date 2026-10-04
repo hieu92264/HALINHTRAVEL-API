@@ -19,6 +19,19 @@ class CustomerService implements CustomerServiceInterface
             ->all();
     }
 
+    public function options(): array
+    {
+        return Customer::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(static fn (Customer $customer): array => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+            ])
+            ->all();
+    }
+
     public function customer(Customer $customer): array
     {
         return [

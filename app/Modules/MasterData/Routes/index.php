@@ -18,6 +18,10 @@ Route::prefix('master-data')->group(function () {
             Route::get('/vehicle-types/options', [VehicleTypeController::class, 'options']);
         });
 
+        Route::middleware('permission:'.PermissionEnum::ROUTES_MANAGE->value)->group(function () {
+            Route::get('/customers/options', [CustomerController::class, 'options']);
+        });
+
         // Customer routes
         Route::middleware('permission:'.PermissionEnum::CUSTOMERS_VIEW->value)->group(function () {
             Route::get('/customers', [CustomerController::class, 'index']);

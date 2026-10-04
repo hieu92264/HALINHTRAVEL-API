@@ -16,12 +16,17 @@ class RouteApiTest extends TestCase
     public function test_route_routes_require_authentication_and_permission(): void
     {
         $this->getJson('/api/master-data/routes')->assertUnauthorized();
+        $this->getJson('/api/master-data/customers/options')->assertUnauthorized();
 
         $this->seed(AuthDatabaseSeeder::class);
         $driver = User::query()->where('user_name', 'driver')->firstOrFail();
 
         $this->actingAs($driver, 'api')
             ->getJson('/api/master-data/routes')
+            ->assertForbidden();
+
+        $this->actingAs($driver, 'api')
+            ->getJson('/api/master-data/customers/options')
             ->assertForbidden();
     }
 
@@ -71,6 +76,28 @@ class RouteApiTest extends TestCase
                 'default_pickup_time',
                 'estimated_distance_km',
             ]]);
+    }
+
+    public function test_dispatcher_can_get_active_customer_options_for_route_form(): void
+    {
+        $dispatcher = $this->seededUser('dispatcher');
+        $activeCustomer = $this->createCustomer();
+        $inactiveCustomer = Customer::create([
+            'code' => 'KH0002',
+            'type' => 'individual',
+            'name' => 'Khách hàng ngừng hoạt động',
+            'cccd' => '001234567891',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($dispatcher, 'api')->getJson('/api/master-data/customers/options')
+            ->assertOk()
+            ->assertJsonCount(1, 'metadata')
+            ->assertJsonPath('metadata.0', [
+                'id' => $activeCustomer->id,
+                'name' => 'Khách hàng tuyến xe',
+            ])
+            ->assertJsonMissing(['id' => $inactiveCustomer->id]);
     }
 
     public function test_route_list_and_show_include_active_and_inactive_records_without_pagination(): void
