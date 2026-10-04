@@ -14,6 +14,7 @@ class DriverService implements DriverServiceInterface
     public function drivers(): array
     {
         return Driver::query()
+            ->with('partner:id,name')
             ->orderBy('id')
             ->get()
             ->map(fn (Driver $driver): array => $this->driver($driver))
@@ -22,11 +23,14 @@ class DriverService implements DriverServiceInterface
 
     public function driver(Driver $driver): array
     {
+        $driver->loadMissing('partner:id,name');
+
         return [
             'id' => $driver->id,
             'code' => $driver->code,
             'user_name' => $driver->user_name,
             'partner_id' => $driver->partner_id,
+            'partner_name' => $driver->partner?->name,
             'type' => $driver->type?->value,
             'full_name' => $driver->full_name,
             'phone' => $driver->phone,
