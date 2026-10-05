@@ -22,6 +22,11 @@ class PartnerController extends Controller
         return $this->success($this->service->partners(), 'Lấy danh sách đối tác thành công.');
     }
 
+    public function options(): JsonResponse
+    {
+        return $this->success($this->service->options(), 'Lấy danh sách lựa chọn đối tác thành công.');
+    }
+
     public function show(Partner $partner): JsonResponse
     {
         return $this->success($this->service->partner($partner), 'Lấy thông tin đối tác thành công.');

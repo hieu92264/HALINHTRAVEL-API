@@ -19,6 +19,19 @@ class PartnerService implements PartnerServiceInterface
             ->all();
     }
 
+    public function options(): array
+    {
+        return Partner::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(static fn (Partner $partner): array => [
+                'id' => $partner->id,
+                'name' => $partner->name,
+            ])
+            ->all();
+    }
+
     public function partner(Partner $partner): array
     {
         return [

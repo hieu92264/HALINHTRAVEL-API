@@ -22,6 +22,11 @@ class CustomerController extends Controller
         return $this->success($this->service->customers(), 'Lấy danh sách khách hàng thành công.');
     }
 
+    public function options(): JsonResponse
+    {
+        return $this->success($this->service->options(), 'Lấy danh sách lựa chọn khách hàng thành công.');
+    }
+
     public function show(Customer $customer): JsonResponse
     {
         return $this->success($this->service->customer($customer), 'Lấy thông tin khách hàng thành công.');

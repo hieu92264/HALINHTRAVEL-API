@@ -17,12 +17,22 @@ class VehicleApiTest extends TestCase
     public function test_vehicle_routes_require_authentication_and_permission(): void
     {
         $this->getJson('/api/master-data/vehicles')->assertUnauthorized();
+        $this->getJson('/api/master-data/vehicle-types/options')->assertUnauthorized();
+        $this->getJson('/api/master-data/partners/options')->assertUnauthorized();
 
         $this->seed(AuthDatabaseSeeder::class);
         $driver = User::query()->where('user_name', 'driver')->firstOrFail();
 
         $this->actingAs($driver, 'api')
             ->getJson('/api/master-data/vehicles')
+            ->assertForbidden();
+
+        $this->actingAs($driver, 'api')
+            ->getJson('/api/master-data/vehicle-types/options')
+            ->assertForbidden();
+
+        $this->actingAs($driver, 'api')
+            ->getJson('/api/master-data/partners/options')
             ->assertForbidden();
     }
 
@@ -45,8 +55,10 @@ class VehicleApiTest extends TestCase
             'notes' => 'Xe tuyến du lịch',
         ])->assertCreated()
             ->assertJsonPath('metadata.license_plate', '15B-123.45')
+            ->assertJsonPath('metadata.vehicle_type_name', $vehicleType->name)
             ->assertJsonPath('metadata.ownership_type', 'partner')
             ->assertJsonPath('metadata.partner_id', $partner->id)
+            ->assertJsonPath('metadata.partner_name', 'Chủ xe')
             ->assertJsonPath('metadata.vehicle_status', 'available');
 
         $this->actingAs($admin, 'api')->postJson('/api/master-data/vehicles', [
@@ -57,7 +69,9 @@ class VehicleApiTest extends TestCase
             'vehicle_status' => 'maintenance',
         ])->assertCreated()
             ->assertJsonPath('metadata.ownership_type', 'company')
-            ->assertJsonPath('metadata.partner_id', null);
+            ->assertJsonPath('metadata.partner_id', null)
+            ->assertJsonPath('metadata.vehicle_type_name', $vehicleType->name)
+            ->assertJsonPath('metadata.partner_name', null);
     }
 
     public function test_vehicle_validates_unique_license_plate_relationships_and_partner_ownership(): void
@@ -84,20 +98,65 @@ class VehicleApiTest extends TestCase
     {
         $admin = $this->seededUser('admin');
         $vehicleType = $this->createVehicleType();
-        $active = $this->createVehicle($vehicleType, '15B-123.45');
+        $partner = $this->createPartner();
+        $active = $this->createVehicle($vehicleType, '15B-123.45', true, $partner);
         $inactive = $this->createVehicle($vehicleType, '15B-678.90', false);
 
         $this->actingAs($admin, 'api')->getJson('/api/master-data/vehicles')
             ->assertOk()
             ->assertJsonCount(2, 'metadata')
             ->assertJsonFragment(['id' => $active->id, 'is_active' => true])
+            ->assertJsonFragment([
+                'vehicle_type_name' => $vehicleType->name,
+                'partner_name' => 'Chủ xe',
+            ])
             ->assertJsonFragment(['id' => $inactive->id, 'is_active' => false])
             ->assertJsonMissingPath('metadata.data');
 
         $this->actingAs($admin, 'api')->getJson("/api/master-data/vehicles/{$inactive->id}")
             ->assertOk()
             ->assertJsonPath('metadata.license_plate', '15B-678.90')
+            ->assertJsonPath('metadata.vehicle_type_name', $vehicleType->name)
+            ->assertJsonPath('metadata.partner_name', null)
             ->assertJsonPath('metadata.is_active', false);
+    }
+
+    public function test_vehicle_manage_user_can_get_active_vehicle_type_and_partner_options(): void
+    {
+        $dispatcher = $this->seededUser('dispatcher');
+        $activeVehicleType = $this->createVehicleType();
+        $inactiveVehicleType = VehicleType::create([
+            'code' => 'XE29',
+            'name' => 'Xe 29 chỗ',
+            'seats' => 29,
+            'tour_driver_commission_rate' => '0',
+            'is_active' => false,
+        ]);
+        $activePartner = $this->createPartner();
+        $inactivePartner = Partner::create([
+            'code' => 'DT0002',
+            'type' => 'vehicle_owner',
+            'name' => 'Đối tác ngừng hoạt động',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($dispatcher, 'api')->getJson('/api/master-data/vehicle-types/options')
+            ->assertOk()
+            ->assertJsonCount(1, 'metadata')
+            ->assertJsonPath('metadata.0', [
+                'id' => $activeVehicleType->id,
+                'name' => $activeVehicleType->name,
+            ])
+            ->assertJsonMissing(['id' => $inactiveVehicleType->id]);
+
+        $this->actingAs($dispatcher, 'api')->getJson('/api/master-data/partners/options')
+            ->assertOk()
+            ->assertJsonCount(1, 'metadata')
+            ->assertJsonPath('metadata.0', [
+                'id' => $activePartner->id,
+                'name' => 'Chủ xe',
+            ])
+            ->assertJsonMissing(['id' => $inactivePartner->id]);
     }
 
     public function test_vehicle_can_update_nullable_fields_change_ownership_and_be_deactivated_and_reactivated(): void

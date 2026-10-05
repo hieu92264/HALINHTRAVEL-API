@@ -18,6 +18,19 @@ class VehicleTypeService implements VehicleTypeServiceInterface
             ->all();
     }
 
+    public function options(): array
+    {
+        return VehicleType::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(static fn (VehicleType $vehicleType): array => [
+                'id' => $vehicleType->id,
+                'name' => $vehicleType->name,
+            ])
+            ->all();
+    }
+
     public function vehicleType(VehicleType $vehicleType): array
     {
         return [

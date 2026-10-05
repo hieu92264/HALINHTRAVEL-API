@@ -9,6 +9,7 @@ use App\Modules\Auth\Models\Role as RoleModel;
 use App\Modules\Auth\Models\User;
 use App\Shared\Enums\PermissionEnum;
 use App\Shared\Enums\RoleEnum;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -16,6 +17,15 @@ use Tests\TestCase;
 class SpatiePermissionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_database_seeder_assigns_admin_the_users_view_permission(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = RoleModel::findByName(RoleEnum::ADMIN->value, 'api');
+
+        $this->assertTrue($admin->hasPermissionTo(PermissionEnum::USERS_VIEW->value));
+    }
 
     public function test_a_role_grants_its_seeded_permissions(): void
     {
