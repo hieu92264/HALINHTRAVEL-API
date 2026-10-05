@@ -153,7 +153,30 @@ Một quotation chỉ có tối đa một Contract đang mở (`draft` hoặc `a
 
 Prefix: `/api/dispatch`.
 
-### 5.1. Lịch chuyến và phân công
+### 5.1. Kiểm tra năng lực Sales (snapshot)
+
+`POST /api/dispatch/availability` cần quyền `rental-capacity.view` (Sales, Dispatcher, Director, Admin). Payload:
+
+```json
+{
+  "start_at": "2026-10-20T06:00:00+07:00",
+  "end_at": "2026-10-20T18:00:00+07:00",
+  "items": [
+    { "vehicle_type_id": 4, "quantity": 2 },
+    { "vehicle_type_id": 6, "quantity": 1 }
+  ],
+  "ownership_type": null,
+  "partner_id": null
+}
+```
+
+`end_at` là bắt buộc và phải sau `start_at`. `ownership_type` có thể là `company` hoặc `partner`; `partner_id` là filter độc lập tùy chọn. Khi không gửi filter, response trả cả breakdown xe/tài xế công ty và đối tác. Mỗi `vehicle_type_id` chỉ được xuất hiện một lần trong `items`.
+
+Response có `vehicle_capacities[]` theo từng loại xe (số cần, số xe công ty/đối tác/tổng, `candidates`, `is_sufficient`), `driver_capacity` tổng hợp (tổng số lái xe cần bám theo tổng số xe) và `can_fulfill`. Xe được tính khi active, đúng loại và `vehicle_status=available`; tài xế phải active, đã vào làm, chưa nghỉ và bằng lái còn hạn tại `end_at`. Assignment `is_current=true` của schedule chưa `COMPLETED`/`CANCELLED` và giao thời gian sẽ loại cả xe lẫn tài xế đó.
+
+API chỉ đọc snapshot: không tạo reservation, không đổi trạng thái xe/tài xế và không thay thế kiểm tra chặn khi phân công ở giai đoạn sau. Frontend gọi lại ngay trước khi gửi quotation hoặc tạo Contract, hiển thị thời điểm snapshot và cảnh báo rằng tài nguyên chưa được giữ.
+
+### 5.2. Lịch chuyến và phân công
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
@@ -161,7 +184,7 @@ Prefix: `/api/dispatch`.
 | `POST /trip-schedules` | `contract_id`, `contract_item_id`, `schedule_rule_id`, `service_type`, `route_id`, `scheduled_start_at`, `scheduled_end_at`, `pickup_location`, `dropoff_location`, `journey`, `required_vehicle_type_id`, `note`. | Chỉ cho hợp đồng active; sinh `schedule_no`; mặc định `PLANNED`. |
 | `PATCH /trip-schedules/{id}`; `DELETE /trip-schedules/{id}` | Các field tạo được phép sửa. | Chỉ schedule `PLANNED` chưa có dispatch order. |
 | `POST /trip-schedules/{id}/cancel` | `note` tùy chọn. | `PLANNED`/`ASSIGNED -> CANCELLED`; chặn khi order đang chạy/đã hoàn thành. |
-| `GET /availability?start_at=&end_at=&required_vehicle_type_id=` | Trả `available_vehicles` và `available_drivers`; chấp nhận thêm `exclude_trip_schedule_id`, `ownership_type`, `partner_id`. | Kiểm tra trạng thái xe, tình trạng làm việc/hạn bằng của tài xế và các assignment giao thời gian. |
+| `POST /availability` | `start_at`, `end_at`, `items[]` (`vehicle_type_id`, `quantity`), tùy chọn `ownership_type`, `partner_id`; trả `vehicle_capacities`, `driver_capacity`, `can_fulfill`. | Snapshot năng lực chung cho Sales/điều hành; không reservation, không có `exclude_trip_schedule_id`. |
 | `GET /trip-schedules/{id}/assignments` | Trả đầy đủ lịch sử assignment, `is_current`, xe, tài xế, partner, lý do thay thế. | Có tối đa một assignment hiện hành. |
 | `POST /trip-schedules/{id}/assignments` | `vehicle_id`, `driver_id`, `partner_id` tùy chọn. | Tạo assignment `PRIMARY`, `is_current=true`, chuyển schedule `PLANNED -> ASSIGNED`. |
 | `POST /trip-schedules/{id}/assignments/substitute` | `vehicle_id`, `driver_id`, `partner_id` tùy chọn, `replace_reason`. | Đóng assignment hiện hành và tạo `SUBSTITUTE` liên kết assignment cũ trong một transaction. |

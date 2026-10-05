@@ -505,6 +505,27 @@
         { "name": "Hoàn thành hợp đồng", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}/complete", "description": "active → completed; bị chặn nếu còn lịch chuyến chưa completed/cancelled." } },
         { "name": "Hủy hợp đồng", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}/cancel", "description": "draft hoặc active → cancelled; bị chặn nếu đã có lịch chuyến hoặc phiếu thu." } }
       ]
+    },
+    {
+      "name": "Dispatch - Ki\u1ec3m tra n\u0103ng l\u1ef1c",
+      "description": "Snapshot n\u0103ng l\u1ef1c cho Sales tr\u01b0\u1edbc khi g\u1eedi b\u00e1o gi\u00e1/t\u1ea1o h\u1ee3p \u0111\u1ed3ng. C\u1ea7n rental-capacity.view; kh\u00f4ng t\u1ea1o reservation v\u00e0 kh\u00f4ng thay \u0111\u1ed5i xe/t\u00e0i x\u1ebf.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Ki\u1ec3m tra n\u0103ng l\u1ef1c xe v\u00e0 t\u00e0i x\u1ebf",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_at\": \"2026-10-20T06:00:00+07:00\",\n  \"end_at\": \"2026-10-20T18:00:00+07:00\",\n  \"items\": [\n    { \"vehicle_type_id\": {{vehicle_type_id}}, \"quantity\": 2 }\n  ],\n  \"ownership_type\": null,\n  \"partner_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/dispatch/availability",
+            "description": "C\u1ea7n end_at sau start_at v\u00e0 \u00edt nh\u1ea5t m\u1ed9t item; m\u1ed7i vehicle_type_id ch\u1ec9 c\u00f3 m\u1ed9t d\u00f2ng. Kh\u00f4ng g\u1eedi ownership_type/partner_id \u0111\u1ec3 xem c\u1ea3 ngu\u1ed3n c\u00f4ng ty v\u00e0 \u0111\u1ed1i t\u00e1c. ownership_type v\u00e0 partner_id l\u00e0 hai filter \u0111\u1ed9c l\u1eadp t\u00f9y ch\u1ecdn. Response c\u00f3 vehicle_capacities, driver_capacity v\u00e0 can_fulfill. K\u1ebft qu\u1ea3 ch\u1ec9 l\u00e0 snapshot, kh\u00f4ng gi\u1eef xe/t\u00e0i x\u1ebf."
+          }
+        }
+      ]
     }
   ]
 }
