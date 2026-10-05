@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/database/seeders/local/*
+!/database/seeders/local/
+!/database/seeders/local/README.md

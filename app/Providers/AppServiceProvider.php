@@ -22,6 +22,8 @@ use App\Modules\MasterData\Services\RouteRateService;
 use App\Modules\MasterData\Services\RouteService;
 use App\Modules\MasterData\Services\VehicleService;
 use App\Modules\MasterData\Services\VehicleTypeService;
+use App\Modules\Rental\Interfaces\RentalRequestServiceInterface;
+use App\Modules\Rental\Services\RentalRequestService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -45,6 +47,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(RouteRateServiceInterface::class, RouteRateService::class);
         $this->app->singleton(VehicleTypeServiceInterface::class, VehicleTypeService::class);
         $this->app->singleton(VehicleServiceInterface::class, VehicleService::class);
+
+        //rental
+        $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
     }
 
     /**
@@ -55,7 +60,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', static function (Request $request): Limit {
             $login = Str::lower((string) $request->input('user_name'));
 
-            return Limit::perMinute(5)->by($login.'|'.$request->ip());
+            return Limit::perMinute(5)->by($login . '|' . $request->ip());
         });
     }
 }

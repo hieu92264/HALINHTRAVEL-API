@@ -20,6 +20,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment('testing') && ImportedHalinhTravelSeeder::isAvailable()) {
+            $this->call(ImportedHalinhTravelSeeder::class);
+
+            return;
+        }
+
         $this->call([
             AuthDatabaseSeeder::class,
             CustomerDatabaseSeeder::class,
