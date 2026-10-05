@@ -30,7 +30,7 @@ Route::prefix('master-data')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::CUSTOMERS_MANAGE->value)->group(function () {
             Route::post('/customers', [CustomerController::class, 'store']);
-            Route::put('/customers/{customer}', [CustomerController::class, 'update']);
+            Route::patch('/customers/{customer}', [CustomerController::class, 'update']);
             Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
         });
 
@@ -42,7 +42,7 @@ Route::prefix('master-data')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::PARTNERS_MANAGE->value)->group(function () {
             Route::post('/partners', [PartnerController::class, 'store']);
-            Route::put('/partners/{partner}', [PartnerController::class, 'update']);
+            Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
             Route::delete('/partners/{partner}', [PartnerController::class, 'destroy']);
         });
 
@@ -54,7 +54,7 @@ Route::prefix('master-data')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::VEHICLE_TYPES_MANAGE->value)->group(function () {
             Route::post('/vehicle-types', [VehicleTypeController::class, 'store']);
-            Route::put('/vehicle-types/{vehicleType}', [VehicleTypeController::class, 'update']);
+            Route::patch('/vehicle-types/{vehicleType}', [VehicleTypeController::class, 'update']);
             Route::delete('/vehicle-types/{vehicleType}', [VehicleTypeController::class, 'destroy']);
         });
 
@@ -66,7 +66,7 @@ Route::prefix('master-data')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::VEHICLES_MANAGE->value)->group(function () {
             Route::post('/vehicles', [VehicleController::class, 'store']);
-            Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update']);
+            Route::patch('/vehicles/{vehicle}', [VehicleController::class, 'update']);
             Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy']);
         });
 
@@ -78,7 +78,7 @@ Route::prefix('master-data')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::DRIVERS_MANAGE->value)->group(function () {
             Route::post('/drivers', [DriverController::class, 'store']);
-            Route::put('/drivers/{driver}', [DriverController::class, 'update']);
+            Route::patch('/drivers/{driver}', [DriverController::class, 'update']);
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy']);
         });
 
@@ -102,7 +102,7 @@ Route::prefix('master-data')->group(function () {
 
         Route::middleware('permission:'.PermissionEnum::EXPENSE_TYPES_MANAGE->value)->group(function () {
             Route::post('/expense-types', [ExpenseTypeController::class, 'store']);
-            Route::put('/expense-types/{expenseType}', [ExpenseTypeController::class, 'update']);
+            Route::patch('/expense-types/{expenseType}', [ExpenseTypeController::class, 'update']);
             Route::delete('/expense-types/{expenseType}', [ExpenseTypeController::class, 'destroy']);
         });
 

@@ -166,7 +166,7 @@ class VehicleApiTest extends TestCase
         $partner = $this->createPartner();
         $vehicle = $this->createVehicle($vehicleType, '15B-123.45', true, $partner);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/vehicles/{$vehicle->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/vehicles/{$vehicle->id}", [
             'ownership_type' => 'company',
             'brand' => null,
             'current_odometer' => 25000,
@@ -181,7 +181,7 @@ class VehicleApiTest extends TestCase
 
         $this->assertDatabaseHas('vehicles', ['id' => $vehicle->id, 'is_active' => false]);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/vehicles/{$vehicle->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/vehicles/{$vehicle->id}", [
             'is_active' => true,
         ])->assertOk()
             ->assertJsonPath('metadata.is_active', true);

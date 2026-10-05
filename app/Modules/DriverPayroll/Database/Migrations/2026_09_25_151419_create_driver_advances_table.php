@@ -1,6 +1,6 @@
 <?php
 
-use App\Shared\Enums\DriverAttendanceStatusEnum;
+use App\Shared\Enums\DriverAdvanceStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -26,8 +26,8 @@ return new class extends Migration
             $table->string('description', 500)->nullable();
 
             // Trạng thái
-            $table->enum('status', DriverAttendanceStatusEnum::values())
-                ->default(DriverAttendanceStatusEnum::PENDING)
+            $table->enum('status', DriverAdvanceStatusEnum::values())
+                ->default(DriverAdvanceStatusEnum::PENDING)
                 ->comment('pending / approved / paid / cancelled');
 
             // Người duyệt và Người tạo

@@ -128,7 +128,7 @@ class DriverApiTest extends TestCase
         $partner = $this->createPartner();
         $driver = $this->createDriver('B2-123456', true, $partner);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/drivers/{$driver->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/drivers/{$driver->id}", [
             'type' => 'company',
             'phone' => null,
             'base_salary' => '15000000.75',
@@ -143,7 +143,7 @@ class DriverApiTest extends TestCase
 
         $this->assertDatabaseHas('drivers', ['id' => $driver->id, 'is_active' => false]);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/drivers/{$driver->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/drivers/{$driver->id}", [
             'is_active' => true,
         ])->assertOk()
             ->assertJsonPath('metadata.is_active', true);
