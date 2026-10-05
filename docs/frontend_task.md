@@ -121,8 +121,8 @@ Mỗi danh mục dùng list + form/detail, confirmation trước deactivate và 
 | --- | --- | --- |
 | FND-24 — Hợp đồng | `contracts.view/manage`; `GET, POST /api/contract/contracts`; `GET, PATCH, DELETE /contracts/{id}`; `POST /contracts/from-quotation` | List và detail theo khách/loại/kỳ/trạng thái. Form item gồm tuyến, loại xe, dịch vụ, số lượng, đơn giá, lương lái, điểm đón/trả; total là response backend. |
 | FND-25 — Lifecycle hợp đồng | `POST /api/contract/contracts/{id}/activate`, `/complete`, `/cancel` | Detail tabs tổng quan, items, lịch, lịch chuyến, phiếu thu và attachment; sửa chỉ khi draft, dialog giải thích điều kiện action, sau action refresh toàn bộ tabs. |
-| FND-26 — Quy tắc lịch | `GET, POST /api/contract/contracts/{contract_id}/schedule-rules`; `GET, PATCH, DELETE /schedule-rules/{id}`; `PUT /schedule-rules/{id}/days` | Builder rule cho hợp đồng active; grid thứ/ngày với giờ đón-về/ca; xe/tài xế mặc định chỉ là gợi ý phân công. |
-| FND-27 — Sinh lịch chuyến | `POST /api/contract/schedule-rules/{id}/generate-trip-schedules` | Dialog chọn khoảng ngày, hiển thị `created`, `skipped`, `conflicts` từ response và link sang lịch chuyến với filter phù hợp. |
+| FND-26 — Quy tắc lịch | `GET, POST /api/contract/contracts/{contract_id}/schedule-rules`; `GET, PATCH, DELETE /schedule-rules/{id}`; `PUT /schedule-rules/{id}/days` | Builder chỉ cho Contract active; grid thứ/ngày với giờ đón-về/ca. Cảnh báo rõ xe/tài xế mặc định chỉ là gợi ý, không giữ tài nguyên. Khi `is_locked=true` hoặc `trip_schedules_count > 0`, khóa mọi thao tác sửa, thay days và deactivate. |
+| FND-27 — Sinh lịch chuyến | `POST /api/contract/schedule-rules/{id}/generate-trip-schedules` | Dialog chỉ cho chọn khoảng nằm trong hiệu lực rule/hợp đồng; yêu cầu các day liên quan có giờ về. Hiển thị từng `created`, `skipped`, `conflicts` cùng `summary`; sau đó refetch rule để nhận trạng thái locked. |
 
 ## 6. Điều hành
 

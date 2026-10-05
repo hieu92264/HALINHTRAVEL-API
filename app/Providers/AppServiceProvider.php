@@ -6,7 +6,9 @@ use App\Modules\Auth\Interfaces\AccessManagementServiceInterface;
 use App\Modules\Auth\Interfaces\AuthServiceInterface;
 use App\Modules\Auth\Services\AccessManagementService;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Contract\Interfaces\ContractScheduleRuleServiceInterface;
 use App\Modules\Contract\Interfaces\ContractServiceInterface;
+use App\Modules\Contract\Services\ContractScheduleRuleService;
 use App\Modules\Contract\Services\ContractService;
 use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
 use App\Modules\Dispatch\Services\AvailabilityService;
@@ -59,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
         $this->app->singleton(QuotationServiceInterface::class, QuotationService::class);
         $this->app->singleton(ContractServiceInterface::class, ContractService::class);
+        $this->app->singleton(ContractScheduleRuleServiceInterface::class, ContractScheduleRuleService::class);
     }
 
     /**

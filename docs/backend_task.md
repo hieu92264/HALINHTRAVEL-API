@@ -144,10 +144,10 @@ Một quotation chỉ có tối đa một Contract đang mở (`draft` hoặc `a
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
-| `GET, POST /contracts/{contract_id}/schedule-rules` | Create nhận `contract_item_id`, `route_id`, `effective_from`, `effective_to`, `default_vehicle_id`, `default_driver_id`, `note`. | Chỉ hợp đồng `active`; item phải thuộc hợp đồng. Xe/tài xế mặc định chỉ là gợi ý phân công. |
-| `GET /schedule-rules/{id}`; `PATCH, DELETE /schedule-rules/{id}` | Detail luôn gồm `days[]`. | Không sửa/deactivate rule đã sinh lịch trong quá khứ. |
-| `PUT /schedule-rules/{id}/days` | `days[]`: `weekday` (`Mon`…`Sun`), `pickup_time`, `return_time`, `shift_name`. | Thay toàn bộ ngày lịch trong transaction; unique theo rule + weekday + pickup time. |
-| `POST /schedule-rules/{id}/generate-trip-schedules` | `from_date`, `to_date`; response có `created`, `skipped`, `conflicts`. | Chỉ sinh ngày trong hiệu lực rule/hợp đồng; không tạo trùng lịch đã có. |
+| `GET, POST /contracts/{contract_id}/schedule-rules` | Create nhận `contract_item_id`, `route_id` nullable, `effective_from`, `effective_to`, `default_vehicle_id`, `default_driver_id`, `note`. | Chỉ Contract `active`; item phải thuộc Contract. Route là route chung hoặc thuộc customer của Contract. Xe/tài xế mặc định chỉ là gợi ý, không tạo assignment. |
+| `GET /schedule-rules/{id}`; `PATCH, DELETE /schedule-rules/{id}` | Detail luôn gồm `days[]`, `trip_schedules_count`, `is_locked`. DELETE chỉ đặt `is_active=false`. | Không sửa, thay days hoặc deactivate rule đã sinh bất kỳ Trip Schedule nào; trả `409`. |
+| `PUT /schedule-rules/{id}/days` | `days[]`: `weekday` (`Mon`…`Sun`), `pickup_time`, `return_time` nullable, `shift_name`. | Thay toàn bộ ngày lịch trong transaction; ít nhất một dòng, unique theo rule + weekday + pickup time; return time nếu có phải sau pickup time trong cùng ngày. |
+| `POST /schedule-rules/{id}/generate-trip-schedules` | `from_date`, `to_date`; response có mảng `created`, `skipped`, `conflicts` và `summary`. | Khoảng ngày phải nằm trong hiệu lực rule/hợp đồng; sinh `PLANNED`. Cùng rule/thời điểm là `skipped`; lịch khác cùng item/thời điểm là `conflicts`. Day được sinh phải có `return_time`. |
 
 ## 5. Module `Dispatch`
 
