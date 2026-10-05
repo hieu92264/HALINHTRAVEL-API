@@ -44,6 +44,17 @@ class SpatiePermissionTest extends TestCase
         $this->assertFalse($user->can(PermissionEnum::PAYROLLS_MANAGE->value));
     }
 
+    public function test_seeder_creates_users_view_permission_for_the_api_guard(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+
+        $permission = PermissionModel::findByName(PermissionEnum::USERS_VIEW->value, 'api');
+        $admin = RoleModel::findByName(RoleEnum::ADMIN->value, 'api');
+
+        $this->assertSame('api', $permission->guard_name);
+        $this->assertTrue($admin->hasPermissionTo($permission));
+    }
+
     public function test_driver_has_no_global_trip_permissions(): void
     {
         $this->seed(AuthDatabaseSeeder::class);

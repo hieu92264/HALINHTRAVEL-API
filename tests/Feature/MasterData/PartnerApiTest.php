@@ -96,7 +96,7 @@ class PartnerApiTest extends TestCase
             'bank_account' => '00123456789',
         ])->save();
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/partners/{$partner->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/partners/{$partner->id}", [
             'bank_account' => null,
             'opening_balance' => '500.25',
         ])->assertOk()
@@ -109,7 +109,7 @@ class PartnerApiTest extends TestCase
 
         $this->assertDatabaseHas('partners', ['id' => $partner->id, 'is_active' => false]);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/partners/{$partner->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/partners/{$partner->id}", [
             'is_active' => true,
         ])->assertOk()
             ->assertJsonPath('metadata.is_active', true);
