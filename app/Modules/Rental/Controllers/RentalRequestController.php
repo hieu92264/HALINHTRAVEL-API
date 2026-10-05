@@ -17,9 +17,15 @@ class RentalRequestController extends Controller
 
     public function __construct(private readonly RentalRequestServiceInterface $service) {}
 
-    public function index() {}
+    public function index(): JsonResponse
+    {
+        return $this->success($this->service->getList(), 'Lấy danh sách yêu cầu thuê xe thành công.');
+    }
 
-    public function show() {}
+    public function show(RentalRequest $rentalRequest): JsonResponse
+    {
+        return $this->success($this->service->getDetail($rentalRequest), 'Lấy thông tin yêu cầu thuê xe thành công.');
+    }
 
     public function store(StoreRentalRequest $request): JsonResponse
     {
@@ -38,11 +44,25 @@ class RentalRequestController extends Controller
         );
     }
 
-    public function destroy() {}
+    public function destroy(RentalRequest $rentalRequest): JsonResponse
+    {
+        $this->service->delete($rentalRequest->id);
 
-    public function markQuoted() {}
+        return $this->success(null, 'Ngừng hoạt động yêu cầu thuê xe thành công.');
+    }
 
-    public function accept() {}
+    public function markQuoted(RentalRequest $rentalRequest): JsonResponse
+    {
+        return $this->success($this->service->markQuoted($rentalRequest->id), 'Cập nhật yêu cầu đã báo giá thành công.');
+    }
 
-    public function reject() {}
+    public function accept(RentalRequest $rentalRequest): JsonResponse
+    {
+        return $this->success($this->service->acceptQuoted($rentalRequest->id), 'Chấp nhận yêu cầu thuê xe thành công.');
+    }
+
+    public function reject(RentalRequest $rentalRequest): JsonResponse
+    {
+        return $this->success($this->service->rejectQuoted($rentalRequest->id), 'Từ chối yêu cầu thuê xe thành công.');
+    }
 }

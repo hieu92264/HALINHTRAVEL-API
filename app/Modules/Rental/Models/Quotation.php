@@ -28,6 +28,8 @@ class Quotation extends Model
         'status',
         'approved_by',
         'approved_at',
+        'customer_responded_at',
+        'customer_response_note',
     ];
 
     protected function casts(): array
@@ -40,6 +42,7 @@ class Quotation extends Model
             'total_amount' => 'decimal:2',
             'status' => QuotationStatusEnum::class,
             'approved_at' => 'datetime',
+            'customer_responded_at' => 'datetime',
         ]);
     }
 
@@ -66,5 +69,10 @@ class Quotation extends Model
     public function contracts(): HasMany
     {
         return $this->hasMany(Contract::class);
+    }
+
+    public function responseTokens(): HasMany
+    {
+        return $this->hasMany(QuotationResponseToken::class);
     }
 }

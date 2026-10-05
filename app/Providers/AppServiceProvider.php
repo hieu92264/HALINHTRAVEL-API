@@ -22,7 +22,9 @@ use App\Modules\MasterData\Services\RouteRateService;
 use App\Modules\MasterData\Services\RouteService;
 use App\Modules\MasterData\Services\VehicleService;
 use App\Modules\MasterData\Services\VehicleTypeService;
+use App\Modules\Rental\Interfaces\QuotationServiceInterface;
 use App\Modules\Rental\Interfaces\RentalRequestServiceInterface;
+use App\Modules\Rental\Services\QuotationService;
 use App\Modules\Rental\Services\RentalRequestService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -48,8 +50,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(VehicleTypeServiceInterface::class, VehicleTypeService::class);
         $this->app->singleton(VehicleServiceInterface::class, VehicleService::class);
 
-        //rental
+        // rental
         $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
+        $this->app->singleton(QuotationServiceInterface::class, QuotationService::class);
     }
 
     /**
@@ -60,7 +63,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', static function (Request $request): Limit {
             $login = Str::lower((string) $request->input('user_name'));
 
-            return Limit::perMinute(5)->by($login . '|' . $request->ip());
+            return Limit::perMinute(5)->by($login.'|'.$request->ip());
+        });
+        RateLimiter::for('quotation-response', static function (Request $request): Limit {
+            return Limit::perMinute(10)->by($request->ip().'|'.$request->route('token'));
         });
     }
 }

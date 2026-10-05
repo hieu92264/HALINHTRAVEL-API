@@ -13,7 +13,6 @@ use App\Modules\Rental\Models\RentalRequest;
 use App\Shared\Enums\RentalRequestStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use LogicException;
 
 class RentalRequestService implements RentalRequestServiceInterface
 {
@@ -219,22 +218,54 @@ class RentalRequestService implements RentalRequestServiceInterface
 
     public function delete(int $id): array
     {
-        throw new LogicException('Rental request deletion has not been implemented.');
+        $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+        if ($rentalRequest->status !== RentalRequestStatusEnum::NEW) {
+            abort(409, 'Chỉ yêu cầu thuê xe ở trạng thái mới được ngừng hoạt động.');
+        }
+
+        $rentalRequest->forceFill(['is_active' => false])->save();
+
+        return $this->rentalRequest($rentalRequest->fresh());
     }
 
     public function markQuoted(int $id): array
     {
-        throw new LogicException('Rental request quotation workflow has not been implemented.');
+        $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+        if ($rentalRequest->status === RentalRequestStatusEnum::QUOTED) {
+            return $this->rentalRequest($rentalRequest);
+        }
+        if ($rentalRequest->status !== RentalRequestStatusEnum::NEW) {
+            abort(409, 'Yêu cầu thuê xe không thể chuyển sang trạng thái đã báo giá.');
+        }
+        if (! $rentalRequest->quotations()->where('status', 'sent')->exists()) {
+            abort(422, 'Cần có ít nhất một báo giá đã gửi trước khi chuyển yêu cầu sang đã báo giá.');
+        }
+
+        $rentalRequest->forceFill(['status' => RentalRequestStatusEnum::QUOTED])->save();
+
+        return $this->rentalRequest($rentalRequest->fresh());
     }
 
     public function acceptQuoted(int $id): array
     {
-        throw new LogicException('Rental request acceptance workflow has not been implemented.');
+        $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+        if ($rentalRequest->status !== RentalRequestStatusEnum::QUOTED) {
+            abort(409, 'Chỉ yêu cầu đã báo giá mới được chấp nhận.');
+        }
+        $rentalRequest->forceFill(['status' => RentalRequestStatusEnum::ACCEPTED])->save();
+
+        return $this->rentalRequest($rentalRequest->fresh());
     }
 
     public function rejectQuoted(int $id): array
     {
-        throw new LogicException('Rental request rejection workflow has not been implemented.');
+        $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+        if (! in_array($rentalRequest->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
+            abort(409, 'Yêu cầu thuê xe không thể bị từ chối ở trạng thái hiện tại.');
+        }
+        $rentalRequest->forceFill(['status' => RentalRequestStatusEnum::REJECTED])->save();
+
+        return $this->rentalRequest($rentalRequest->fresh());
     }
 
     /**
