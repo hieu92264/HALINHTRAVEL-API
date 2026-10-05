@@ -42,7 +42,9 @@ class RouteRateApiTest extends TestCase
         ])->assertCreated();
 
         $response->assertJsonPath('metadata.route_id', $route->id)
+            ->assertJsonPath('metadata.route_name', 'Nội thành Hải Phòng')
             ->assertJsonPath('metadata.vehicle_type_id', $vehicleType->id)
+            ->assertJsonPath('metadata.vehicle_type_name', 'Xe 16 chỗ')
             ->assertJsonPath('metadata.customer_price', '1250000.50')
             ->assertJsonPath('metadata.driver_wage', '300000.25')
             ->assertJsonPath('metadata.effective_from', '2026-01-01')
@@ -87,12 +89,18 @@ class RouteRateApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'metadata')
             ->assertJsonFragment(['id' => $active->id, 'is_active' => true])
+            ->assertJsonFragment([
+                'route_name' => 'Nội thành Hải Phòng',
+                'vehicle_type_name' => 'Xe 16 chỗ',
+            ])
             ->assertJsonFragment(['id' => $inactive->id, 'is_active' => false])
             ->assertJsonMissingPath('metadata.data');
 
         $this->actingAs($admin, 'api')->getJson("/api/master-data/route-rates/{$inactive->id}")
             ->assertOk()
             ->assertJsonPath('metadata.id', $inactive->id)
+            ->assertJsonPath('metadata.route_name', 'Nội thành Hải Phòng')
+            ->assertJsonPath('metadata.vehicle_type_name', 'Xe 16 chỗ')
             ->assertJsonPath('metadata.is_active', false);
     }
 
@@ -139,6 +147,8 @@ class RouteRateApiTest extends TestCase
         $this->actingAs($admin, 'api')->getJson("/api/master-data/route-rates/lookup?route_id={$route->id}&vehicle_type_id={$vehicleType->id}&at_date=2026-02-15")
             ->assertOk()
             ->assertJsonPath('metadata.id', $current->id)
+            ->assertJsonPath('metadata.route_name', 'Nội thành Hải Phòng')
+            ->assertJsonPath('metadata.vehicle_type_name', 'Xe 16 chỗ')
             ->assertJsonPath('metadata.effective_from', '2026-02-01');
 
         $this->actingAs($admin, 'api')->getJson("/api/master-data/route-rates/lookup?route_id={$route->id}&vehicle_type_id={$vehicleType->id}&at_date=2026-01-15")
