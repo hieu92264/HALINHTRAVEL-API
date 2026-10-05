@@ -23,6 +23,10 @@ class AuthDatabaseSeeder extends Seeder
             PermissionModel::findOrCreate($permission->value, 'api');
         }
 
+        // Ensure Spatie resolves the permissions just created above when roles are
+        // synchronized in the same seeding process.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         $admin = RoleModel::findOrCreate(RoleEnum::ADMIN->value, 'api');
         $admin->syncPermissions(PermissionEnum::values());
 

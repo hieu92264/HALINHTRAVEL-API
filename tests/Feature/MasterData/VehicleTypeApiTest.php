@@ -87,7 +87,7 @@ class VehicleTypeApiTest extends TestCase
         $admin = $this->seededUser('admin');
         $vehicleType = $this->createVehicleType('XE16');
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/vehicle-types/{$vehicleType->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/vehicle-types/{$vehicleType->id}", [
             'code' => 'XE17',
             'tour_driver_commission_rate' => '7.25',
         ])->assertOk()
@@ -100,7 +100,7 @@ class VehicleTypeApiTest extends TestCase
 
         $this->assertDatabaseHas('vehicle_types', ['id' => $vehicleType->id, 'is_active' => false]);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/vehicle-types/{$vehicleType->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/vehicle-types/{$vehicleType->id}", [
             'is_active' => true,
         ])->assertOk()
             ->assertJsonPath('metadata.is_active', true);

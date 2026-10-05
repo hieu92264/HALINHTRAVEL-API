@@ -83,7 +83,7 @@ class ExpenseTypeApiTest extends TestCase
         $admin = $this->seededUser('admin');
         $expenseType = $this->createExpenseType('FUEL');
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/expense-types/{$expenseType->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/expense-types/{$expenseType->id}", [
             'code' => 'PARKING',
             'scope' => 'general',
         ])->assertOk()
@@ -96,7 +96,7 @@ class ExpenseTypeApiTest extends TestCase
 
         $this->assertDatabaseHas('expense_types', ['id' => $expenseType->id, 'is_active' => false]);
 
-        $this->actingAs($admin, 'api')->putJson("/api/master-data/expense-types/{$expenseType->id}", [
+        $this->actingAs($admin, 'api')->patchJson("/api/master-data/expense-types/{$expenseType->id}", [
             'is_active' => true,
         ])->assertOk()
             ->assertJsonPath('metadata.is_active', true);

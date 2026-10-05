@@ -101,7 +101,7 @@ class CustomerApiTest extends TestCase
 
         $this->assertDatabaseHas('customers', ['id' => $customer->id, 'is_active' => false]);
 
-        $this->actingAs($sales, 'api')->putJson("/api/master-data/customers/{$customer->id}", [
+        $this->actingAs($sales, 'api')->patchJson("/api/master-data/customers/{$customer->id}", [
             'name' => 'Updated Customer',
             'is_active' => true,
         ])->assertOk()
@@ -130,14 +130,14 @@ class CustomerApiTest extends TestCase
             'tax_code' => '0311111111',
         ])->save();
 
-        $this->actingAs($sales, 'api')->putJson("/api/master-data/customers/{$customer->id}", [
+        $this->actingAs($sales, 'api')->patchJson("/api/master-data/customers/{$customer->id}", [
             'phone' => null,
         ])->assertOk()
             ->assertJsonPath('metadata.phone', null)
             ->assertJsonPath('metadata.cccd', '001234567890')
             ->assertJsonPath('metadata.tax_code', '0311111111');
 
-        $this->actingAs($sales, 'api')->putJson("/api/master-data/customers/{$customer->id}", [
+        $this->actingAs($sales, 'api')->patchJson("/api/master-data/customers/{$customer->id}", [
             'type' => 'company',
             'tax_code' => '0319999999',
         ])->assertOk()
