@@ -6,6 +6,8 @@ use App\Modules\Auth\Interfaces\AccessManagementServiceInterface;
 use App\Modules\Auth\Interfaces\AuthServiceInterface;
 use App\Modules\Auth\Services\AccessManagementService;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Contract\Interfaces\ContractServiceInterface;
+use App\Modules\Contract\Services\ContractService;
 use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Interfaces\DriverServiceInterface;
 use App\Modules\MasterData\Interfaces\ExpenseTypeServiceInterface;
@@ -53,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
         // rental
         $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
         $this->app->singleton(QuotationServiceInterface::class, QuotationService::class);
+        $this->app->singleton(ContractServiceInterface::class, ContractService::class);
     }
 
     /**
