@@ -18,7 +18,7 @@ class UpdateRentalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => ['sometimes', 'integer', Rule::exists('customers', 'id')],
+            'customer_id' => ['sometimes', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
             'source' => ['sometimes', 'nullable', 'string', 'max:30'],
             'requested_at' => ['sometimes', 'date'],
             'service_type' => ['sometimes', Rule::enum(RentalServiceTypeEnum::class)],
@@ -33,9 +33,9 @@ class UpdateRentalRequest extends FormRequest
             ],
             'note' => ['sometimes', 'nullable', 'string'],
             'items' => ['sometimes', 'array', 'min:1'],
-            'items.*.vehicle_type_id' => ['required', 'integer', Rule::exists('vehicle_types', 'id')],
+            'items.*.vehicle_type_id' => ['required', 'integer', Rule::exists('vehicle_types', 'id')->where('is_active', true)],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')],
+            'items.*.route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],
             'items.*.note' => ['nullable', 'string'],
         ];
     }
