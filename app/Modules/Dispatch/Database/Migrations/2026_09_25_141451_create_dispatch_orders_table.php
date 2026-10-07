@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\DispatchOrderStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -43,7 +44,7 @@ return new class extends Migration
             $table->decimal('external_driver_cost', 18, 2)->default(0)->comment('Nếu thuê lái');
 
             // Trạng thái & Ghi chú
-            $table->enum('status', \App\Shared\Enums\DispatchOrderStatusEnum::values())
+            $table->enum('status', DispatchOrderStatusEnum::values())
                 ->comment('issued / accepted / in_progress / completed / cancelled');
             $table->dateTime('completed_at')->nullable();
             $table->text('note')->nullable();

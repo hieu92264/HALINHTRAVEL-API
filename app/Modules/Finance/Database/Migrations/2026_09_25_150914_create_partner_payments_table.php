@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\PaymentMethodEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -25,7 +26,7 @@ return new class extends Migration
             // Chi tiết thanh toán
             $table->dateTime('paid_at'); // DATETIME[cite: 17]
             $table->decimal('amount', 18, 2); // DECIMAL(18,2)[cite: 17]
-            $table->enum('payment_method', \App\Shared\Enums\PaymentMethodEnum::values())->comment('cash / bank_transfer');
+            $table->enum('payment_method', PaymentMethodEnum::values())->comment('cash / bank_transfer');
             $table->string('description', 500)->nullable();
 
             // Trạng thái khóa sổ

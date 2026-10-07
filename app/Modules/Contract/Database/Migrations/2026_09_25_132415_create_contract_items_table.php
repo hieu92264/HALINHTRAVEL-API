@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\RentalServiceTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -24,7 +25,7 @@ return new class extends Migration
             $table->foreignId('vehicle_type_id')->constrained('vehicle_types')->restrictOnDelete();
 
             // Thông tin dịch vụ
-            $table->enum('service_type', \App\Shared\Enums\RentalServiceTypeEnum::values())->comment('fixed / tourism / school / business');
+            $table->enum('service_type', RentalServiceTypeEnum::values())->comment('fixed / tourism / school / business');
             $table->unsignedInteger('quantity')->default(1);
 
             // Chi phí & Lương

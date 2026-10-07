@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\OwnershipTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,7 +23,7 @@ return new class extends Migration
             $table->foreign('user_name')->references('user_name')->on('users')->nullOnDelete();
             $table->foreignId('partner_id')->nullable()->constrained('partners')->nullOnDelete()
                 ->comment('Đối tác nếu tài xế ngoài');
-            $table->enum('type', \App\Shared\Enums\OwnershipTypeEnum::values())->comment('Loại tài xế: công ty hay đối tác');
+            $table->enum('type', OwnershipTypeEnum::values())->comment('Loại tài xế: công ty hay đối tác');
 
             // Thông tin cá nhân
             $table->string('full_name', 255); // VARCHAR(255)[cite: 6]

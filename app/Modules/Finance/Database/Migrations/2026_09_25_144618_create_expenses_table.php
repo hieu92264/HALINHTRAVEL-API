@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\ExpenseTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +19,7 @@ return new class extends Migration
 
             $table->string('expense_no', 50)->unique()->comment('Ví dụ: PC20260001');
             $table->foreignId('expense_type_id')->constrained('expense_types')->restrictOnDelete();
-            $table->enum('scope', \App\Shared\Enums\ExpenseTypeEnum::values())
+            $table->enum('scope', ExpenseTypeEnum::values())
                 ->comment('vehicle / trip / general');
 
             $table->foreignId('vehicle_id')->nullable()->constrained('vehicles')->nullOnDelete(); // BIGINT UNSIGNED FK NULL[cite: 23]

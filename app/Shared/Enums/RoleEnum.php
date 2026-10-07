@@ -4,7 +4,8 @@ namespace App\Shared\Enums;
 
 use App\Shared\Enums\Concerns\EnumToArray;
 
-enum RoleEnum: string {
+enum RoleEnum: string
+{
     use EnumToArray;
 
     case ADMIN = 'admin'; // quản trị viên

@@ -11,7 +11,8 @@ return [
         'fin' => 'Finance',
         'rental' => 'Rental',
         'other' => 'Other',
-        'dp' => 'DriverPayroll'
+        'dp' => 'DriverPayroll',
+        'dash' => 'Dashboard',
     ],
     'api_prefix' => 'api',
     'stubs_path' => base_path('stubs/modules'),
@@ -19,10 +20,10 @@ return [
     'postman' => [
         'auth_middleware' => [
             'auth',
-            'auth:*'
+            'auth:*',
         ],
         'auth_type' => 'bearer',
         'token_variable' => 'access_token',
-        'base_url_variable' => 'base_url'
-    ]
+        'base_url_variable' => 'base_url',
+    ],
 ];

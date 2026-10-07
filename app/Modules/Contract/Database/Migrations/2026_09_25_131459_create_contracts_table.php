@@ -1,5 +1,7 @@
 <?php
 
+use App\Shared\Enums\ContractStatusEnum;
+use App\Shared\Enums\ContractTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -23,7 +25,7 @@ return new class extends Migration
             $table->foreignId('quotation_id')->nullable()->constrained('quotations')->nullOnDelete();
 
             // Loại hợp đồng & Thời gian
-            $table->enum('contract_type', \App\Shared\Enums\ContractTypeEnum::values())->comment('trip / principle');
+            $table->enum('contract_type', ContractTypeEnum::values())->comment('trip / principle');
             $table->date('signed_date')->nullable();
             $table->date('effective_from');
             $table->date('effective_to')->nullable()->comment('Hợp đồng chuyến có thể cùng ngày');
@@ -34,7 +36,7 @@ return new class extends Migration
             $table->text('payment_terms')->nullable()->comment('Điều kiện thanh toán');
             $table->longText('terms')->nullable()->comment('Điều khoản');
 
-            $table->enum('status', \App\Shared\Enums\ContractStatusEnum::values())->comment('draft / active / completed / cancelled');
+            $table->enum('status', ContractStatusEnum::values())->comment('draft / active / completed / cancelled');
         });
     }
 

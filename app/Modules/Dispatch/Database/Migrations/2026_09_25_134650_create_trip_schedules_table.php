@@ -1,5 +1,7 @@
 <?php
 
+use App\Shared\Enums\RentalServiceTypeEnum;
+use App\Shared\Enums\TripScheduleStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -25,7 +27,7 @@ return new class extends Migration
                 ->comment('Lịch cố định sinh từ rule');
 
             // Phân loại & Tuyến đường
-            $table->enum('service_type', \App\Shared\Enums\RentalServiceTypeEnum::values())->comment('fixed / tourism / school / business');
+            $table->enum('service_type', RentalServiceTypeEnum::values())->comment('fixed / tourism / school / business');
             $table->foreignId('route_id')->nullable()->constrained('routes')->nullOnDelete();
 
             // Thời gian
@@ -41,7 +43,7 @@ return new class extends Migration
             $table->foreignId('required_vehicle_type_id')->nullable()->constrained('vehicle_types')->nullOnDelete();
 
             // Trạng thái & Ghi chú
-            $table->enum('status', \App\Shared\Enums\TripScheduleStatusEnum::values())->comment('planned / assigned / in_progress / completed / cancelled');
+            $table->enum('status', TripScheduleStatusEnum::values())->comment('planned / assigned / in_progress / completed / cancelled');
             $table->text('note')->nullable();
 
             $table->index(['scheduled_start_at', 'scheduled_end_at', 'status'], 'idx_schedule_time_status');

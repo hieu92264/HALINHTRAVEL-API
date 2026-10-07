@@ -8,6 +8,6 @@ enum TripAssignmentTypeEnum: string
 {
     use EnumToArray;
 
-    case PRIMARY = 'PRIMARY';// tài xế chính
+    case PRIMARY = 'PRIMARY'; // tài xế chính
     case SUBSTITUTE = 'SUBSTITUTE'; // Thay thế
 }

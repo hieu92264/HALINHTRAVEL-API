@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\PayrollStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -24,8 +25,8 @@ return new class extends Migration
             $table->date('to_date');
 
             // Trạng thái
-            $table->enum('status', \App\Shared\Enums\PayrollStatusEnum::values())
-                ->default(\App\Shared\Enums\PayrollStatusEnum::DRAFT)
+            $table->enum('status', PayrollStatusEnum::values())
+                ->default(PayrollStatusEnum::DRAFT)
                 ->comment('draft / calculated / approved / paid / locked');
 
             // Người duyệt

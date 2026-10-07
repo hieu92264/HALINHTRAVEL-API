@@ -39,7 +39,7 @@ class LocaleHelper
 
     public static function requestCandidates(?Request $request = null): array
     {
-        if (!$request) {
+        if (! $request) {
             return [];
         }
 
@@ -47,7 +47,7 @@ class LocaleHelper
             $request->query('locale'),
             $request->header('X-Locale'),
             $request->header('Accept-Language'),
-            $request->query('X-Lang')
+            $request->query('X-Lang'),
         ];
     }
 
@@ -55,12 +55,12 @@ class LocaleHelper
     {
         $configuredLocales = config('app.supported_locales', ['en', 'vi']);
 
-        if (!is_array($configuredLocales)) {
+        if (! is_array($configuredLocales)) {
             $configuredLocales = ['en', 'vi'];
         }
 
         $locales = array_values(array_unique(array_filter(array_map(
-            static fn(mixed $locale): ?string => static::normalize($locale),
+            static fn (mixed $locale): ?string => static::normalize($locale),
             $configuredLocales
         ))));
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\WeekdayEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -21,7 +22,7 @@ return new class extends Migration
                 ->cascadeOnDelete()
                 ->comment('Tham chiếu contract_schedule_rules.id');
 
-            $table->enum('weekday', \App\Shared\Enums\WeekdayEnum::values())
+            $table->enum('weekday', WeekdayEnum::values())
                 ->comment('Ngày trong tuần, ví dụ: Mon, Tue, Wed, Thu, Fri, Sat, Sun');
             $table->time('pickup_time');
             $table->time('return_time')->nullable();
