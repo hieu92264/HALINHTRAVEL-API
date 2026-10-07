@@ -48,6 +48,20 @@ class ContractApiTest extends TestCase
         $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts/from-quotation', ['quotation_id' => $quotation->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-20'])->assertUnprocessable();
     }
 
+    public function test_creating_from_quotation_requires_an_accepted_rental_request(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+        $request = RentalRequest::create(['request_no' => 'YC20260002', 'customer_id' => $customer->id, 'requested_at' => '2026-10-01', 'service_type' => 'tourism', 'status' => 'quoted']);
+        $quotation = Quotation::create(['quotation_no' => 'BG20260002', 'rental_request_id' => $request->id, 'customer_id' => $customer->id, 'quotation_date' => '2026-10-01', 'subtotal' => '1200000', 'discount_amount' => '0', 'total_amount' => '1200000', 'status' => 'approved']);
+        $quotation->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000']);
+
+        $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts/from-quotation', [
+            'quotation_id' => $quotation->id,
+            'contract_type' => 'trip',
+            'effective_from' => '2026-10-20',
+        ])->assertUnprocessable();
+    }
+
     /** @return array{Customer,VehicleType} */
     private function references(): array
     {
