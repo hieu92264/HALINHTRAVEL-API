@@ -5,6 +5,7 @@ namespace App\Modules\Rental\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Rental\Interfaces\QuotationServiceInterface;
 use App\Modules\Rental\Models\Quotation;
+use App\Modules\Rental\Requests\RecordQuotationResponseRequest;
 use App\Modules\Rental\Requests\RejectQuotationResponseRequest;
 use App\Modules\Rental\Requests\StoreQuotationRequest;
 use App\Modules\Rental\Requests\UpdateQuotationRequest;
@@ -53,6 +54,21 @@ class QuotationController extends Controller
     public function expire(Quotation $quotation): JsonResponse
     {
         return $this->success($this->service->expire($quotation), 'Đã cập nhật báo giá hết hạn.');
+    }
+
+    public function recordCustomerResponse(RecordQuotationResponseRequest $request, Quotation $quotation): JsonResponse
+    {
+        $userName = (string) $request->user('api')?->user_name;
+
+        return $this->success(
+            $this->service->recordCustomerResponse(
+                $quotation,
+                $request->boolean('accepted'),
+                $request->validated('note'),
+                $userName,
+            ),
+            'Đã ghi nhận phản hồi của khách hàng.',
+        );
     }
 
     public function response(string $token): JsonResponse

@@ -31,6 +31,7 @@ Route::prefix('rental')->group(function () {
         Route::delete('/quotations/{quotation}', [QuotationController::class, 'destroy']);
         Route::post('/quotations/{quotation}/send', [QuotationController::class, 'send']);
         Route::post('/quotations/{quotation}/expire', [QuotationController::class, 'expire']);
+        Route::post('/quotations/{quotation}/record-customer-response', [QuotationController::class, 'recordCustomerResponse']);
     });
 });
 

@@ -2,6 +2,9 @@
 
 namespace App\Modules\Rental\Services;
 
+use App\Modules\Dispatch\DTOs\AvailabilityItemData;
+use App\Modules\Dispatch\DTOs\CheckAvailabilityData;
+use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Route;
 use App\Modules\MasterData\Models\VehicleType;
@@ -22,6 +25,8 @@ use Illuminate\Support\Str;
 
 class QuotationService implements QuotationServiceInterface
 {
+    public function __construct(private readonly AvailabilityServiceInterface $availabilityService) {}
+
     public function getList(): array
     {
         return Quotation::query()->with(['customer', 'items.vehicleType'])->orderByDesc('id')->get()
@@ -37,7 +42,10 @@ class QuotationService implements QuotationServiceInterface
     public function store(CreateQuotationData $data): array
     {
         return DB::transaction(function () use ($data): array {
-            $this->ensureCustomerAndRelations($data->customerId, $data->rentalRequestId, $data->items);
+            $rentalRequest = $this->ensureCustomerAndRelations($data->customerId, $data->rentalRequestId, $data->items);
+            if ($rentalRequest !== null) {
+                $this->ensureRentalRequestCapacity($rentalRequest);
+            }
             $amounts = $this->amounts($data->items, $data->discountAmount);
             $quotation = Quotation::create([
                 'quotation_no' => $this->nextQuotationNo(Carbon::parse($data->quotationDate)->year),
@@ -153,6 +161,23 @@ class QuotationService implements QuotationServiceInterface
         });
     }
 
+    public function recordCustomerResponse(Quotation $quotation, bool $accepted, ?string $note, string $userName): array
+    {
+        return DB::transaction(function () use ($quotation, $accepted, $note, $userName): array {
+            $locked = Quotation::query()->with('customer')->lockForUpdate()->findOrFail($quotation->id);
+            $isSentQuote = $locked->status === QuotationStatusEnum::SENT;
+            $isDraftWithoutEmail = $locked->status === QuotationStatusEnum::DRAFT && blank($locked->customer?->email);
+
+            if (! $isSentQuote && ! $isDraftWithoutEmail) {
+                abort(409, 'Chỉ báo giá đã gửi hoặc báo giá nháp của khách chưa có email mới được xác nhận qua điện thoại.');
+            }
+
+            $this->applyCustomerResponse($locked, $accepted, $note, $userName);
+
+            return $this->quotation($locked->fresh());
+        });
+    }
+
     public function responseSummary(string $token): array
     {
         return $this->publicQuotation($this->findUsableToken($token)->quotation);
@@ -177,22 +202,33 @@ class QuotationService implements QuotationServiceInterface
                 abort(410, 'Liên kết phản hồi không còn hiệu lực.');
             }
             $quotation = Quotation::query()->lockForUpdate()->findOrFail($token->quotation_id);
-            $quotation->forceFill([
-                'status' => $accepted ? QuotationStatusEnum::APPROVED : QuotationStatusEnum::REJECTED,
-                'approved_at' => $accepted ? now() : null,
-                'customer_responded_at' => now(),
-                'customer_response_note' => $note,
-            ])->save();
+            $this->applyCustomerResponse($quotation, $accepted, $note);
             $token->forceFill(['used_at' => now()])->save();
-            if ($quotation->rental_request_id !== null) {
-                $request = RentalRequest::query()->lockForUpdate()->find($quotation->rental_request_id);
-                if ($request !== null && $request->status === RentalRequestStatusEnum::QUOTED) {
-                    $request->forceFill(['status' => $accepted ? RentalRequestStatusEnum::ACCEPTED : RentalRequestStatusEnum::REJECTED])->save();
-                }
-            }
 
             return $this->publicQuotation($quotation->fresh());
         });
+    }
+
+    private function applyCustomerResponse(Quotation $quotation, bool $accepted, ?string $note, ?string $approvedBy = null): void
+    {
+        $quotation->forceFill([
+            'status' => $accepted ? QuotationStatusEnum::APPROVED : QuotationStatusEnum::REJECTED,
+            'approved_at' => $accepted ? now() : null,
+            'approved_by' => $accepted ? $approvedBy : null,
+            'customer_responded_at' => now(),
+            'customer_response_note' => $note,
+        ])->save();
+
+        if ($quotation->rental_request_id === null) {
+            return;
+        }
+
+        $request = RentalRequest::query()->lockForUpdate()->find($quotation->rental_request_id);
+        if ($request !== null && in_array($request->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
+            $request->forceFill([
+                'status' => $accepted ? RentalRequestStatusEnum::ACCEPTED : RentalRequestStatusEnum::REJECTED,
+            ])->save();
+        }
     }
 
     private function findUsableToken(string $plainToken): QuotationResponseToken
@@ -213,10 +249,13 @@ class QuotationService implements QuotationServiceInterface
         return [
             'id' => $quotation->id, 'quotation_no' => $quotation->quotation_no, 'rental_request_id' => $quotation->rental_request_id,
             'rental_request_no' => $quotation->rentalRequest?->request_no, 'customer_id' => $quotation->customer_id,
-            'customer_name' => $quotation->customer?->name, 'quotation_date' => $quotation->quotation_date?->toDateString(),
+            'customer_name' => $quotation->customer?->name, 'customer_email' => $quotation->customer?->email, 'quotation_date' => $quotation->quotation_date?->toDateString(),
             'valid_until' => $quotation->valid_until?->toDateString(), 'subtotal' => $quotation->subtotal,
             'discount_amount' => $quotation->discount_amount, 'total_amount' => $quotation->total_amount,
             'payment_terms' => $quotation->payment_terms, 'status' => $quotation->status?->value,
+            'user_name_created' => $quotation->user_name_created, 'user_name_updated' => $quotation->user_name_updated,
+            'created_at' => $quotation->created_at?->toISOString(), 'updated_at' => $quotation->updated_at?->toISOString(),
+            'approved_by' => $quotation->approved_by,
             'approved_at' => $quotation->approved_at?->toISOString(), 'customer_responded_at' => $quotation->customer_responded_at?->toISOString(),
             'customer_response_note' => $quotation->customer_response_note,
             'items' => $quotation->items->map(static fn ($item): array => [
@@ -234,15 +273,18 @@ class QuotationService implements QuotationServiceInterface
         return array_intersect_key($data, array_flip(['quotation_no', 'customer_name', 'quotation_date', 'valid_until', 'subtotal', 'discount_amount', 'total_amount', 'payment_terms', 'status', 'items']));
     }
 
-    /** @param list<QuotationItemData> $items */
-    private function ensureCustomerAndRelations(int $customerId, ?int $requestId, array $items): void
+    /**
+     * @param  list<QuotationItemData>  $items
+     */
+    private function ensureCustomerAndRelations(int $customerId, ?int $requestId, array $items): ?RentalRequest
     {
         if (! Customer::query()->whereKey($customerId)->where('is_active', true)->exists()) {
             abort(422, 'Khách hàng không hợp lệ hoặc đã ngừng hoạt động.');
         }
+        $rentalRequest = null;
         if ($requestId !== null) {
-            $request = RentalRequest::query()->findOrFail($requestId);
-            if ($request->customer_id !== $customerId || ! in_array($request->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
+            $rentalRequest = RentalRequest::query()->with('items')->lockForUpdate()->findOrFail($requestId);
+            if ($rentalRequest->customer_id !== $customerId || ! $rentalRequest->is_active || ! in_array($rentalRequest->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
                 abort(422, 'Yêu cầu thuê xe không hợp lệ để lập báo giá.');
             }
         }
@@ -254,6 +296,61 @@ class QuotationService implements QuotationServiceInterface
         if (Route::query()->whereIn('id', $routeIds)->where('is_active', true)->count() !== $routeIds->count()) {
             abort(422, 'Tuyến không hợp lệ hoặc đã ngừng hoạt động.');
         }
+
+        return $rentalRequest;
+    }
+
+    private function ensureRentalRequestCapacity(RentalRequest $rentalRequest): void
+    {
+        if ($rentalRequest->start_at === null || $rentalRequest->end_at === null) {
+            abort(422, 'Yêu cầu thuê xe cần có thời gian khởi hành và dự kiến kết thúc trước khi lập báo giá.');
+        }
+        if ($rentalRequest->end_at->lessThanOrEqualTo($rentalRequest->start_at)) {
+            abort(422, 'Thời gian dự kiến kết thúc phải sau thời gian khởi hành trước khi lập báo giá.');
+        }
+
+        $items = $rentalRequest->items
+            ->groupBy('vehicle_type_id')
+            ->map(static fn ($items, int $vehicleTypeId): AvailabilityItemData => new AvailabilityItemData(
+                vehicleTypeId: $vehicleTypeId,
+                quantity: $items->sum('quantity'),
+            ))
+            ->values()
+            ->all();
+
+        if ($items === []) {
+            abort(422, 'Yêu cầu thuê xe cần có ít nhất một hạng mục xe trước khi lập báo giá.');
+        }
+
+        $availability = $this->availabilityService->check(new CheckAvailabilityData(
+            startAt: $rentalRequest->start_at->toDateTimeString(),
+            endAt: $rentalRequest->end_at->toDateTimeString(),
+            items: $items,
+            ownershipType: null,
+            partnerId: null,
+        ));
+
+        if ($availability['can_fulfill']) {
+            return;
+        }
+
+        $shortages = collect($availability['vehicle_capacities'])
+            ->filter(static fn (array $capacity): bool => ! $capacity['is_sufficient'])
+            ->map(static function (array $capacity): string {
+                $missing = max(0, (int) $capacity['required_quantity'] - (int) $capacity['available_count']);
+                $vehicleType = $capacity['vehicle_type_name'] ?: 'Loại xe #'.$capacity['vehicle_type_id'];
+
+                return "{$vehicleType} thiếu {$missing} xe";
+            })
+            ->all();
+
+        $driverCapacity = $availability['driver_capacity'];
+        if (! $driverCapacity['is_sufficient']) {
+            $missing = max(0, (int) $driverCapacity['required_quantity'] - (int) $driverCapacity['available_count']);
+            $shortages[] = "thiếu {$missing} tài xế";
+        }
+
+        abort(422, 'Không đủ năng lực để lập báo giá: '.implode('; ', $shortages).'.');
     }
 
     /** @param list<QuotationItemData> $items @return array{subtotal:string,discount:string,total:string,items:list<array<string, mixed>>} */
