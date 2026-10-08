@@ -78,28 +78,47 @@ Prefix: `/api/rental`.
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
-| `GET /requests` | Trả request cùng customer, số lượng item; detail `GET /requests/{id}` trả `items`, vehicle type và route. | Trả toàn bộ request active. |
-| `POST /requests` | `customer_id`, `source`, `requested_at`, `service_type` (`fixed`, `tourism`, `school`, `business`), `pickup_location`, `dropoff_location`, `start_at`, `end_at`, `note`, `items[]` với `vehicle_type_id`, `quantity`, `route_id`, `note`. | Sinh `request_no`, trạng thái `new`; tạo master-detail trong một transaction. |
-| `PATCH /requests/{id}`; `DELETE /requests/{id}` | Cùng payload create, không nhận `request_no`/`status`. | Chỉ request chưa `converted` và chưa `rejected` được sửa/deactivate. |
-| `POST /requests/{id}/mark-quoted` | Không có payload. | `new -> quoted`. |
-| `POST /requests/{id}/accept` | Không có payload. | `new` hoặc `quoted -> accepted`. |
-| `POST /requests/{id}/reject` | `note` tùy chọn. | `new` hoặc `quoted -> rejected`; ghi note nếu được gửi. |
+| `GET /requests`; `GET /requests/{id}` | Trả request, customer, thông tin hành trình và `items` với `vehicle_type_name`, `route_name`. | Cần quyền `rental-requests.view`. |
+| `POST /requests` | `customer_id`, `source` nullable, `requested_at`, `service_type` (`fixed`, `tourism`, `school`, `business`), địa điểm/thời gian, `note`, `items[]` với `vehicle_type_id`, `quantity`, `route_id`, `note`. | Sinh `request_no`, trạng thái `new`; tạo master-detail trong transaction. Cần `rental-requests.manage`. |
+| `PATCH /requests/{id}` | Chỉ gửi field cần đổi; gửi `items[]` sẽ thay toàn bộ items. Không nhận `request_no`/`status`. | Chỉ `new` được sửa; trạng thái khác trả `409`. |
+| `DELETE /requests/{id}` | Không có payload. | Chỉ `new` được ngừng hoạt động (`is_active=false`); trạng thái khác trả `409`. |
+| `POST /requests/{id}/mark-quoted` | Không có payload. | Chỉ `new -> quoted` khi request có ít nhất một quotation `sent`. Gửi quotation tự chuyển request `new -> quoted`. |
+| `POST /requests/{id}/accept` | Không có payload. | Action nội bộ, chỉ `quoted -> accepted`. Luồng chuẩn là khách chấp nhận trong email. |
+| `POST /requests/{id}/reject` | Không có payload. | Action nội bộ, `new` hoặc `quoted -> rejected`. |
 
-`customer_id` phải active; `end_at` không trước `start_at`; mỗi item có quantity lớn hơn `0`.
+`customer_id`, `vehicle_type_id` và `route_id` phải là bản ghi active. Mỗi item có `quantity > 0`; `end_at` không trước `start_at`.
+
+Một Rental Request hiện đại diện cho **một hành trình chung** và có hai cách nhập:
+
+- **Theo tuyến:** tất cả `items[].route_id` phải cùng một giá trị khác `null`. Route phải là route chung (`customer_id = null`) hoặc thuộc customer của request. Backend snapshot `pickup_location`/`dropoff_location` từ route và không tin địa điểm client gửi.
+- **Nhập hành trình:** mọi `items[].route_id` là `null`; bắt buộc `pickup_location`, `dropoff_location`, `start_at`. `end_at` là tùy chọn.
+
+Không chấp nhận mode hỗn hợp hoặc nhiều route khác nhau; trả `422`.
 
 ### 3.2. Báo giá
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
-| `GET /quotations`; `GET /quotations/{id}` | List trả customer, request, `subtotal`, `discount_amount`, `total_amount`; detail trả `items`, route và vehicle type. | Trả toàn bộ báo giá active. |
-| `POST /quotations` | `customer_id`, `rental_request_id` tùy chọn, `quotation_date`, `valid_until`, `discount_amount`, `payment_terms`, `items[]` gồm `route_id`, `vehicle_type_id`, `description`, `quantity`, `unit_price`. | Sinh `quotation_no`; tính `amount` item, `subtotal`, `total_amount`; trạng thái `draft`. |
-| `PATCH /quotations/{id}`; `DELETE /quotations/{id}` | Cùng payload create, thay toàn bộ `items[]`. | Chỉ `draft` được sửa/deactivate. |
-| `POST /quotations/{id}/send` | Không có payload. | `draft -> sent`; phải có item và chưa quá `valid_until`. |
-| `POST /quotations/{id}/approve` | Không có payload. | `sent -> approved`; hệ thống ghi thời điểm duyệt. |
-| `POST /quotations/{id}/reject` | Không có payload. | `sent -> rejected`. |
-| `POST /quotations/{id}/expire` | Không có payload. | `sent -> expired` khi đã quá `valid_until`. |
+| `GET /quotations`; `GET /quotations/{id}` | Trả customer, request, item, route/vehicle type và các tổng tiền. | Cần quyền `quotations.view`. |
+| `POST /quotations` | `customer_id`, `rental_request_id` nullable, `quotation_date`, `valid_until` nullable, `discount_amount`, `payment_terms`, `items[]` gồm `route_id`, `vehicle_type_id`, `description`, `quantity`, `unit_price`. | Sinh `quotation_no`, tạo trạng thái `draft`. Cần `quotations.manage`. |
+| `PATCH /quotations/{id}` | PATCH các field tạo; nếu gửi `items[]` thì thay toàn bộ items. | Chỉ `draft` được sửa. Backend kiểm tra lại customer/request, item active, ngày hiệu lực và tính lại tiền. |
+| `DELETE /quotations/{id}` | Không có payload. | Chỉ `draft` được xóa; trạng thái khác trả `409`. |
+| `POST /quotations/{id}/send` | Không có payload. | `draft -> sent`; customer phải có email, báo giá chưa hết hiệu lực, `FRONTEND_QUOTATION_RESPONSE_URL` và queue/SMTP phải sẵn sàng. Tạo token phản hồi và queue email sau commit. |
+| `POST /quotations/{id}/expire` | Không có payload. | Chỉ `sent -> expired`; Rental Request liên quan vẫn `quoted` để có thể lập báo giá khác. |
 
-Nếu gắn `rental_request_id`, customer của báo giá phải trùng customer của request. Client không gửi `amount`, `subtotal` hoặc `total_amount`.
+`customer_id`, `vehicle_type_id` và `route_id` phải active. Nếu có `rental_request_id`, customer của báo giá phải trùng customer của request; request chỉ được dùng khi `new` hoặc `quoted`. Client **không** gửi `quotation_no`, `status`, `amount`, `subtotal` hoặc `total_amount`: backend tính `amount = quantity × unit_price`, `subtotal` và `total_amount = subtotal - discount_amount`; `discount_amount` không được lớn hơn subtotal.
+
+### 3.3. Phản hồi báo giá từ email
+
+Prefix public: `/api/public/quotation-responses`. Các endpoint này không dùng JWT/Bearer token nhưng có rate limit.
+
+| Endpoint | Payload / response | Nghiệp vụ |
+| --- | --- | --- |
+| `GET /{token}` | Trả summary an toàn cho customer: số báo giá, customer, dates, items, tiền, điều khoản, status. | Frontend customer-response gọi trước khi hiển thị giao diện. Không trả ID nội bộ. |
+| `POST /{token}/accept` | Không có payload. | Dùng token một lần: quotation `sent -> approved`, Rental Request `quoted -> accepted`; lưu `approved_at`, `customer_responded_at`. |
+| `POST /{token}/reject` | `note` nullable, tối đa 2.000 ký tự. | Dùng token một lần: quotation `sent -> rejected`, Rental Request `quoted -> rejected`; lưu thời điểm và note phản hồi. |
+
+Khi gửi email, backend sinh token ngẫu nhiên, chỉ lưu hash và tạo link `${FRONTEND_QUOTATION_RESPONSE_URL}?token=...`. Token hết hạn vào cuối `valid_until`; nếu `valid_until` là `null`, hết hạn sau 7 ngày từ lúc gửi. Token sai, đã dùng, hết hạn, hoặc báo giá không còn `sent` trả `410`. Customer chỉ chọn accept **hoặc** reject; thao tác thành công làm token không thể dùng lại.
 
 ## 4. Module `Contract`
 
@@ -109,30 +128,55 @@ Prefix: `/api/contract`.
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
-| `GET /contracts`; `GET /contracts/{id}` | Detail trả items, schedule rules/days, trip schedules, receipt summary và số dư. | Trả toàn bộ hợp đồng active. |
-| `POST /contracts` | `customer_id`, `rental_request_id` tùy chọn, `quotation_id` tùy chọn, `contract_type` (`trip`, `principle`), `signed_date`, `effective_from`, `effective_to`, `deposit_required`, `payment_terms`, `terms`, `items[]`. | Sinh `contract_no`, tính `total_amount`, trạng thái `draft`. |
-| `POST /contracts/from-quotation` | `quotation_id` cùng `contract_type`, ngày ký/hiệu lực, đặt cọc và điều khoản còn thiếu. | Chỉ nhận quotation `approved`; sao chép quotation items, liên kết request/quotation và đưa request liên quan sang `converted`. |
-| `PATCH /contracts/{id}`; `DELETE /contracts/{id}` | Cùng dữ liệu tạo, bao gồm thay toàn bộ `items[]`. | Chỉ `draft` được sửa; không deactivate khi đã có lịch, lệnh điều xe hoặc chứng từ. |
+| `GET /contracts`; `GET /contracts/{id}` | Trả header, customer, Rental Request, Quotation, items và tổng tiền. | Cần `contracts.view`. |
+| `POST /contracts` | `customer_id`, `rental_request_id` nullable, `quotation_id` nullable, `contract_type` (`trip`, `principle`), `signed_date` nullable, `effective_from`, `effective_to` nullable, `deposit_required`, `payment_terms`, `terms`, `items[]`. | Sinh `contract_no`, backend tính `total_amount`, trạng thái `draft`. Cần `contracts.manage`. |
+| `POST /contracts/from-quotation` | `quotation_id`, `contract_type`, ngày ký/hiệu lực, đặt cọc và điều khoản. | Chỉ quotation `approved` có Rental Request `accepted`; sao chép customer, request, quotation, item và snapshot hành trình; `driver_wage` khởi tạo `0`; request chuyển `converted`. |
+| `PATCH /contracts/{id}`; `DELETE /contracts/{id}` | PATCH field cần đổi; `items[]` nếu gửi sẽ thay toàn bộ items. | Chỉ `draft` được sửa/ngừng hoạt động; chặn khi đã có lịch chuyến hoặc phiếu thu. |
 | `POST /contracts/{id}/activate` | Không có payload. | `draft -> active`; cần item hợp lệ và thời gian hiệu lực hợp lệ. |
 | `POST /contracts/{id}/complete` | Không có payload. | `active -> completed` khi không còn chuyến mở. |
-| `POST /contracts/{id}/cancel` | Không có payload. | `draft`/`active -> cancelled`; chặn khi có lệnh hoàn thành hoặc chứng từ khóa. |
+| `POST /contracts/{id}/cancel` | Không có payload. | `draft`/`active -> cancelled`; chặn khi có lịch chuyến hoặc phiếu thu. |
 
-Mỗi `items[]` gồm `route_id` tùy chọn, `vehicle_type_id`, `service_type`, `quantity`, `unit_price`, `driver_wage`, `pickup_location`, `dropoff_location`, `note`. `total_amount` là tổng `quantity × unit_price` do server tính.
+Mỗi `items[]` gồm `route_id` nullable, `vehicle_type_id`, `service_type`, `quantity`, `unit_price`, `driver_wage`, `pickup_location`, `dropoff_location`, `note`. `total_amount` là tổng `quantity × unit_price` do server tính; `deposit_required` không vượt tổng tiền. Customer, route và vehicle type phải active; `effective_to` không trước `effective_from`.
+
+Một quotation chỉ có tối đa một Contract đang mở (`draft` hoặc `active`). Sau khi Contract cũ `cancelled`, có thể tạo Contract mới từ quotation đó.
 
 ### 4.2. Quy tắc lịch và lịch cố định
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
-| `GET, POST /contracts/{contract_id}/schedule-rules` | Create nhận `contract_item_id`, `route_id`, `effective_from`, `effective_to`, `default_vehicle_id`, `default_driver_id`, `note`. | Chỉ hợp đồng `active`; item phải thuộc hợp đồng. Xe/tài xế mặc định chỉ là gợi ý phân công. |
-| `GET /schedule-rules/{id}`; `PATCH, DELETE /schedule-rules/{id}` | Detail luôn gồm `days[]`. | Không sửa/deactivate rule đã sinh lịch trong quá khứ. |
-| `PUT /schedule-rules/{id}/days` | `days[]`: `weekday` (`Mon`…`Sun`), `pickup_time`, `return_time`, `shift_name`. | Thay toàn bộ ngày lịch trong transaction; unique theo rule + weekday + pickup time. |
-| `POST /schedule-rules/{id}/generate-trip-schedules` | `from_date`, `to_date`; response có `created`, `skipped`, `conflicts`. | Chỉ sinh ngày trong hiệu lực rule/hợp đồng; không tạo trùng lịch đã có. |
+| `GET, POST /contracts/{contract_id}/schedule-rules` | Create nhận `contract_item_id`, `route_id` nullable, `effective_from`, `effective_to`, `default_vehicle_id`, `default_driver_id`, `note`. | Chỉ Contract `active`; item phải thuộc Contract. Route là route chung hoặc thuộc customer của Contract. Xe/tài xế mặc định chỉ là gợi ý, không tạo assignment. |
+| `GET /schedule-rules/{id}`; `PATCH, DELETE /schedule-rules/{id}` | Detail luôn gồm `days[]`, `trip_schedules_count`, `is_locked`. DELETE chỉ đặt `is_active=false`. | Không sửa, thay days hoặc deactivate rule đã sinh bất kỳ Trip Schedule nào; trả `409`. |
+| `PUT /schedule-rules/{id}/days` | `days[]`: `weekday` (`Mon`…`Sun`), `pickup_time`, `return_time` nullable, `shift_name`. | Thay toàn bộ ngày lịch trong transaction; ít nhất một dòng, unique theo rule + weekday + pickup time; return time nếu có phải sau pickup time trong cùng ngày. |
+| `POST /schedule-rules/{id}/generate-trip-schedules` | `from_date`, `to_date`; response có mảng `created`, `skipped`, `conflicts` và `summary`. | Khoảng ngày phải nằm trong hiệu lực rule/hợp đồng; sinh `PLANNED`. Cùng rule/thời điểm là `skipped`; lịch khác cùng item/thời điểm là `conflicts`. Day được sinh phải có `return_time`. |
 
 ## 5. Module `Dispatch`
 
 Prefix: `/api/dispatch`.
 
-### 5.1. Lịch chuyến và phân công
+### 5.1. Kiểm tra năng lực Sales (snapshot)
+
+`POST /api/dispatch/availability` cần quyền `rental-capacity.view` (Sales, Dispatcher, Director, Admin). Payload:
+
+```json
+{
+  "start_at": "2026-10-20T06:00:00+07:00",
+  "end_at": "2026-10-20T18:00:00+07:00",
+  "items": [
+    { "vehicle_type_id": 4, "quantity": 2 },
+    { "vehicle_type_id": 6, "quantity": 1 }
+  ],
+  "ownership_type": null,
+  "partner_id": null
+}
+```
+
+`end_at` là bắt buộc và phải sau `start_at`. `ownership_type` có thể là `company` hoặc `partner`; `partner_id` là filter độc lập tùy chọn. Khi không gửi filter, response trả cả breakdown xe/tài xế công ty và đối tác. Mỗi `vehicle_type_id` chỉ được xuất hiện một lần trong `items`.
+
+Response có `vehicle_capacities[]` theo từng loại xe (số cần, số xe công ty/đối tác/tổng, `candidates`, `is_sufficient`), `driver_capacity` tổng hợp (tổng số lái xe cần bám theo tổng số xe) và `can_fulfill`. Xe được tính khi active, đúng loại và `vehicle_status=available`; tài xế phải active, đã vào làm, chưa nghỉ và bằng lái còn hạn tại `end_at`. Assignment `is_current=true` của schedule chưa `COMPLETED`/`CANCELLED` và giao thời gian sẽ loại cả xe lẫn tài xế đó.
+
+API chỉ đọc snapshot: không tạo reservation, không đổi trạng thái xe/tài xế và không thay thế kiểm tra chặn khi phân công ở giai đoạn sau. Frontend gọi lại ngay trước khi gửi quotation hoặc tạo Contract, hiển thị thời điểm snapshot và cảnh báo rằng tài nguyên chưa được giữ.
+
+### 5.2. Lịch chuyến và phân công
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
@@ -140,7 +184,7 @@ Prefix: `/api/dispatch`.
 | `POST /trip-schedules` | `contract_id`, `contract_item_id`, `schedule_rule_id`, `service_type`, `route_id`, `scheduled_start_at`, `scheduled_end_at`, `pickup_location`, `dropoff_location`, `journey`, `required_vehicle_type_id`, `note`. | Chỉ cho hợp đồng active; sinh `schedule_no`; mặc định `PLANNED`. |
 | `PATCH /trip-schedules/{id}`; `DELETE /trip-schedules/{id}` | Các field tạo được phép sửa. | Chỉ schedule `PLANNED` chưa có dispatch order. |
 | `POST /trip-schedules/{id}/cancel` | `note` tùy chọn. | `PLANNED`/`ASSIGNED -> CANCELLED`; chặn khi order đang chạy/đã hoàn thành. |
-| `GET /availability?start_at=&end_at=&required_vehicle_type_id=` | Trả `available_vehicles` và `available_drivers`; chấp nhận thêm `exclude_trip_schedule_id`, `ownership_type`, `partner_id`. | Kiểm tra trạng thái xe, tình trạng làm việc/hạn bằng của tài xế và các assignment giao thời gian. |
+| `POST /availability` | `start_at`, `end_at`, `items[]` (`vehicle_type_id`, `quantity`), tùy chọn `ownership_type`, `partner_id`; trả `vehicle_capacities`, `driver_capacity`, `can_fulfill`. | Snapshot năng lực chung cho Sales/điều hành; không reservation, không có `exclude_trip_schedule_id`. |
 | `GET /trip-schedules/{id}/assignments` | Trả đầy đủ lịch sử assignment, `is_current`, xe, tài xế, partner, lý do thay thế. | Có tối đa một assignment hiện hành. |
 | `POST /trip-schedules/{id}/assignments` | `vehicle_id`, `driver_id`, `partner_id` tùy chọn. | Tạo assignment `PRIMARY`, `is_current=true`, chuyển schedule `PLANNED -> ASSIGNED`. |
 | `POST /trip-schedules/{id}/assignments/substitute` | `vehicle_id`, `driver_id`, `partner_id` tùy chọn, `replace_reason`. | Đóng assignment hiện hành và tạo `SUBSTITUTE` liên kết assignment cũ trong một transaction. |

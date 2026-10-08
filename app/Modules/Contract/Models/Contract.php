@@ -13,6 +13,7 @@ use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Contract extends Model
 {
@@ -65,6 +66,11 @@ class Contract extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ContractItem::class);
+    }
+
+    public function scheduleRules(): HasManyThrough
+    {
+        return $this->hasManyThrough(ContractScheduleRule::class, ContractItem::class);
     }
 
     public function tripSchedules(): HasMany

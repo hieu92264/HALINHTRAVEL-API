@@ -37,6 +37,7 @@ enum PermissionEnum: string
     case QUOTATIONS_MANAGE = 'quotations.manage';
     case CONTRACTS_VIEW = 'contracts.view';
     case CONTRACTS_MANAGE = 'contracts.manage';
+    case RENTAL_CAPACITY_VIEW = 'rental-capacity.view';
 
     case TRIP_SCHEDULES_VIEW = 'trip-schedules.view';
     case TRIP_SCHEDULES_MANAGE = 'trip-schedules.manage';

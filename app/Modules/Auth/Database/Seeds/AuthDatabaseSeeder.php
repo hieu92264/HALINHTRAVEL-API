@@ -45,23 +45,29 @@ class AuthDatabaseSeeder extends Seeder
         ));
 
         $sales = RoleModel::findOrCreate(RoleEnum::SALES->value, 'api');
-        $sales->syncPermissions($this->resourcePermissions([
-            'CUSTOMERS',
-            'RENTAL_REQUESTS',
-            'QUOTATIONS',
-            'CONTRACTS',
-        ]));
+        $sales->syncPermissions(array_merge(
+            $this->resourcePermissions([
+                'CUSTOMERS',
+                'RENTAL_REQUESTS',
+                'QUOTATIONS',
+                'CONTRACTS',
+            ]),
+            $this->permissionValues([PermissionEnum::RENTAL_CAPACITY_VIEW]),
+        ));
 
         $dispatcher = RoleModel::findOrCreate(RoleEnum::DISPATCHER->value, 'api');
-        $dispatcher->syncPermissions($this->resourcePermissions([
-            'VEHICLES',
-            'DRIVERS',
-            'ROUTES',
-            'ROUTE_RATES',
-            'TRIP_SCHEDULES',
-            'TRIP_ASSIGNMENTS',
-            'DISPATCH_ORDERS',
-        ]));
+        $dispatcher->syncPermissions(array_merge(
+            $this->resourcePermissions([
+                'VEHICLES',
+                'DRIVERS',
+                'ROUTES',
+                'ROUTE_RATES',
+                'TRIP_SCHEDULES',
+                'TRIP_ASSIGNMENTS',
+                'DISPATCH_ORDERS',
+            ]),
+            $this->permissionValues([PermissionEnum::RENTAL_CAPACITY_VIEW]),
+        ));
 
         $accountant = RoleModel::findOrCreate(RoleEnum::ACCOUNTANT->value, 'api');
         $accountant->syncPermissions(array_merge(
@@ -91,7 +97,7 @@ class AuthDatabaseSeeder extends Seeder
     {
         return array_values(array_filter(
             PermissionEnum::values(),
-            static fn(string $permission): bool => str_ends_with($permission, '.view'),
+            static fn (string $permission): bool => str_ends_with($permission, '.view'),
         ));
     }
 
@@ -101,7 +107,7 @@ class AuthDatabaseSeeder extends Seeder
      */
     private function permissionValues(array $permissions): array
     {
-        return array_map(static fn(PermissionEnum $permission): string => $permission->value, $permissions);
+        return array_map(static fn (PermissionEnum $permission): string => $permission->value, $permissions);
     }
 
     /**
@@ -114,8 +120,8 @@ class AuthDatabaseSeeder extends Seeder
 
         foreach ($resources as $resource) {
             $permissions = array_merge($permissions, $this->permissionValues([
-                constant(PermissionEnum::class . '::' . $resource . '_VIEW'),
-                constant(PermissionEnum::class . '::' . $resource . '_MANAGE'),
+                constant(PermissionEnum::class.'::'.$resource.'_VIEW'),
+                constant(PermissionEnum::class.'::'.$resource.'_MANAGE'),
             ]));
         }
 

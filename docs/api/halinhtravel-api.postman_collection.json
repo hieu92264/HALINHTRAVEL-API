@@ -18,7 +18,13 @@
     { "key": "driver_id", "value": "1", "type": "string" },
     { "key": "expense_type_id", "value": "1", "type": "string" },
     { "key": "route_id", "value": "1", "type": "string" },
-    { "key": "route_rate_id", "value": "1", "type": "string" }
+    { "key": "route_rate_id", "value": "1", "type": "string" },
+    { "key": "rental_request_id", "value": "", "type": "string" },
+    { "key": "quotation_id", "value": "", "type": "string" },
+    { "key": "quotation_response_token", "value": "", "type": "string" },
+    { "key": "contract_id", "value": "", "type": "string" },
+    { "key": "contract_item_id", "value": "1", "type": "string" },
+    { "key": "schedule_rule_id", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -48,11 +54,11 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_name\": \"<your-user-name-or-email>\",\n  \"password\": \"<your-password>\",\n  \"remember_me\": false\n}",
+              "raw": "{\n  \"user_name\": \"sales\",\n  \"password\": \"password\",\n  \"remember_me\": false\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/auth/login",
-            "description": "Authenticate with user_name or email. The test script stores data.access_token in the collection variable."
+            "description": "Đăng nhập bằng user_name hoặc email. Mẫu dùng tài khoản seed sales/password; thay bằng tài khoản thực tế khi cần. Script tự lưu data.access_token vào collection variable."
           }
         },
         {
@@ -413,6 +419,120 @@
             { "name": "Patch route rate", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_price\": \"1300000.00\",\n  \"effective_to\": null\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/master-data/route-rates/{{route_rate_id}}", "description": "PATCH supports partial updates; send effective_to null to clear its end date." } },
             { "name": "Deactivate route rate", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/master-data/route-rates/{{route_rate_id}}", "description": "Sets is_active to false, so the rate is excluded from lookup." } }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Rental",
+      "description": "API nghiệp vụ thuê xe và báo giá. Các API nội bộ dùng Bearer token; role Sales đã có cả quyền xem và quản lý Rental Request/Quotation. Luồng chuẩn: tạo yêu cầu → tạo báo giá nháp → gửi email → khách phản hồi bằng token trong email.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Yêu cầu thuê xe",
+          "description": "GET cần quyền rental-requests.view. POST/PATCH/DELETE và action cần rental-requests.manage. Backend quản lý request_no và status; không gửi hai trường này trong payload.",
+          "item": [
+            { "name": "Danh sách yêu cầu", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/requests", "description": "Lấy toàn bộ yêu cầu thuê xe. Cần quyền rental-requests.view." } },
+            { "name": "Chi tiết yêu cầu", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/requests/{{rental_request_id}}", "description": "Trả customer, thông tin hành trình và items gồm vehicle_type_name/route_name." } },
+            {
+              "name": "Tạo yêu cầu - nhập hành trình",
+              "description": "Manual mode: mọi items[].route_id phải là null; pickup_location, dropoff_location và start_at là bắt buộc. Chạy sau khi đã có customer_id và vehicle_type_id active. Script tự lưu metadata.id vào rental_request_id.",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('rental_request_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_id\": {{customer_id}},\n  \"source\": \"zalo\",\n  \"requested_at\": \"2026-10-05T09:30:00+07:00\",\n  \"service_type\": \"tourism\",\n  \"pickup_location\": \"Hà Nội - Cầu Giấy\",\n  \"dropoff_location\": \"Hạ Long - Bãi Cháy\",\n  \"start_at\": \"2026-10-20T06:00:00+07:00\",\n  \"end_at\": null,\n  \"note\": \"Khách yêu cầu nước uống\",\n  \"items\": [\n    { \"vehicle_type_id\": {{vehicle_type_id}}, \"quantity\": 2, \"route_id\": null, \"note\": \"Xe đời mới\" }\n  ]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/requests" }
+            },
+            {
+              "name": "Tạo yêu cầu - theo tuyến",
+              "description": "Route mode: tất cả items phải dùng cùng route_id active. Route phải là route chung hoặc thuộc customer của yêu cầu. Backend bỏ qua pickup/dropoff do client gửi và snapshot địa điểm từ route.",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('rental_request_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_id\": {{customer_id}},\n  \"requested_at\": \"2026-10-05T09:30:00+07:00\",\n  \"service_type\": \"business\",\n  \"start_at\": \"2026-10-20T06:00:00+07:00\",\n  \"items\": [\n    { \"vehicle_type_id\": {{vehicle_type_id}}, \"quantity\": 1, \"route_id\": {{route_id}} }\n  ]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/requests" }
+            },
+            { "name": "Cập nhật yêu cầu nháp", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"source\": \"phone\",\n  \"note\": \"Đã xác nhận lại thời gian với khách\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/requests/{{rental_request_id}}", "description": "PATCH chỉ nhận field cần đổi. Chỉ request status new được sửa; status khác trả 409. Gửi items sẽ thay toàn bộ items." } },
+            { "name": "Ngừng hoạt động yêu cầu", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/requests/{{rental_request_id}}", "description": "Chỉ request new được ngừng hoạt động (is_active=false); trạng thái khác trả 409." } },
+            { "name": "Đánh dấu đã báo giá", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/requests/{{rental_request_id}}/mark-quoted", "description": "Chỉ new → quoted và phải có ít nhất một quotation status sent. Action Send quotation đã tự thực hiện chuyển trạng thái này khi request còn new." } },
+            { "name": "Chấp nhận nội bộ", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/requests/{{rental_request_id}}/accept", "description": "Action nội bộ cho trường hợp ngoại lệ. Chỉ quoted → accepted. Luồng chuẩn là khách accept từ link email." } },
+            { "name": "Từ chối nội bộ", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/requests/{{rental_request_id}}/reject", "description": "Action nội bộ. Chỉ new hoặc quoted → rejected. API hiện không nhận note; phản hồi từ email có note riêng." } }
+          ]
+        },
+        {
+          "name": "Báo giá",
+          "description": "GET cần quotations.view. Các thao tác khác cần quotations.manage. Backend luôn tính amount, subtotal và total_amount; client chỉ gửi quantity, unit_price và discount_amount.",
+          "item": [
+            { "name": "Danh sách báo giá", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/quotations", "description": "Lấy toàn bộ báo giá cùng customer, request và items." } },
+            { "name": "Chi tiết báo giá", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/quotations/{{quotation_id}}", "description": "Trả item, vehicle type, route, tổng tiền và thông tin phản hồi khách hàng." } },
+            {
+              "name": "Tạo báo giá nháp",
+              "description": "Tạo quotation draft cho request vừa tạo. customer_id phải trùng customer của Rental Request; rental_request_id có thể null nếu báo giá độc lập. Script tự lưu metadata.id vào quotation_id.",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) {", "    pm.collectionVariables.set('quotation_id', String(response.metadata.id));", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_id\": {{customer_id}},\n  \"rental_request_id\": {{rental_request_id}},\n  \"quotation_date\": \"2026-10-05\",\n  \"valid_until\": \"2026-12-31\",\n  \"discount_amount\": \"100000.00\",\n  \"payment_terms\": \"Thanh toán 50% trước ngày khởi hành.\",\n  \"items\": [\n    {\n      \"route_id\": null,\n      \"vehicle_type_id\": {{vehicle_type_id}},\n      \"description\": \"Xe phục vụ tuyến Hà Nội - Hạ Long\",\n      \"quantity\": 2,\n      \"unit_price\": \"1200000.00\"\n    }\n  ]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/quotations" }
+            },
+            { "name": "Cập nhật báo giá nháp", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"discount_amount\": \"50000.00\",\n  \"payment_terms\": \"Thanh toán chuyển khoản trước ngày khởi hành.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/quotations/{{quotation_id}}", "description": "Chỉ draft được PATCH. Nếu gửi items, backend thay toàn bộ items rồi tính lại toàn bộ tiền. Báo giá đã sent/approved/rejected/expired trả 409." } },
+            { "name": "Xóa báo giá nháp", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/quotations/{{quotation_id}}", "description": "Chỉ draft được xóa. Không dùng request này sau khi đã gửi email." } },
+            { "name": "Gửi báo giá qua email", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/quotations/{{quotation_id}}/send", "description": "draft → sent; yêu cầu customer.email, valid_until chưa hết hạn, FRONTEND_QUOTATION_RESPONSE_URL và queue/SMTP đã cấu hình. Tạo token một lần trong email và tự chuyển Rental Request new → quoted." } },
+            { "name": "Đặt báo giá hết hạn", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/quotations/{{quotation_id}}/expire", "description": "Chỉ sent → expired. Rental Request liên quan vẫn giữ quoted để nhân viên có thể lập báo giá khác." } }
+          ]
+        },
+        {
+          "name": "Phản hồi báo giá công khai",
+          "description": "Không dùng Bearer token. Thay quotation_response_token bằng token trong URL email (?token=...). Link chỉ dùng một lần, hết hạn cuối valid_until hoặc sau 7 ngày nếu valid_until null; token sai/đã dùng/hết hạn trả 410. API bị rate-limit.",
+          "auth": { "type": "noauth" },
+          "item": [
+            { "name": "Xem báo giá từ token", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/public/quotation-responses/{{quotation_response_token}}", "description": "Frontend gọi API này trước để hiển thị báo giá công khai. Không trả ID nội bộ hay thông tin quản trị." } },
+            { "name": "Khách chấp nhận báo giá", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/public/quotation-responses/{{quotation_response_token}}/accept", "description": "Dùng token một lần: quotation sent → approved, Rental Request quoted → accepted. Không cần request body." } },
+            { "name": "Khách từ chối báo giá", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"note\": \"Ngân sách hiện tại chưa phù hợp.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/public/quotation-responses/{{quotation_response_token}}/reject", "description": "Dùng token một lần: quotation sent → rejected, Rental Request quoted → rejected. note là tùy chọn, tối đa 2.000 ký tự." } }
+          ]
+        },
+        {
+          "name": "Luồng test nhanh",
+          "description": "1) Login bằng user Sales. 2) Chạy Create customer và Create vehicle type trong Master Data nếu chưa có dữ liệu; hai request này tự lưu biến ID. 3) Chạy Tạo yêu cầu manual. 4) Tạo báo giá nháp. 5) Gửi email. 6) Copy token trong link email vào quotation_response_token. 7) Xem và accept hoặc reject (chỉ chọn một). Không chạy expire sau accept/reject.",
+          "item": [
+            { "name": "1. Tạo yêu cầu manual", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_id\": {{customer_id}},\n  \"requested_at\": \"2026-10-05T09:30:00+07:00\",\n  \"service_type\": \"tourism\",\n  \"pickup_location\": \"Hà Nội - Cầu Giấy\",\n  \"dropoff_location\": \"Hạ Long - Bãi Cháy\",\n  \"start_at\": \"2026-10-20T06:00:00+07:00\",\n  \"items\": [{ \"vehicle_type_id\": {{vehicle_type_id}}, \"quantity\": 1, \"route_id\": null }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/requests" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) pm.collectionVariables.set('rental_request_id', String(response.metadata.id));"] } } ] },
+            { "name": "2. Tạo báo giá nháp", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_id\": {{customer_id}},\n  \"rental_request_id\": {{rental_request_id}},\n  \"quotation_date\": \"2026-10-05\",\n  \"valid_until\": \"2026-12-31\",\n  \"discount_amount\": \"100000.00\",\n  \"items\": [{ \"vehicle_type_id\": {{vehicle_type_id}}, \"quantity\": 1, \"unit_price\": \"1200000.00\" }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/rental/quotations" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) pm.collectionVariables.set('quotation_id', String(response.metadata.id));"] } } ] },
+            { "name": "3. Gửi email", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/rental/quotations/{{quotation_id}}/send", "description": "Sau khi chạy, đợi queue worker gửi mail rồi copy token từ link email vào collection variable quotation_response_token." } },
+            { "name": "4. Xem phản hồi bằng token", "auth": { "type": "noauth" }, "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/public/quotation-responses/{{quotation_response_token}}" } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Contract",
+      "description": "API hợp đồng. Cần contracts.view để xem và contracts.manage để tạo, sửa, lifecycle. Luồng chuẩn: quotation approved → tạo Contract draft từ quotation → activate.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+      "item": [
+        { "name": "Danh sách hợp đồng", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts", "description": "Cần contracts.view. Trả customer, quotation, Rental Request, items và tổng tiền." } },
+        { "name": "Chi tiết hợp đồng", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}" } },
+        { "name": "Tạo hợp đồng độc lập", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) pm.collectionVariables.set('contract_id', String(response.metadata.id));"] } }], "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"customer_id\": {{customer_id}},\n  \"contract_type\": \"trip\",\n  \"effective_from\": \"2026-10-20\",\n  \"effective_to\": \"2026-10-20\",\n  \"deposit_required\": \"100000.00\",\n  \"items\": [{ \"vehicle_type_id\": {{vehicle_type_id}}, \"service_type\": \"tourism\", \"quantity\": 1, \"unit_price\": \"1200000.00\", \"driver_wage\": \"0.00\", \"pickup_location\": \"Hà Nội\", \"dropoff_location\": \"Hạ Long\" }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/contracts", "description": "Backend tự tính total_amount và tạo status draft. Chỉ draft được sửa/ngừng hoạt động." } },
+        { "name": "Tạo từ báo giá approved", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) pm.collectionVariables.set('contract_id', String(response.metadata.id));"] } }], "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"quotation_id\": {{quotation_id}},\n  \"contract_type\": \"trip\",\n  \"signed_date\": \"2026-10-06\",\n  \"effective_from\": \"2026-10-20\",\n  \"effective_to\": \"2026-10-20\",\n  \"deposit_required\": \"100000.00\",\n  \"payment_terms\": \"Thanh toán trước ngày khởi hành.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/contracts/from-quotation", "description": "Chỉ quotation approved có Rental Request accepted. Copy item/hành trình, driver_wage mặc định 0, Rental Request chuyển converted. Chặn quotation đã có Contract draft hoặc active." } },
+        { "name": "Cập nhật hợp đồng nháp", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"deposit_required\": \"200000.00\",\n  \"terms\": \"Điều khoản bổ sung.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/contracts/{{contract_id}}", "description": "PATCH chỉ Contract draft. Gửi items sẽ thay toàn bộ items và backend tính lại total_amount." } },
+        { "name": "Ngừng hoạt động hợp đồng", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}", "description": "Chỉ Contract draft và chưa có lịch/chứng từ." } },
+        { "name": "Kích hoạt hợp đồng", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}/activate", "description": "draft → active; cần ít nhất một item và thời gian hiệu lực hợp lệ." } },
+        { "name": "Hoàn thành hợp đồng", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}/complete", "description": "active → completed; bị chặn nếu còn lịch chuyến chưa completed/cancelled." } },
+        { "name": "Hủy hợp đồng", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}/cancel", "description": "draft hoặc active → cancelled; bị chặn nếu đã có lịch chuyến hoặc phiếu thu." } },
+        { "name": "Danh sách quy tắc lịch", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/contracts/{{contract_id}}/schedule-rules", "description": "Cần contracts.view. Response gồm days, trip_schedules_count và is_locked để khóa UI khi rule đã sinh lịch." } },
+        { "name": "Chi tiết quy tắc lịch", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/schedule-rules/{{schedule_rule_id}}" } },
+        { "name": "Tạo quy tắc lịch", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const response = pm.response.json();", "if (response.metadata && response.metadata.id) pm.collectionVariables.set('schedule_rule_id', String(response.metadata.id));"] } }], "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"contract_item_id\": {{contract_item_id}},\n  \"route_id\": {{route_id}},\n  \"effective_from\": \"2026-10-01\",\n  \"effective_to\": \"2026-10-31\",\n  \"default_vehicle_id\": {{vehicle_id}},\n  \"default_driver_id\": {{driver_id}},\n  \"note\": \"Tuyến đưa đón cố định\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/contracts/{{contract_id}}/schedule-rules", "description": "Cần contracts.manage; Contract phải active, item phải thuộc Contract. default vehicle/driver chỉ là gợi ý, không tạo assignment." } },
+        { "name": "Cập nhật quy tắc lịch", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"note\": \"Cập nhật ghi chú tuyến\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/schedule-rules/{{schedule_rule_id}}", "description": "Chỉ rule active chưa có Trip Schedule được sửa; nếu đã sinh bất kỳ lịch nào trả 409." } },
+        { "name": "Thay toàn bộ ngày chạy", "request": { "method": "PUT", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"days\": [\n    { \"weekday\": \"Mon\", \"pickup_time\": \"08:00\", \"return_time\": \"17:00\", \"shift_name\": \"Ca sáng\" },\n    { \"weekday\": \"Wed\", \"pickup_time\": \"08:00\", \"return_time\": \"17:00\", \"shift_name\": \"Ca sáng\" }\n  ]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/schedule-rules/{{schedule_rule_id}}/days", "description": "Thay toàn bộ days. Không được trùng weekday + pickup_time; return_time nếu gửi phải sau pickup_time cùng ngày. Rule đã sinh lịch trả 409." } },
+        { "name": "Sinh lịch chuyến từ rule", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }], "body": { "mode": "raw", "raw": "{\n  \"from_date\": \"2026-10-05\",\n  \"to_date\": \"2026-10-11\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{base_url}}/contract/schedule-rules/{{schedule_rule_id}}/generate-trip-schedules", "description": "Khoảng ngày phải nằm trong hiệu lực rule/hợp đồng. Sinh Trip Schedule PLANNED; cùng rule/thời điểm là skipped, lịch khác cùng item/thời điểm là conflicts. Day cần return_time để sinh được lịch." } },
+        { "name": "Ngừng hoạt động quy tắc lịch", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json", "type": "text" }], "url": "{{base_url}}/contract/schedule-rules/{{schedule_rule_id}}", "description": "Đặt is_active=false. Chỉ rule chưa sinh Trip Schedule; nếu đã sinh trả 409." } }
+      ]
+    },
+    {
+      "name": "Dispatch - Ki\u1ec3m tra n\u0103ng l\u1ef1c",
+      "description": "Snapshot n\u0103ng l\u1ef1c cho Sales tr\u01b0\u1edbc khi g\u1eedi b\u00e1o gi\u00e1/t\u1ea1o h\u1ee3p \u0111\u1ed3ng. C\u1ea7n rental-capacity.view; kh\u00f4ng t\u1ea1o reservation v\u00e0 kh\u00f4ng thay \u0111\u1ed5i xe/t\u00e0i x\u1ebf.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Ki\u1ec3m tra n\u0103ng l\u1ef1c xe v\u00e0 t\u00e0i x\u1ebf",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json", "type": "text" }, { "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_at\": \"2026-10-20T06:00:00+07:00\",\n  \"end_at\": \"2026-10-20T18:00:00+07:00\",\n  \"items\": [\n    { \"vehicle_type_id\": {{vehicle_type_id}}, \"quantity\": 2 }\n  ],\n  \"ownership_type\": null,\n  \"partner_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/dispatch/availability",
+            "description": "C\u1ea7n end_at sau start_at v\u00e0 \u00edt nh\u1ea5t m\u1ed9t item; m\u1ed7i vehicle_type_id ch\u1ec9 c\u00f3 m\u1ed9t d\u00f2ng. Kh\u00f4ng g\u1eedi ownership_type/partner_id \u0111\u1ec3 xem c\u1ea3 ngu\u1ed3n c\u00f4ng ty v\u00e0 \u0111\u1ed1i t\u00e1c. ownership_type v\u00e0 partner_id l\u00e0 hai filter \u0111\u1ed9c l\u1eadp t\u00f9y ch\u1ecdn. Response c\u00f3 vehicle_capacities, driver_capacity v\u00e0 can_fulfill. K\u1ebft qu\u1ea3 ch\u1ec9 l\u00e0 snapshot, kh\u00f4ng gi\u1eef xe/t\u00e0i x\u1ebf."
+          }
         }
       ]
     }
