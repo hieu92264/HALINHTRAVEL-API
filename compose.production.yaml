@@ -84,6 +84,8 @@ services:
   db:
     image: mysql:8.4
     restart: unless-stopped
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:?Set DB_DATABASE in .env.production}
       MYSQL_USER: ${DB_USERNAME:?Set DB_USERNAME in .env.production}
