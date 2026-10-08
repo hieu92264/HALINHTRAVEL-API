@@ -55,7 +55,7 @@ services:
       - app
       - reverb
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up || exit 1"]
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null https://127.0.0.1/up || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
