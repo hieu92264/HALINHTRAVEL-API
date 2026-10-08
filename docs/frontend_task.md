@@ -48,6 +48,10 @@ Trong các bảng task, path đầu tiên luôn nêu đủ prefix module. Các p
 
 ## 2. Quy ước trải nghiệm dùng chung
 
+> **Quy ước thay thế (Dispatch và bán hàng, 08/10/2026):** Khi có mâu thuẫn với các task cũ, frontend dùng luồng request → quotation → trip contract → activate → schedules → assignment → order. Không còn CTA tạo báo giá độc lập; báo giá từ request khóa phạm vi và bắt buộc hạn hiệu lực. Hợp đồng tạo tay chỉ `principle`; hợp đồng `trip` tạo từ quotation được duyệt.
+>
+> Dispatch phải dùng API thật `/api/dispatch/trip-schedules`, `/api/dispatch/orders`, `/api/dispatch/my-orders`. Domain layer gồm type, service, Vue Query key/mutation và schema trước khi nối UI. `PENDING_CONFIRMATION` hiển thị “Chờ điều hành xác nhận”. Driver chỉ gọi `/my-orders`, không nhận/hiển thị `customer_amount`, `partner_vehicle_cost`, `external_driver_cost`. Mọi thao tác hủy, thay assignment, phát hành, trả/xác nhận báo cáo dùng `AccessDialog`, khóa nút khi mutation pending và invalidate schedule/order/availability khi thành công.
+
 ### 2.1. Khung vận hành và trạng thái
 
 - Sidebar nhóm: Tổng quan, Bán hàng, Điều hành, Tài chính–nhân sự, Báo cáo, Danh mục và Quản trị. Nhóm/mục chỉ hiện khi user có permission `.view` phù hợp; thao tác ghi cần `.manage`.

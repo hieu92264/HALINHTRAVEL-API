@@ -32,6 +32,11 @@ class DispatchOrder extends Model
         'external_driver_cost',
         'status',
         'completed_at',
+        'reported_at',
+        'reported_by',
+        'confirmed_at',
+        'confirmed_by',
+        'review_note',
         'note',
     ];
 
@@ -50,6 +55,8 @@ class DispatchOrder extends Model
             'external_driver_cost' => 'decimal:2',
             'status' => DispatchOrderStatusEnum::class,
             'completed_at' => 'datetime',
+            'reported_at' => 'datetime',
+            'confirmed_at' => 'datetime',
         ]);
     }
 
@@ -66,6 +73,16 @@ class DispatchOrder extends Model
     public function issuedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by', 'user_name');
+    }
+
+    public function reportedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reported_by', 'user_name');
+    }
+
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by', 'user_name');
     }
 
     public function expenses(): HasMany

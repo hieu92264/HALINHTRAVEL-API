@@ -78,6 +78,11 @@ class TripSchedule extends Model
 
     public function dispatchOrder(): HasOne
     {
-        return $this->hasOne(DispatchOrder::class);
+        return $this->hasOne(DispatchOrder::class)->latestOfMany();
+    }
+
+    public function dispatchOrders(): HasMany
+    {
+        return $this->hasMany(DispatchOrder::class);
     }
 }

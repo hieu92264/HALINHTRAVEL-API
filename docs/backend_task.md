@@ -2,6 +2,15 @@
 
 > Tài liệu này là đặc tả API nghiệp vụ cho backend HaLinhTravel. Tài liệu không mô tả API xác thực, JWT, tài khoản, vai trò hoặc phân quyền.
 
+> **Quy ước thay thế (Dispatch và bán hàng, 08/10/2026):** Khi mâu thuẫn với phần mô tả cũ bên dưới, phần này là chuẩn áp dụng.
+>
+> - `Rental Request → Quotation → Contract trip` là một luồng bắt buộc. Báo giá mới luôn có `rental_request_id` và `valid_until`; báo giá chỉ thay đổi thông tin thương mại, không được đổi loại xe/tuyến/số lượng của yêu cầu. Khi một báo giá được chấp nhận, request là `accepted`, các phương án mở còn lại là `superseded`; chỉ reject request mới đóng toàn bộ các phương án. Báo giá quá hạn là `expired` và token email cũng mất hiệu lực.
+> - `POST /api/contract/contracts` chỉ tạo hợp đồng `principle`, không nhận request/quotation. `POST /api/contract/contracts/from-quotation` tạo `trip` duy nhất từ quotation `approved` của request `accepted`; ngày hiệu lực phải bao phủ toàn bộ khoảng thuê.
+> - Kích hoạt hợp đồng `trip` tự tạo một `TripSchedule` `PLANNED` cho **mỗi** đơn vị quantity của từng item, theo thời gian request. Generator schedule-rule cũng tạo đủ quantity và idempotent. Một schedule là một xe.
+> - Dispatch dùng các route `/api/dispatch/trip-schedules`, `/api/dispatch/orders` và `/api/dispatch/my-orders` (không dùng path cũ `dispatch-orders`). Assignment bắt buộc `vehicle_id`, `driver_id`; backend suy ra `partner_id` từ xe. Không được thay assignment khi tồn tại order chưa hủy.
+> - Lifecycle order: `ISSUED → ASSIGNED → IN_PROGRESS → PENDING_CONFIRMATION → COMPLETED`; chỉ dispatcher confirm completion. Driver chỉ được start/report qua `/my-orders`, sau khi ownership `User.user_name → Driver.user_name → assignment.driver_id` được xác thực. Report không có tiền; dispatcher nhập tiền khi confirm, kiểm tra ODO/thời gian và cập nhật ODO xe. Có thể return báo cáo về `IN_PROGRESS` cùng `review_note`.
+> - Có thể hủy `ISSUED`/`ASSIGNED`; sau đó thay assignment và phát hành order mới. Migration Dispatch bỏ unique `trip_schedule_id` để giữ lịch sử order đã hủy.
+
 ## 1. Quy ước chung
 
 ### 1.1. URL, dữ liệu và response
