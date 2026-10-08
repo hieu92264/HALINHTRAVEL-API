@@ -17,8 +17,8 @@ class StoreContractFromQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'quotation_id' => ['required', 'integer', Rule::exists('quotations', 'id')], 'contract_type' => ['required', Rule::enum(ContractTypeEnum::class)],
-            'signed_date' => ['nullable', 'date'], 'effective_from' => ['required', 'date'], 'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'],
+            'quotation_id' => ['required', 'integer', Rule::exists('quotations', 'id')], 'contract_type' => ['required', Rule::in([ContractTypeEnum::TRIP->value])],
+            'signed_date' => ['nullable', 'date'], 'effective_from' => ['required', 'date'], 'effective_to' => ['required', 'date', 'after_or_equal:effective_from'],
             'deposit_required' => ['sometimes', 'decimal:0,2', 'min:0'], 'payment_terms' => ['nullable', 'string'], 'terms' => ['nullable', 'string'],
         ];
     }

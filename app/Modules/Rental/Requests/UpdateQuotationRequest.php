@@ -17,10 +17,10 @@ class UpdateQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'rental_request_id' => ['sometimes', 'nullable', 'integer', Rule::exists('rental_requests', 'id')],
+            'rental_request_id' => ['prohibited'],
             'customer_id' => ['sometimes', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
             'quotation_date' => ['sometimes', 'date'],
-            'valid_until' => ['sometimes', 'nullable', 'date'],
+            'valid_until' => ['sometimes', 'date'],
             'discount_amount' => ['sometimes', 'decimal:0,2', 'min:0'],
             'payment_terms' => ['sometimes', 'nullable', 'string'],
             'items' => ['sometimes', 'array', 'min:1'],

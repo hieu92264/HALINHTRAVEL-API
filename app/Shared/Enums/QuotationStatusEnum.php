@@ -13,4 +13,5 @@ enum QuotationStatusEnum: string
     case APPROVED = 'approved';
     case REJECTED = 'rejected';
     case EXPIRED = 'expired';
+    case SUPERSEDED = 'superseded';
 }

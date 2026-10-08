@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\SetLocale;
+use App\Modules\Rental\Commands\ExpireQuotations;
 use App\Shared\Helpers\LocaleHelper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -23,6 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        ExpireQuotations::class,
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Spatie Permission middleware aliases. Keep the auth middleware before
         // these aliases on routes so the current JWT user can be resolved.

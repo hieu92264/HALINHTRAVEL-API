@@ -14,6 +14,7 @@ class RouteRateService implements RouteRateServiceInterface
     public function routeRates(): array
     {
         return RouteRate::query()
+            ->with(['route:id,name', 'vehicleType:id,name'])
             ->orderBy('route_id')
             ->orderBy('vehicle_type_id')
             ->orderByDesc('effective_from')
@@ -24,10 +25,14 @@ class RouteRateService implements RouteRateServiceInterface
 
     public function routeRate(RouteRate $routeRate): array
     {
+        $routeRate->loadMissing(['route:id,name', 'vehicleType:id,name']);
+
         return [
             'id' => $routeRate->id,
             'route_id' => $routeRate->route_id,
+            'route_name' => $routeRate->route?->name,
             'vehicle_type_id' => $routeRate->vehicle_type_id,
+            'vehicle_type_name' => $routeRate->vehicleType?->name,
             'customer_price' => $routeRate->customer_price,
             'driver_wage' => $routeRate->driver_wage,
             'effective_from' => $routeRate->effective_from?->toDateString(),

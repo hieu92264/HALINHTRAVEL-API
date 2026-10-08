@@ -86,13 +86,27 @@ class QuotationWorkflowApiTest extends TestCase
         $request->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1]);
         $this->driver('LX0003');
 
+        $payload = $this->payload($customer, $vehicleType, $request);
+        $payload['items'][0]['quantity'] = 3;
         $this->actingAs($this->sales(), 'api')
-            ->postJson('/api/rental/quotations', $this->payload($customer, $vehicleType, $request))
+            ->postJson('/api/rental/quotations', $payload)
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Không đủ năng lực để lập báo giá: Xe 16 chỗ thiếu 1 xe.');
     }
 
-    public function test_independent_quotation_does_not_require_dispatch_capacity(): void
+    public function test_quotation_scope_must_match_the_rental_request(): void
+    {
+        [$customer, $vehicleType, $request] = $this->references();
+        $payload = $this->payload($customer, $vehicleType, $request);
+        $payload['items'][0]['quantity'] = 1;
+
+        $this->actingAs($this->sales(), 'api')
+            ->postJson('/api/rental/quotations', $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Hạng mục báo giá phải khớp loại xe, tuyến và số lượng của yêu cầu thuê xe.');
+    }
+
+    public function test_quotation_must_be_linked_to_a_rental_request(): void
     {
         [$customer, $vehicleType, $request] = $this->references();
         Vehicle::query()->update(['vehicle_status' => 'maintenance']);
@@ -102,8 +116,7 @@ class QuotationWorkflowApiTest extends TestCase
 
         $this->actingAs($this->sales(), 'api')
             ->postJson('/api/rental/quotations', $payload)
-            ->assertCreated()
-            ->assertJsonPath('metadata.status', 'draft');
+            ->assertUnprocessable();
     }
 
     public function test_sending_then_accepting_from_email_updates_the_quotation_and_request(): void
@@ -133,7 +146,7 @@ class QuotationWorkflowApiTest extends TestCase
         $this->postJson("/api/public/quotation-responses/{$token}/accept")->assertGone();
     }
 
-    public function test_rejection_from_email_closes_the_rental_request_and_invalid_tokens_are_not_exposed(): void
+    public function test_rejection_from_email_keeps_the_rental_request_open_and_invalid_tokens_are_not_exposed(): void
     {
         [$customer, $vehicleType, $request] = $this->references();
         $quotation = $this->createQuotation($customer, $vehicleType, $request, QuotationStatusEnum::SENT);
@@ -143,7 +156,7 @@ class QuotationWorkflowApiTest extends TestCase
 
         $this->postJson("/api/public/quotation-responses/{$token}/reject", ['note' => 'Chưa phù hợp'])
             ->assertOk()->assertJsonPath('metadata.status', 'rejected');
-        $this->assertDatabaseHas('rental_requests', ['id' => $request->id, 'status' => 'rejected']);
+        $this->assertDatabaseHas('rental_requests', ['id' => $request->id, 'status' => 'quoted']);
         $this->getJson('/api/public/quotation-responses/not-a-token')->assertGone();
     }
 
@@ -189,8 +202,82 @@ class QuotationWorkflowApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('metadata.status', 'rejected');
 
-        $this->assertDatabaseHas('rental_requests', ['id' => $request->id, 'status' => 'rejected']);
+        $this->assertDatabaseHas('rental_requests', ['id' => $request->id, 'status' => 'quoted']);
         $this->postJson('/api/public/quotation-responses/email-token/accept')->assertGone();
+    }
+
+    public function test_accepting_one_quote_supersedes_other_open_quotes_and_their_tokens(): void
+    {
+        [$customer, $vehicleType, $request] = $this->references();
+        $winner = $this->createQuotation($customer, $vehicleType, $request, QuotationStatusEnum::SENT);
+        $alternative = Quotation::create([
+            'quotation_no' => 'BG20260002',
+            'customer_id' => $customer->id,
+            'rental_request_id' => $request->id,
+            'quotation_date' => '2026-10-05',
+            'valid_until' => '2030-10-10',
+            'subtotal' => '1200000',
+            'discount_amount' => '0',
+            'total_amount' => '1200000',
+            'status' => QuotationStatusEnum::SENT,
+        ]);
+        $alternative->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000']);
+        $alternative->responseTokens()->create(['token_hash' => hash('sha256', 'alternative-token'), 'expires_at' => now()->addDay()]);
+        $request->forceFill(['status' => RentalRequestStatusEnum::QUOTED])->save();
+
+        $this->actingAs($this->sales(), 'api')
+            ->postJson("/api/rental/quotations/{$winner->id}/record-customer-response", ['accepted' => true])
+            ->assertOk();
+
+        $this->assertDatabaseHas('quotations', ['id' => $alternative->id, 'status' => 'superseded']);
+        $this->postJson('/api/public/quotation-responses/alternative-token/accept')->assertGone();
+    }
+
+    public function test_phone_response_is_rejected_after_validity_date(): void
+    {
+        [$customer, $vehicleType, $request] = $this->references();
+        $customer->forceFill(['email' => null])->save();
+        $quotation = $this->createQuotation($customer, $vehicleType, $request);
+        $quotation->forceFill(['valid_until' => now()->subDay()->toDateString()])->save();
+
+        $this->actingAs($this->sales(), 'api')
+            ->postJson("/api/rental/quotations/{$quotation->id}/record-customer-response", ['accepted' => true])
+            ->assertUnprocessable();
+    }
+
+    public function test_expiration_command_expires_open_quotations_past_their_validity_date(): void
+    {
+        [$customer, $vehicleType, $request] = $this->references();
+        $quotation = $this->createQuotation($customer, $vehicleType, $request);
+        $quotation->forceFill(['valid_until' => now()->subDay()->toDateString()])->save();
+
+        $this->artisan('rental:expire-quotations')->assertExitCode(0);
+
+        $this->assertDatabaseHas('quotations', ['id' => $quotation->id, 'status' => 'expired']);
+    }
+
+    public function test_rejecting_a_request_supersedes_all_open_quotes(): void
+    {
+        [$customer, $vehicleType, $request] = $this->references();
+        $draft = $this->createQuotation($customer, $vehicleType, $request);
+        $sent = Quotation::create([
+            'quotation_no' => 'BG20260002',
+            'customer_id' => $customer->id,
+            'rental_request_id' => $request->id,
+            'quotation_date' => '2026-10-05',
+            'valid_until' => '2030-10-10',
+            'subtotal' => '1200000',
+            'discount_amount' => '0',
+            'total_amount' => '1200000',
+            'status' => QuotationStatusEnum::SENT,
+        ]);
+        $sent->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000']);
+
+        $this->actingAs($this->sales(), 'api')->postJson("/api/rental/requests/{$request->id}/reject")
+            ->assertOk();
+
+        $this->assertDatabaseHas('quotations', ['id' => $draft->id, 'status' => 'superseded']);
+        $this->assertDatabaseHas('quotations', ['id' => $sent->id, 'status' => 'superseded']);
     }
 
     public function test_phone_response_requires_a_sent_quote_or_a_draft_without_customer_email(): void
@@ -237,7 +324,7 @@ class QuotationWorkflowApiTest extends TestCase
 
     private function createQuotation(Customer $customer, VehicleType $vehicleType, RentalRequest $request, QuotationStatusEnum $status = QuotationStatusEnum::DRAFT): Quotation
     {
-        $quotation = Quotation::create(['quotation_no' => 'BG20260001', 'customer_id' => $customer->id, 'rental_request_id' => $request->id, 'quotation_date' => '2026-10-05', 'subtotal' => '1200000', 'discount_amount' => '0', 'total_amount' => '1200000', 'status' => $status]);
+        $quotation = Quotation::create(['quotation_no' => 'BG20260001', 'customer_id' => $customer->id, 'rental_request_id' => $request->id, 'quotation_date' => '2026-10-05', 'valid_until' => '2030-10-10', 'subtotal' => '1200000', 'discount_amount' => '0', 'total_amount' => '1200000', 'status' => $status]);
         $quotation->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000']);
 
         return $quotation;

@@ -28,7 +28,7 @@ class ContractApiTest extends TestCase
     public function test_creating_from_an_approved_quotation_copies_data_and_converts_request(): void
     {
         [$customer, $vehicleType] = $this->references();
-        $request = RentalRequest::create(['request_no' => 'YC20260001', 'customer_id' => $customer->id, 'requested_at' => '2026-10-01', 'service_type' => 'tourism', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long', 'start_at' => '2026-10-20 06:00:00', 'status' => 'accepted']);
+        $request = RentalRequest::create(['request_no' => 'YC20260001', 'customer_id' => $customer->id, 'requested_at' => '2026-10-01', 'service_type' => 'tourism', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long', 'start_at' => '2026-10-20 06:00:00', 'end_at' => '2026-10-20 18:00:00', 'status' => 'accepted']);
         $quotation = Quotation::create(['quotation_no' => 'BG20260001', 'rental_request_id' => $request->id, 'customer_id' => $customer->id, 'quotation_date' => '2026-10-01', 'subtotal' => '1200000', 'discount_amount' => '0', 'total_amount' => '1200000', 'status' => 'approved']);
         $quotation->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000', 'description' => 'Theo báo giá']);
         $payload = ['quotation_id' => $quotation->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000'];
@@ -46,6 +46,52 @@ class ContractApiTest extends TestCase
         $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts', $invalid)->assertUnprocessable();
         $quotation = Quotation::create(['quotation_no' => 'BG20260001', 'customer_id' => $customer->id, 'quotation_date' => '2026-10-01', 'subtotal' => '0', 'discount_amount' => '0', 'total_amount' => '0', 'status' => 'draft']);
         $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts/from-quotation', ['quotation_id' => $quotation->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-20'])->assertUnprocessable();
+    }
+
+    public function test_direct_contract_creation_rejects_trip_contracts_and_source_links(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+        $payload = $this->payload($customer, $vehicleType);
+        $payload['contract_type'] = 'trip';
+
+        $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts', $payload)
+            ->assertUnprocessable();
+    }
+
+    public function test_trip_contract_effective_dates_must_cover_an_overnight_request(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+        $request = RentalRequest::create([
+            'request_no' => 'YC20260003',
+            'customer_id' => $customer->id,
+            'requested_at' => '2026-10-01',
+            'service_type' => 'tourism',
+            'pickup_location' => 'Hà Nội',
+            'dropoff_location' => 'Hạ Long',
+            'start_at' => '2026-10-20 23:00:00',
+            'end_at' => '2026-10-21 02:00:00',
+            'status' => 'accepted',
+        ]);
+        $quotation = Quotation::create([
+            'quotation_no' => 'BG20260003',
+            'rental_request_id' => $request->id,
+            'customer_id' => $customer->id,
+            'quotation_date' => '2026-10-01',
+            'valid_until' => '2026-10-10',
+            'subtotal' => '1200000',
+            'discount_amount' => '0',
+            'total_amount' => '1200000',
+            'status' => 'approved',
+        ]);
+        $quotation->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000']);
+
+        $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts/from-quotation', [
+            'quotation_id' => $quotation->id,
+            'contract_type' => 'trip',
+            'effective_from' => '2026-10-20',
+            'effective_to' => '2026-10-20',
+            'deposit_required' => '0',
+        ])->assertUnprocessable();
     }
 
     public function test_creating_from_quotation_requires_an_accepted_rental_request(): void
@@ -70,7 +116,7 @@ class ContractApiTest extends TestCase
 
     private function payload(Customer $customer, VehicleType $vehicleType): array
     {
-        return ['customer_id' => $customer->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000', 'items' => [['vehicle_type_id' => $vehicleType->id, 'service_type' => 'tourism', 'quantity' => 2, 'unit_price' => '1200000', 'driver_wage' => '200000', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long']]];
+        return ['customer_id' => $customer->id, 'contract_type' => 'principle', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000', 'items' => [['vehicle_type_id' => $vehicleType->id, 'service_type' => 'tourism', 'quantity' => 2, 'unit_price' => '1200000', 'driver_wage' => '200000', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long']]];
     }
 
     private function sales(): User
