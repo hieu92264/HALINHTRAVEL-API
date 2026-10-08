@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\CustomerEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,8 +18,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->string('code', 50)->unique();
-            $table->enum('type', \App\Shared\Enums\CustomerEnum::values())
-                ->default(\App\Shared\Enums\CustomerEnum::INDIVIDUAL)
+            $table->enum('type', CustomerEnum::values())
+                ->default(CustomerEnum::INDIVIDUAL)
                 ->comment('Loại khách hàng: individual (cá nhân), company (công ty)');
             $table->string('name', 255)->comment('Tên khách hàng'); // VARCHAR(255)[cite: 2]
             $table->string('phone', 20)->nullable()->comment('Số điện thoại'); // VARCHAR(20) NULL[cite: 2]

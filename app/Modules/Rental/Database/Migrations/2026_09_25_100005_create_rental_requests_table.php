@@ -1,5 +1,7 @@
 <?php
 
+use App\Shared\Enums\RentalRequestStatusEnum;
+use App\Shared\Enums\RentalServiceTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -24,7 +26,7 @@ return new class extends Migration
             $table->dateTime('requested_at');
 
             // Chi tiết dịch vụ
-            $table->enum('service_type', \App\Shared\Enums\RentalServiceTypeEnum::values())->comment('Loại dịch vụ: fixed / tourism / school / business');
+            $table->enum('service_type', RentalServiceTypeEnum::values())->comment('Loại dịch vụ: fixed / tourism / school / business');
             $table->string('pickup_location', 500)->nullable(); // VARCHAR(500) NULL[cite: 9]
             $table->string('dropoff_location', 500)->nullable(); // VARCHAR(500) NULL[cite: 9]
             $table->dateTime('start_at')->nullable(); // DATETIME NULL[cite: 9]
@@ -32,8 +34,8 @@ return new class extends Migration
 
             // Ghi chú và Trạng thái
             $table->text('note')->nullable(); // TEXT NULL[cite: 9]
-            $table->enum('status', \App\Shared\Enums\RentalRequestStatusEnum::values())
-                ->default(\App\Shared\Enums\RentalRequestStatusEnum::NEW)
+            $table->enum('status', RentalRequestStatusEnum::values())
+                ->default(RentalRequestStatusEnum::NEW)
                 ->comment('Trạng thái: new / quoted / accepted / rejected / converted');
         });
     }

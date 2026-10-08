@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\PartnerTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,8 +18,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->string('code', 50)->unique()->comment('Mã đối tác, VD: DT0001');
-            $table->enum('type', \App\Shared\Enums\PartnerTypeEnum::values())
-                ->default(\App\Shared\Enums\PartnerTypeEnum::OTHER)
+            $table->enum('type', PartnerTypeEnum::values())
+                ->default(PartnerTypeEnum::OTHER)
                 ->comment('Loại: transport_company / vehicle_owner / garage / fuel_supplier / other');
 
             $table->string('name', 255)->comment('Tên đối tác / chủ xe / nhà cung cấp'); // VARCHAR(255)[cite: 3]

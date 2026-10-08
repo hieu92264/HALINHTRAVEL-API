@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\TripAssignmentTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,7 +23,7 @@ return new class extends Migration
             $table->foreignId('partner_id')->nullable()->constrained('partners')->nullOnDelete()->comment('Nếu thuê xe ngoài');
 
             // Phân loại & Lịch sử thay thế
-            $table->enum('assignment_type', \App\Shared\Enums\TripAssignmentTypeEnum::values())
+            $table->enum('assignment_type', TripAssignmentTypeEnum::values())
                 ->comment('primary / substitute');
 
             // Khóa ngoại tự tham chiếu (Self-referencing FK) đến chính bảng trip_assignments

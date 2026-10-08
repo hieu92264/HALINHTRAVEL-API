@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\PayrollCalculationTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -21,7 +22,7 @@ return new class extends Migration
             $table->foreignId('dispatch_order_id')->nullable()->constrained('dispatch_orders')->nullOnDelete();
 
             // Chi tiết tính toán
-            $table->enum('calculation_type', \App\Shared\Enums\PayrollCalculationTypeEnum::values())
+            $table->enum('calculation_type', PayrollCalculationTypeEnum::values())
                 ->comment('fixed_trip / tourism_commission / allowance');
             $table->decimal('base_amount', 18, 2)->default(0);
             $table->decimal('rate', 8, 2)->default(0);

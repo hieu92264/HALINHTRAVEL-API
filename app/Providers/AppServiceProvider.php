@@ -10,8 +10,17 @@ use App\Modules\Contract\Interfaces\ContractScheduleRuleServiceInterface;
 use App\Modules\Contract\Interfaces\ContractServiceInterface;
 use App\Modules\Contract\Services\ContractScheduleRuleService;
 use App\Modules\Contract\Services\ContractService;
+use App\Modules\Dashboard\Interfaces\DashboardOverviewServiceInterface;
+use App\Modules\Dashboard\Observers\DashboardModelObserver;
+use App\Modules\Dashboard\Services\DashboardOverviewService;
 use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
+use App\Modules\Dispatch\Models\DispatchOrder;
+use App\Modules\Dispatch\Models\TripAssignment;
+use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\Dispatch\Services\AvailabilityService;
+use App\Modules\Finance\Models\Expense;
+use App\Modules\Finance\Models\PartnerPayment;
+use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Interfaces\DriverServiceInterface;
 use App\Modules\MasterData\Interfaces\ExpenseTypeServiceInterface;
@@ -20,6 +29,8 @@ use App\Modules\MasterData\Interfaces\RouteRateServiceInterface;
 use App\Modules\MasterData\Interfaces\RouteServiceInterface;
 use App\Modules\MasterData\Interfaces\VehicleServiceInterface;
 use App\Modules\MasterData\Interfaces\VehicleTypeServiceInterface;
+use App\Modules\MasterData\Models\Driver;
+use App\Modules\MasterData\Models\Vehicle;
 use App\Modules\MasterData\Services\CustomerService;
 use App\Modules\MasterData\Services\DriverService;
 use App\Modules\MasterData\Services\ExpenseTypeService;
@@ -34,6 +45,7 @@ use App\Modules\Rental\Services\QuotationService;
 use App\Modules\Rental\Services\RentalRequestService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -56,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(VehicleTypeServiceInterface::class, VehicleTypeService::class);
         $this->app->singleton(VehicleServiceInterface::class, VehicleService::class);
         $this->app->singleton(AvailabilityServiceInterface::class, AvailabilityService::class);
+        $this->app->singleton(DashboardOverviewServiceInterface::class, DashboardOverviewService::class);
 
         // rental
         $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
@@ -69,6 +82,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        config([
+            'reverb.apps.apps.0.allowed_origins' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('REVERB_ALLOWED_ORIGINS', config('app.url'))),
+            ))),
+        ]);
+        Broadcast::routes(['prefix' => 'api', 'middleware' => ['api', 'auth:api']]);
+        require base_path('routes/channels.php');
+        foreach ([TripSchedule::class, TripAssignment::class, DispatchOrder::class, Vehicle::class, Driver::class, Receipt::class, Expense::class, PartnerPayment::class] as $model) {
+            $model::observe(DashboardModelObserver::class);
+        }
+
         RateLimiter::for('login', static function (Request $request): Limit {
             $login = Str::lower((string) $request->input('user_name'));
 

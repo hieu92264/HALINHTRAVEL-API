@@ -1,5 +1,7 @@
 <?php
 
+use App\Shared\Enums\DriverAttendanceStatusEnum;
+use App\Shared\Enums\WorkTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -24,7 +26,7 @@ return new class extends Migration
 
             // Phân loại & Thời gian
             $table->date('work_date');
-            $table->enum('work_type', \App\Shared\Enums\WorkTypeEnum::values())
+            $table->enum('work_type', WorkTypeEnum::values())
                 ->comment('fixed_trip / tourism_trip / other');
 
             // Dữ liệu tính lương
@@ -34,8 +36,8 @@ return new class extends Migration
             $table->decimal('calculated_wage', 18, 2)->default(0)->comment('Lương tính toán = base_amount * rate');
 
             // Trạng thái
-            $table->enum('status', \App\Shared\Enums\DriverAttendanceStatusEnum::values())
-                ->default(\App\Shared\Enums\DriverAttendanceStatusEnum::PENDING)
+            $table->enum('status', DriverAttendanceStatusEnum::values())
+                ->default(DriverAttendanceStatusEnum::PENDING)
                 ->comment('pending / confirmed / payroll_locked');
         });
     }

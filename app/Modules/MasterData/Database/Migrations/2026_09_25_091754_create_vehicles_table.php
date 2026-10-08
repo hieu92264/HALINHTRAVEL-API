@@ -1,5 +1,7 @@
 <?php
 
+use App\Shared\Enums\OwnershipTypeEnum;
+use App\Shared\Enums\VehicleStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -21,7 +23,7 @@ return new class extends Migration
             $table->foreignId('vehicle_type_id')->constrained('vehicle_types')->restrictOnDelete();
 
             // Thông tin sở hữu
-            $table->enum('ownership_type', \App\Shared\Enums\OwnershipTypeEnum::values())
+            $table->enum('ownership_type', OwnershipTypeEnum::values())
                 ->comment('Loại sở hữu: đối tác/ công ty');
             $table->foreignId('partner_id')->nullable()->constrained('partners')
                 ->nullOnDelete()
@@ -34,7 +36,7 @@ return new class extends Migration
             $table->unsignedInteger('current_odometer')->nullable()->comment('Số km hiện tại');
 
             // Trạng thái & Ghi chú
-            $table->enum('vehicle_status', \App\Shared\Enums\VehicleStatusEnum::values())->comment('available / assigned / maintenance / inactive'); // VARCHAR(30)[cite: 5]
+            $table->enum('vehicle_status', VehicleStatusEnum::values())->comment('available / assigned / maintenance / inactive'); // VARCHAR(30)[cite: 5]
             $table->text('notes')->nullable();
         });
     }

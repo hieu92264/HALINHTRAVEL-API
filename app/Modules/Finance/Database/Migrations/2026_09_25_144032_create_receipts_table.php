@@ -1,5 +1,7 @@
 <?php
 
+use App\Shared\Enums\PaymentMethodEnum;
+use App\Shared\Enums\ReceiptTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -21,11 +23,11 @@ return new class extends Migration
             $table->foreignId('contract_id')->nullable()->constrained('contracts')->restrictOnDelete();
 
             // Chi tiết phiếu thu
-            $table->enum('receipt_type', \App\Shared\Enums\ReceiptTypeEnum::values())
+            $table->enum('receipt_type', ReceiptTypeEnum::values())
                 ->comment('deposit / contract_payment / other');
             $table->dateTime('received_at');
             $table->decimal('amount', 18, 2);
-            $table->enum('payment_method', \App\Shared\Enums\PaymentMethodEnum::values())
+            $table->enum('payment_method', PaymentMethodEnum::values())
                 ->comment('cash / bank_transfer');
 
             // Thông tin người nộp & Ghi chú

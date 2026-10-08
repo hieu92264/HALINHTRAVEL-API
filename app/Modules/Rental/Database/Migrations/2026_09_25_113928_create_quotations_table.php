@@ -1,5 +1,6 @@
 <?php
 
+use App\Shared\Enums\QuotationStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -32,8 +33,8 @@ return new class extends Migration
 
             // Điều khoản & Trạng thái
             $table->text('payment_terms')->nullable(); // TEXT NULL[cite: 11]
-            $table->enum('status', \App\Shared\Enums\QuotationStatusEnum::values())
-                ->default(\App\Shared\Enums\QuotationStatusEnum::DRAFT)
+            $table->enum('status', QuotationStatusEnum::values())
+                ->default(QuotationStatusEnum::DRAFT)
                 ->comment('draft / sent / approved / rejected / expired');
 
             // Thông tin duyệt & Người tạo
