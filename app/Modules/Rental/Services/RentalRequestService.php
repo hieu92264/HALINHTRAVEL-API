@@ -9,7 +9,9 @@ use App\Modules\Rental\DTOs\CreateRentalRequestData;
 use App\Modules\Rental\DTOs\RentalRequestItemData;
 use App\Modules\Rental\DTOs\UpdateRentalRequestData;
 use App\Modules\Rental\Interfaces\RentalRequestServiceInterface;
+use App\Modules\Rental\Models\Quotation;
 use App\Modules\Rental\Models\RentalRequest;
+use App\Shared\Enums\QuotationStatusEnum;
 use App\Shared\Enums\RentalRequestStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -248,24 +250,28 @@ class RentalRequestService implements RentalRequestServiceInterface
 
     public function acceptQuoted(int $id): array
     {
-        $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
-        if ($rentalRequest->status !== RentalRequestStatusEnum::QUOTED) {
-            abort(409, 'Chỉ yêu cầu đã báo giá mới được chấp nhận.');
-        }
-        $rentalRequest->forceFill(['status' => RentalRequestStatusEnum::ACCEPTED])->save();
-
-        return $this->rentalRequest($rentalRequest->fresh());
+        abort(409, 'Hãy ghi nhận phản hồi chấp nhận trên báo giá để chấp nhận yêu cầu thuê xe.');
     }
 
     public function rejectQuoted(int $id): array
     {
-        $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
-        if (! in_array($rentalRequest->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
-            abort(409, 'Yêu cầu thuê xe không thể bị từ chối ở trạng thái hiện tại.');
-        }
-        $rentalRequest->forceFill(['status' => RentalRequestStatusEnum::REJECTED])->save();
+        return DB::transaction(function () use ($id): array {
+            $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+            if (! in_array($rentalRequest->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
+                abort(409, 'Yêu cầu thuê xe không thể bị từ chối ở trạng thái hiện tại.');
+            }
+            $rentalRequest->forceFill(['status' => RentalRequestStatusEnum::REJECTED])->save();
 
-        return $this->rentalRequest($rentalRequest->fresh());
+            Quotation::query()
+                ->where('rental_request_id', $rentalRequest->id)
+                ->whereIn('status', [QuotationStatusEnum::DRAFT->value, QuotationStatusEnum::SENT->value])
+                ->update([
+                    'status' => QuotationStatusEnum::SUPERSEDED->value,
+                    'updated_at' => now(),
+                ]);
+
+            return $this->rentalRequest($rentalRequest->fresh());
+        });
     }
 
     /**

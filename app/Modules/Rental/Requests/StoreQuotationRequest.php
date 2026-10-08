@@ -17,10 +17,10 @@ class StoreQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'rental_request_id' => ['nullable', 'integer', Rule::exists('rental_requests', 'id')],
+            'rental_request_id' => ['required', 'integer', Rule::exists('rental_requests', 'id')],
             'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
             'quotation_date' => ['required', 'date'],
-            'valid_until' => ['nullable', 'date', 'after_or_equal:quotation_date'],
+            'valid_until' => ['required', 'date', 'after_or_equal:quotation_date'],
             'discount_amount' => ['sometimes', 'decimal:0,2', 'min:0'],
             'payment_terms' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
@@ -37,10 +37,10 @@ class StoreQuotationRequest extends FormRequest
         $data = $this->validated();
 
         return new CreateQuotationData(
-            rentalRequestId: $data['rental_request_id'] ?? null,
+            rentalRequestId: $data['rental_request_id'],
             customerId: $data['customer_id'],
             quotationDate: $data['quotation_date'],
-            validUntil: $data['valid_until'] ?? null,
+            validUntil: $data['valid_until'],
             discountAmount: (string) ($data['discount_amount'] ?? '0'),
             paymentTerms: $data['payment_terms'] ?? null,
             items: array_map(static fn (array $item): QuotationItemData => new QuotationItemData(

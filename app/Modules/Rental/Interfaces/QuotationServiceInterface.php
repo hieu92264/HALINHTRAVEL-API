@@ -22,6 +22,8 @@ interface QuotationServiceInterface
 
     public function expire(Quotation $quotation): array;
 
+    public function expireDue(): int;
+
     public function recordCustomerResponse(Quotation $quotation, bool $accepted, ?string $note, string $userName): array;
 
     public function responseSummary(string $token): array;

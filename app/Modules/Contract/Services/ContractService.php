@@ -8,12 +8,16 @@ use App\Modules\Contract\DTOs\CreateContractFromQuotationData;
 use App\Modules\Contract\DTOs\UpdateContractData;
 use App\Modules\Contract\Interfaces\ContractServiceInterface;
 use App\Modules\Contract\Models\Contract;
+use App\Modules\Dispatch\DTOs\AvailabilityItemData;
+use App\Modules\Dispatch\DTOs\CheckAvailabilityData;
+use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Route;
 use App\Modules\MasterData\Models\VehicleType;
 use App\Modules\Rental\Models\Quotation;
 use App\Modules\Rental\Models\RentalRequest;
 use App\Shared\Enums\ContractStatusEnum;
+use App\Shared\Enums\ContractTypeEnum;
 use App\Shared\Enums\QuotationStatusEnum;
 use App\Shared\Enums\RentalRequestStatusEnum;
 use Carbon\Carbon;
@@ -21,6 +25,8 @@ use Illuminate\Support\Facades\DB;
 
 class ContractService implements ContractServiceInterface
 {
+    public function __construct(private readonly AvailabilityServiceInterface $availabilityService) {}
+
     public function getList(): array
     {
         return Contract::query()->with(['customer', 'rentalRequest', 'quotation', 'items.vehicleType'])->orderByDesc('id')->get()->map(fn (Contract $contract) => $this->contract($contract))->all();
@@ -35,6 +41,9 @@ class ContractService implements ContractServiceInterface
     public function store(CreateContractData $data): array
     {
         return DB::transaction(function () use ($data): array {
+            if ($data->contractType !== ContractTypeEnum::PRINCIPLE || $data->rentalRequestId !== null || $data->quotationId !== null) {
+                abort(422, 'Tạo hợp đồng trực tiếp chỉ hỗ trợ hợp đồng nguyên tắc và không liên kết yêu cầu hoặc báo giá.');
+            }
             $this->validateRelations($data->customerId, $data->rentalRequestId, $data->quotationId, $data->items);
 
             return $this->create($data->customerId, $data->rentalRequestId, $data->quotationId, $data->contractType->value, $data->signedDate, $data->effectiveFrom, $data->effectiveTo, $data->depositRequired, $data->paymentTerms, $data->terms, $data->items);
@@ -45,14 +54,21 @@ class ContractService implements ContractServiceInterface
     public function fromQuotation(CreateContractFromQuotationData $data): array
     {
         return DB::transaction(function () use ($data): array {
-            $quotation = Quotation::query()->with(['items', 'rentalRequest'])->lockForUpdate()->findOrFail($data->quotationId);
-            if (Contract::query()->where('quotation_id', $quotation->id)->whereIn('status', [ContractStatusEnum::DRAFT, ContractStatusEnum::ACTIVE])->exists()) {
+            if ($data->contractType !== ContractTypeEnum::TRIP) {
+                abort(422, 'Hợp đồng tạo từ báo giá phải là hợp đồng theo chuyến.');
+            }
+
+            $quotation = Quotation::query()->with('items')->lockForUpdate()->findOrFail($data->quotationId);
+            $request = $quotation->rental_request_id === null
+                ? null
+                : RentalRequest::query()->with('items')->lockForUpdate()->find($quotation->rental_request_id);
+            if (Contract::query()->where('quotation_id', $quotation->id)->exists()) {
                 abort(409, 'Báo giá đã có hợp đồng đang mở.');
             }
-            if ($quotation->status !== QuotationStatusEnum::APPROVED || $quotation->rentalRequest === null || $quotation->rentalRequest->status !== RentalRequestStatusEnum::ACCEPTED) {
-                abort(422, 'Báo giá phải được chấp nhận và có yêu cầu thuê xe đã accepted.');
+            if ($quotation->status !== QuotationStatusEnum::APPROVED || $request === null || $request->status !== RentalRequestStatusEnum::ACCEPTED) {
+                abort(422, 'Báo giá phải được chấp nhận và gắn với yêu cầu thuê xe đã được chấp nhận.');
             }
-            $request = $quotation->rentalRequest;
+            $this->assertTripDateCoverage($request, $data->effectiveFrom, $data->effectiveTo);
             $items = $quotation->items->map(fn ($item) => new ContractItemData($item->route_id, $item->vehicle_type_id, $request->service_type, $item->quantity, $item->unit_price, '0', $request->pickup_location, $request->dropoff_location, $item->description))->all();
             $this->validateRelations($quotation->customer_id, $request->id, $quotation->id, $items);
             $result = $this->create($quotation->customer_id, $request->id, $quotation->id, $data->contractType->value, $data->signedDate, $data->effectiveFrom, $data->effectiveTo, $data->depositRequired, $data->paymentTerms ?? $quotation->payment_terms, $data->terms, $items);
@@ -68,6 +84,9 @@ class ContractService implements ContractServiceInterface
         return DB::transaction(function () use ($contract, $data): array {
             $locked = Contract::query()->with('items')->lockForUpdate()->findOrFail($contract->id);
             $this->assertDraft($locked);
+            if ($locked->contract_type !== ContractTypeEnum::PRINCIPLE) {
+                abort(409, 'Hợp đồng theo chuyến được tạo từ báo giá và không thể chỉnh sửa trực tiếp.');
+            }
             $v = $data->values;
             $customerId = $v['customer_id'] ?? $locked->customer_id;
             $requestId = array_key_exists('rental_request_id', $v) ? $v['rental_request_id'] : $locked->rental_request_id;
@@ -131,7 +150,11 @@ class ContractService implements ContractServiceInterface
                 abort(409, 'Hợp đồng không thể chuyển trạng thái hiện tại.');
             } if ($to === ContractStatusEnum::ACTIVE && ($locked->items->isEmpty() || $locked->effective_to?->lt($locked->effective_from))) {
                 abort(422, 'Hợp đồng chưa đủ dữ liệu để kích hoạt.');
-            } if ($to === ContractStatusEnum::COMPLETED && $locked->tripSchedules()->whereNotIn('status', ['COMPLETED', 'CANCELLED'])->exists()) {
+            }
+            if ($to === ContractStatusEnum::ACTIVE && $locked->contract_type === ContractTypeEnum::TRIP) {
+                $this->assertTripCapacity($locked);
+            }
+            if ($to === ContractStatusEnum::COMPLETED && $locked->tripSchedules()->whereNotIn('status', ['COMPLETED', 'CANCELLED'])->exists()) {
                 abort(409, 'Không thể hoàn thành khi còn lịch chuyến mở.');
             } $locked->forceFill(['status' => $to])->save();
 
@@ -173,6 +196,49 @@ class ContractService implements ContractServiceInterface
         if (Route::query()->whereIn('id', $routes)->where('is_active', true)->count() !== $routes->count()) {
             abort(422, 'Tuyến không hợp lệ hoặc đã ngừng hoạt động.');
         }
+    }
+
+    private function assertTripDateCoverage(RentalRequest $request, string $from, ?string $to): void
+    {
+        if ($request->start_at === null || $request->end_at === null || $to === null) {
+            abort(422, 'Yêu cầu thuê xe và hợp đồng theo chuyến phải có đủ thời gian bắt đầu, kết thúc.');
+        }
+
+        if (Carbon::parse($from)->startOfDay()->gt($request->start_at->copy()->startOfDay())
+            || Carbon::parse($to)->endOfDay()->lt($request->end_at->copy()->endOfDay())) {
+            abort(422, 'Hiệu lực hợp đồng theo chuyến phải bao trùm toàn bộ thời gian của yêu cầu thuê xe.');
+        }
+    }
+
+    private function assertTripCapacity(Contract $contract): void
+    {
+        $request = $contract->rental_request_id === null
+            ? null
+            : RentalRequest::query()->lockForUpdate()->find($contract->rental_request_id);
+        if ($request === null || $request->start_at === null || $request->end_at === null) {
+            abort(422, 'Hợp đồng theo chuyến phải gắn với yêu cầu thuê xe có thời gian hợp lệ.');
+        }
+
+        $items = $contract->items
+            ->groupBy('vehicle_type_id')
+            ->map(static fn ($group, int $vehicleTypeId): AvailabilityItemData => new AvailabilityItemData(
+                vehicleTypeId: $vehicleTypeId,
+                quantity: $group->sum('quantity'),
+            ))
+            ->values()
+            ->all();
+        $availability = $this->availabilityService->check(new CheckAvailabilityData(
+            startAt: $request->start_at->toDateTimeString(),
+            endAt: $request->end_at->toDateTimeString(),
+            items: $items,
+            ownershipType: null,
+            partnerId: null,
+        ));
+        if ($availability['can_fulfill']) {
+            return;
+        }
+
+        abort(422, 'Không đủ năng lực điều độ để kích hoạt hợp đồng theo chuyến.');
     }
 
     /** @param list<ContractItemData> $items */

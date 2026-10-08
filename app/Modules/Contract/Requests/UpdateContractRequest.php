@@ -20,9 +20,9 @@ class UpdateContractRequest extends FormRequest
     {
         return [
             'customer_id' => ['sometimes', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
-            'rental_request_id' => ['sometimes', 'nullable', 'integer', Rule::exists('rental_requests', 'id')],
-            'quotation_id' => ['sometimes', 'nullable', 'integer', Rule::exists('quotations', 'id')],
-            'contract_type' => ['sometimes', Rule::enum(ContractTypeEnum::class)], 'signed_date' => ['sometimes', 'nullable', 'date'],
+            'rental_request_id' => ['prohibited'],
+            'quotation_id' => ['prohibited'],
+            'contract_type' => ['sometimes', Rule::in([ContractTypeEnum::PRINCIPLE->value])], 'signed_date' => ['sometimes', 'nullable', 'date'],
             'effective_from' => ['sometimes', 'date'], 'effective_to' => ['sometimes', 'nullable', 'date'],
             'deposit_required' => ['sometimes', 'decimal:0,2', 'min:0'], 'payment_terms' => ['sometimes', 'nullable', 'string'], 'terms' => ['sometimes', 'nullable', 'string'],
             'items' => ['sometimes', 'array', 'min:1'], 'items.*.route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],

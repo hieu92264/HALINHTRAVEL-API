@@ -20,9 +20,9 @@ class StoreContractRequest extends FormRequest
     {
         return [
             'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
-            'rental_request_id' => ['nullable', 'integer', Rule::exists('rental_requests', 'id')],
-            'quotation_id' => ['nullable', 'integer', Rule::exists('quotations', 'id')],
-            'contract_type' => ['required', Rule::enum(ContractTypeEnum::class)],
+            'rental_request_id' => ['prohibited'],
+            'quotation_id' => ['prohibited'],
+            'contract_type' => ['required', Rule::in([ContractTypeEnum::PRINCIPLE->value])],
             'signed_date' => ['nullable', 'date'], 'effective_from' => ['required', 'date'],
             'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'],
             'deposit_required' => ['sometimes', 'decimal:0,2', 'min:0'],
@@ -44,7 +44,7 @@ class StoreContractRequest extends FormRequest
     {
         $data = $this->validated();
 
-        return new CreateContractData($data['customer_id'], $data['rental_request_id'] ?? null, $data['quotation_id'] ?? null,
+        return new CreateContractData($data['customer_id'], null, null,
             ContractTypeEnum::from($data['contract_type']), $data['signed_date'] ?? null, $data['effective_from'], $data['effective_to'] ?? null,
             (string) ($data['deposit_required'] ?? '0'), $data['payment_terms'] ?? null, $data['terms'] ?? null, $this->items($data['items']));
     }
