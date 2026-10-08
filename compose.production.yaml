@@ -49,6 +49,7 @@ services:
       - app_storage:/var/www/html/storage:ro
       - certbot_etc:/etc/letsencrypt:ro
       - certbot_webroot:/var/www/certbot:ro
+      - ../HALINHTRAVEL-CLIENT/dist:/var/www/frontend:ro
     networks:
       - private
     depends_on:
