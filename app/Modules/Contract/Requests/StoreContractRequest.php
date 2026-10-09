@@ -23,7 +23,7 @@ class StoreContractRequest extends FormRequest
             'rental_request_id' => ['prohibited'],
             'quotation_id' => ['prohibited'],
             'contract_type' => ['required', Rule::in([ContractTypeEnum::PRINCIPLE->value])],
-            'signed_date' => ['nullable', 'date'], 'effective_from' => ['required', 'date'],
+            'signed_date' => ['required', 'date', 'before_or_equal:effective_from'], 'effective_from' => ['required', 'date'],
             'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'],
             'deposit_required' => ['sometimes', 'decimal:0,2', 'min:0'],
             'payment_terms' => ['nullable', 'string'], 'terms' => ['nullable', 'string'],

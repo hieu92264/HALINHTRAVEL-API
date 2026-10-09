@@ -90,6 +90,29 @@ class RentalRequestFormRequestTest extends TestCase
         }
     }
 
+    public function test_store_request_requires_a_future_end_time_and_distinct_locations(): void
+    {
+        [$customer, $vehicleType] = $this->rentalReferences();
+        $request = $this->formRequest(StoreRentalRequest::class, [
+            'customer_id' => $customer->id,
+            'requested_at' => now()->subHour()->toDateTimeString(),
+            'service_type' => 'tourism',
+            'pickup_location' => '  Hà   Nội ',
+            'dropoff_location' => 'hà nội',
+            'start_at' => now()->addDay()->toDateTimeString(),
+            'end_at' => now()->addDay()->toDateTimeString(),
+            'items' => [['vehicle_type_id' => $vehicleType->id, 'quantity' => 1]],
+        ]);
+
+        try {
+            $request->validateResolved();
+            $this->fail('Validation should reject identical locations and equal times.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('end_at', $exception->errors());
+            $this->assertArrayHasKey('dropoff_location', $exception->errors());
+        }
+    }
+
     public function test_update_request_preserves_omitted_fields_and_allows_nullable_fields_to_clear(): void
     {
         $request = $this->resolvedRequest(UpdateRentalRequest::class, [

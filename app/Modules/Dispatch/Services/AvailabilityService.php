@@ -33,9 +33,13 @@ class AvailabilityService implements AvailabilityServiceInterface
 
         $vehicles = $this->availableVehicles($data, $vehicleTypeIds, $busyVehicleIds);
         $drivers = $this->availableDrivers($data, $startAt, $endAt, $busyDriverIds);
+        $vehicleTypeNames = VehicleType::query()
+            ->whereIn('id', $vehicleTypeIds)
+            ->pluck('name', 'id')
+            ->all();
 
         $vehicleCapacity = array_map(
-            fn (AvailabilityItemData $item): array => $this->vehicleCapacityFor($item, $vehicles),
+            fn (AvailabilityItemData $item): array => $this->vehicleCapacityFor($item, $vehicles, $vehicleTypeNames),
             $data->items,
         );
         $requiredDriverCount = array_sum(array_map(
@@ -128,25 +132,30 @@ class AvailabilityService implements AvailabilityServiceInterface
 
     /**
      * @param  Collection<int, Vehicle>  $vehicles
+     * @param  array<int, string>  $vehicleTypeNames
      * @return array<string, mixed>
      */
-    private function vehicleCapacityFor(AvailabilityItemData $item, Collection $vehicles): array
+    private function vehicleCapacityFor(AvailabilityItemData $item, Collection $vehicles, array $vehicleTypeNames): array
     {
         $candidates = $vehicles
             ->where('vehicle_type_id', $item->vehicleTypeId)
             ->values();
         $companyCount = $candidates->where('ownership_type', OwnershipTypeEnum::COMPANY)->count();
         $partnerCount = $candidates->where('ownership_type', OwnershipTypeEnum::PARTNER)->count();
+        $availableCount = $candidates->count();
+        $shortageCount = max(0, $item->quantity - $availableCount);
 
         return [
             'vehicle_type_id' => $item->vehicleTypeId,
             'vehicle_type_name' => $candidates->first()?->vehicleType?->name
-                ?? VehicleType::query()->whereKey($item->vehicleTypeId)->value('name'),
+                ?? ($vehicleTypeNames[$item->vehicleTypeId] ?? null),
             'required_quantity' => $item->quantity,
             'company_available_count' => $companyCount,
             'partner_available_count' => $partnerCount,
-            'available_count' => $candidates->count(),
-            'is_sufficient' => $candidates->count() >= $item->quantity,
+            'available_count' => $availableCount,
+            'shortage_count' => $shortageCount,
+            'reason' => $shortageCount > 0 ? "Thiếu {$shortageCount} xe khả dụng." : null,
+            'is_sufficient' => $shortageCount === 0,
             'candidates' => $candidates->map(fn (Vehicle $vehicle): array => [
                 'id' => $vehicle->id,
                 'license_plate' => $vehicle->license_plate,
@@ -166,12 +175,17 @@ class AvailabilityService implements AvailabilityServiceInterface
         $companyCount = $drivers->where('type', OwnershipTypeEnum::COMPANY)->count();
         $partnerCount = $drivers->where('type', OwnershipTypeEnum::PARTNER)->count();
 
+        $availableCount = $drivers->count();
+        $shortageCount = max(0, $requiredDriverCount - $availableCount);
+
         return [
             'required_quantity' => $requiredDriverCount,
             'company_available_count' => $companyCount,
             'partner_available_count' => $partnerCount,
-            'available_count' => $drivers->count(),
-            'is_sufficient' => $drivers->count() >= $requiredDriverCount,
+            'available_count' => $availableCount,
+            'shortage_count' => $shortageCount,
+            'reason' => $shortageCount > 0 ? "Thiếu {$shortageCount} tài xế khả dụng." : null,
+            'is_sufficient' => $shortageCount === 0,
             'candidates' => $drivers->map(fn (Driver $driver): array => [
                 'id' => $driver->id,
                 'code' => $driver->code,
