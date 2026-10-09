@@ -205,12 +205,14 @@ Xe hoặc tài xế không được có assignment hiện hành cho hai schedule
 
 | Endpoint | Payload / response | Nghiệp vụ |
 | --- | --- | --- |
-| `GET /dispatch-orders`; `GET /dispatch-orders/{id}` | Detail trả schedule, assignment, customer, route, chi phí và attendance liên quan. | Trả toàn bộ lệnh active. |
-| `POST /trip-schedules/{id}/dispatch-order` | Không có payload. | Chỉ schedule `ASSIGNED` có assignment hiện hành; sinh `order_no`, tạo một order duy nhất cho một schedule, trạng thái `ISSUED`. |
-| `POST /dispatch-orders/{id}/assign` | Không có payload. | `ISSUED -> ASSIGNED`; xác nhận assignment hiện hành còn hợp lệ. |
-| `POST /dispatch-orders/{id}/start` | `actual_start_at`, `start_odometer`, `note` tùy chọn. | `ISSUED`/`ASSIGNED -> IN_PROGRESS`; đồng bộ schedule. |
-| `POST /dispatch-orders/{id}/complete` | `actual_end_at`, `end_odometer`, `actual_distance_km`, `waiting_hours`, `customer_amount`, `partner_vehicle_cost`, `external_driver_cost`, `note`. | `IN_PROGRESS -> COMPLETED`; kiểm tra ODO/thời gian, cập nhật ODO xe và đồng bộ schedule. |
-| `POST /dispatch-orders/{id}/cancel` | `note`. | Chỉ trước `COMPLETED`; đổi order và schedule thành `CANCELLED`. |
+| `GET /orders`; `GET /orders/{id}` | Detail trả schedule, assignment, customer, route và báo cáo vận hành. | Trả toàn bộ lệnh active. |
+| `POST /trip-schedules/{id}/orders` | Không có payload. | Chỉ schedule `ASSIGNED` có assignment hiện hành; sinh `order_no`, chỉ có một lệnh chưa hủy cho một schedule, trạng thái `ISSUED`. |
+| `POST /orders/{id}/assign` | Không có payload. | `ISSUED -> ASSIGNED`; xác nhận assignment hiện hành còn hợp lệ. |
+| `POST /my-orders/{id}/start` | `actual_start_at`, `start_odometer`, `note` tùy chọn. | Chỉ tài xế sở hữu lệnh gọi; `ASSIGNED -> IN_PROGRESS`; ODO không được nhỏ hơn ODO hiện tại xe. |
+| `POST /my-orders/{id}/report-completion` | `actual_end_at`, `end_odometer`, `actual_distance_km`, `waiting_hours`, `note`. | Chỉ tài xế sở hữu lệnh gọi; `IN_PROGRESS -> PENDING_CONFIRMATION`; không được sửa dữ liệu bắt đầu hay gửi trường tiền. |
+| `POST /orders/{id}/confirm-completion` | `customer_amount`, `partner_vehicle_cost`, `external_driver_cost`, `note`. | Điều hành xác nhận `PENDING_CONFIRMATION -> COMPLETED`, kiểm tra ODO/thời gian và cập nhật ODO xe/schedule. |
+| `POST /orders/{id}/return-completion` | `review_note`. | Điều hành trả `PENDING_CONFIRMATION -> IN_PROGRESS` để tài xế bổ sung. |
+| `POST /orders/{id}/cancel` | `note` bắt buộc. | Chỉ `ISSUED`/`ASSIGNED`; đổi order thành `CANCELLED` và schedule về `ASSIGNED`. |
 
 Không có `PATCH` trực tiếp cho dispatch order. `actual_end_at` không trước `actual_start_at`; `end_odometer` không nhỏ hơn `start_odometer`; các giá trị thực tế không âm.
 
@@ -235,7 +237,7 @@ Prefix: `/api/driver-payroll`.
 | `GET, POST /advances`; `GET, PATCH, DELETE /advances/{id}` | `driver_id`, `advance_date`, `amount`, `description`. | Sinh `advance_no`, mặc định `pending`; amount không âm. |
 | `POST /advances/{id}/confirm` | Không có payload. | `pending -> confirmed`; dữ liệu đã `payroll_locked` không sửa/deactivate. |
 | `GET /attendances`; `GET /attendances/{id}` | Trả driver, dispatch order, `work_date`, `work_type`, `work_units`, `base_amount`, `rate`, `calculated_wage`, status. | Status: `pending`, `confirmed`, `payroll_locked`. |
-| `POST /dispatch-orders/{id}/attendance` | `work_units` tùy chọn cho chuyến `fixed`/`school`; `rate` tùy chọn cho `business`. | Chỉ order `COMPLETED`; mỗi order tối đa một attendance; lấy driver và ngày làm từ order/assignment. |
+| `POST /orders/{id}/attendance` *(Phase DriverPayroll)* | `work_units` tùy chọn cho chuyến `fixed`/`school`; `rate` tùy chọn cho `business`. | Chỉ order `COMPLETED`; mỗi order tối đa một attendance; lấy driver và ngày làm từ order/assignment. Không thuộc phạm vi core Dispatch hiện tại. |
 | `PATCH /attendances/{id}`; `POST /attendances/{id}/confirm` | Patch chỉ các dữ liệu cho phép của attendance pending. | Confirm `pending -> confirmed`; không xóa attendance để giữ liên kết order. |
 
 `fixed`/`school` tạo `work_type=fixed_trip`, lấy rate từ `contract_item.driver_wage`; `tourism` tạo `tourism_trip`, lấy base từ `customer_amount` và rate là commission của vehicle type; `business` tạo `other` và cần rate được gửi rõ ràng. Hệ thống tính `calculated_wage` từ base, work units và rate theo loại công.
@@ -289,7 +291,7 @@ Tất cả endpoint dưới đây chỉ đọc, không phân trang. Báo cáo nh
 | Quotation | `draft -> sent -> approved/rejected/expired` |
 | Contract | `draft -> active -> completed`; `draft/active -> cancelled` |
 | Trip schedule | `PLANNED -> ASSIGNED -> IN_PROGRESS -> COMPLETED`; `PLANNED/ASSIGNED -> CANCELLED` |
-| Dispatch order | `ISSUED -> ASSIGNED -> IN_PROGRESS -> COMPLETED`; `ISSUED/ASSIGNED/IN_PROGRESS -> CANCELLED` |
+| Dispatch order | `ISSUED -> ASSIGNED -> IN_PROGRESS -> PENDING_CONFIRMATION -> COMPLETED`; `PENDING_CONFIRMATION -> IN_PROGRESS` khi trả báo cáo; `ISSUED/ASSIGNED -> CANCELLED` |
 | Driver attendance / advance | `pending -> confirmed -> payroll_locked` |
 | Payroll | `draft -> calculated -> approved -> paid -> locked` |
 

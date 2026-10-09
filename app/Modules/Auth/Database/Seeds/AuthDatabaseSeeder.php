@@ -20,7 +20,11 @@ class AuthDatabaseSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach (PermissionEnum::cases() as $permission) {
-            PermissionModel::findOrCreate($permission->value, 'api');
+            $permissionModel = PermissionModel::findOrCreate($permission->value, 'api');
+
+            if (! $permissionModel->is_active) {
+                $permissionModel->forceFill(['is_active' => true])->save();
+            }
         }
 
         // DatabaseSeeder suppresses model events, so refresh Spatie's in-memory
@@ -87,6 +91,9 @@ class AuthDatabaseSeeder extends Seeder
         ));
 
         $driver = RoleModel::findOrCreate(RoleEnum::DRIVER->value, 'api');
+        if (! $driver->is_active) {
+            $driver->forceFill(['is_active' => true])->save();
+        }
         $driver->syncPermissions($this->permissionValues([
             PermissionEnum::MY_DISPATCH_ORDERS_VIEW,
             PermissionEnum::MY_DISPATCH_ORDERS_MANAGE,

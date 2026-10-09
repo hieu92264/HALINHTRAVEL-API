@@ -8,7 +8,11 @@ use Illuminate\Validation\Rule;
 
 class StoreTripAssignmentRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     public function rules(): array
     {
         return [
@@ -17,9 +21,11 @@ class StoreTripAssignmentRequest extends FormRequest
             'replace_reason' => ['nullable', 'string', 'max:500'],
         ];
     }
+
     public function toDTO(): TripAssignmentData
     {
         $data = $this->validated();
+
         return new TripAssignmentData($data['vehicle_id'], $data['driver_id'], $data['replace_reason'] ?? null);
     }
 }

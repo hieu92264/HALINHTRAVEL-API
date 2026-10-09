@@ -26,9 +26,12 @@ class TripAssignmentService implements TripAssignmentServiceInterface
     {
         return DB::transaction(function () use ($schedule, $data, $user): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
-            if ($locked->status !== TripScheduleStatusEnum::PLANNED || $locked->assignments()->where('is_current', true)->exists()) abort(409, 'Lịch không sẵn sàng để phân công.');
+            if ($locked->status !== TripScheduleStatusEnum::PLANNED || $locked->assignments()->where('is_current', true)->exists()) {
+                abort(409, 'Lịch không sẵn sàng để phân công.');
+            }
             $assignment = $this->create($locked, $data, $user, TripAssignmentTypeEnum::PRIMARY);
             $locked->forceFill(['status' => TripScheduleStatusEnum::ASSIGNED])->save();
+
             return $assignment->load($this->relations())->toArray();
         });
     }
@@ -37,10 +40,15 @@ class TripAssignmentService implements TripAssignmentServiceInterface
     {
         return DB::transaction(function () use ($schedule, $data, $user): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
-            if ($locked->status !== TripScheduleStatusEnum::ASSIGNED || $this->hasOpenOrder($locked)) abort(409, 'Chỉ được thay phân công trước khi phát hành lệnh điều xe.');
+            if ($locked->status !== TripScheduleStatusEnum::ASSIGNED || $this->hasOpenOrder($locked)) {
+                abort(409, 'Chỉ được thay phân công trước khi phát hành lệnh điều xe.');
+            }
             $current = $locked->assignments()->where('is_current', true)->lockForUpdate()->first();
-            if ($current === null) abort(409, 'Lịch chưa có phân công hiện hành.');
+            if ($current === null) {
+                abort(409, 'Lịch chưa có phân công hiện hành.');
+            }
             $current->forceFill(['is_current' => false])->save();
+
             return $this->create($locked, $data, $user, TripAssignmentTypeEnum::SUBSTITUTE, $current)->load($this->relations())->toArray();
         });
     }
@@ -50,9 +58,12 @@ class TripAssignmentService implements TripAssignmentServiceInterface
         return DB::transaction(function () use ($assignment): array {
             $locked = TripAssignment::query()->lockForUpdate()->findOrFail($assignment->id);
             $schedule = TripSchedule::query()->lockForUpdate()->findOrFail($locked->trip_schedule_id);
-            if (! $locked->is_current || $this->hasOpenOrder($schedule)) abort(409, 'Không thể gỡ phân công sau khi phát hành lệnh điều xe.');
+            if (! $locked->is_current || $this->hasOpenOrder($schedule)) {
+                abort(409, 'Không thể gỡ phân công sau khi phát hành lệnh điều xe.');
+            }
             $locked->forceFill(['is_current' => false])->save();
             $schedule->forceFill(['status' => TripScheduleStatusEnum::PLANNED])->save();
+
             return $schedule->fresh()->load(['assignments' => $this->relations()])->toArray();
         });
     }
@@ -61,11 +72,17 @@ class TripAssignmentService implements TripAssignmentServiceInterface
     {
         $vehicle = Vehicle::query()->lockForUpdate()->findOrFail($data->vehicleId);
         $driver = Driver::query()->lockForUpdate()->findOrFail($data->driverId);
-        if (! $vehicle->is_active || $vehicle->vehicle_status !== VehicleStatusEnum::AVAILABLE) abort(422, 'Xe không ở trạng thái sẵn sàng.');
-        if ($schedule->required_vehicle_type_id !== null && $vehicle->vehicle_type_id !== $schedule->required_vehicle_type_id) abort(422, 'Xe không đúng loại xe yêu cầu.');
-        if (! $driver->is_active || $driver->joined_at?->gt($schedule->scheduled_start_at) || ($driver->left_at !== null && $driver->left_at->lte($schedule->scheduled_start_at)) || ($driver->license_expired_at !== null && $driver->license_expired_at->lt($schedule->scheduled_end_at))) abort(422, 'Tài xế không còn đủ điều kiện trong thời gian chuyến.');
-        if ($vehicle->partner_id !== $driver->partner_id) abort(422, 'Xe và tài xế phải cùng đơn vị sở hữu hoặc đối tác.');
+        if (! $vehicle->is_active || $vehicle->vehicle_status !== VehicleStatusEnum::AVAILABLE) {
+            abort(422, 'Xe không ở trạng thái sẵn sàng.');
+        }
+        if ($schedule->required_vehicle_type_id !== null && $vehicle->vehicle_type_id !== $schedule->required_vehicle_type_id) {
+            abort(422, 'Xe không đúng loại xe yêu cầu.');
+        }
+        if (! $driver->is_active || $driver->joined_at?->gt($schedule->scheduled_start_at) || ($driver->left_at !== null && $driver->left_at->lte($schedule->scheduled_start_at)) || ($driver->license_expired_at !== null && $driver->license_expired_at->lt($schedule->scheduled_end_at))) {
+            abort(422, 'Tài xế không còn đủ điều kiện trong thời gian chuyến.');
+        }
         $this->assertNotBusy($schedule, $vehicle->id, $driver->id);
+
         return TripAssignment::create([
             'trip_schedule_id' => $schedule->id, 'vehicle_id' => $vehicle->id, 'driver_id' => $driver->id,
             'partner_id' => $vehicle->partner_id, 'assignment_type' => $type, 'replaced_assignment_id' => $replaced?->id,
@@ -75,10 +92,23 @@ class TripAssignmentService implements TripAssignmentServiceInterface
 
     private function assertNotBusy(TripSchedule $schedule, int $vehicleId, int $driverId): void
     {
-        $conflict = TripAssignment::query()->where('is_current', true)->where(function (Builder $query) use ($vehicleId, $driverId): void { $query->where('vehicle_id', $vehicleId)->orWhere('driver_id', $driverId); })->whereHas('tripSchedule', function (Builder $query) use ($schedule): void { $query->whereKeyNot($schedule->id)->whereNotIn('status', [TripScheduleStatusEnum::COMPLETED->value, TripScheduleStatusEnum::CANCELLED->value])->where('scheduled_start_at', '<', $schedule->scheduled_end_at)->where('scheduled_end_at', '>', $schedule->scheduled_start_at); })->lockForUpdate()->exists();
-        if ($conflict) abort(409, 'Xe hoặc tài xế đã được phân công cho lịch giao thời gian.');
+        $conflict = TripAssignment::query()->where('is_current', true)->where(function (Builder $query) use ($vehicleId, $driverId): void {
+            $query->where('vehicle_id', $vehicleId)->orWhere('driver_id', $driverId);
+        })->whereHas('tripSchedule', function (Builder $query) use ($schedule): void {
+            $query->whereKeyNot($schedule->id)->whereNotIn('status', [TripScheduleStatusEnum::COMPLETED->value, TripScheduleStatusEnum::CANCELLED->value])->where('scheduled_start_at', '<', $schedule->scheduled_end_at)->where('scheduled_end_at', '>', $schedule->scheduled_start_at);
+        })->lockForUpdate()->exists();
+        if ($conflict) {
+            abort(409, 'Xe hoặc tài xế đã được phân công cho lịch giao thời gian.');
+        }
     }
 
-    private function hasOpenOrder(TripSchedule $schedule): bool { return $schedule->dispatchOrders()->whereNot('status', 'CANCELLED')->exists(); }
-    private function relations(): array { return ['vehicle:id,license_plate,vehicle_type_id,partner_id', 'driver:id,code,full_name,partner_id', 'partner:id,name', 'replacedAssignment:id,vehicle_id,driver_id']; }
+    private function hasOpenOrder(TripSchedule $schedule): bool
+    {
+        return $schedule->dispatchOrders()->whereNot('status', 'CANCELLED')->exists();
+    }
+
+    private function relations(): array
+    {
+        return ['vehicle:id,license_plate,vehicle_type_id,partner_id', 'driver:id,code,full_name,partner_id', 'partner:id,name', 'replacedAssignment:id,vehicle_id,driver_id'];
+    }
 }

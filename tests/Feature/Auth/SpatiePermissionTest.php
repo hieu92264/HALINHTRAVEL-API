@@ -66,6 +66,26 @@ class SpatiePermissionTest extends TestCase
         $this->assertFalse($user->can(PermissionEnum::TRIP_SCHEDULES_MANAGE->value));
     }
 
+    public function test_auth_seeder_restores_driver_workspace_permissions(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+
+        $driver = RoleModel::findByName(RoleEnum::DRIVER->value, 'api');
+        $managePermission = PermissionModel::findByName(PermissionEnum::MY_DISPATCH_ORDERS_MANAGE->value, 'api');
+
+        $driver->syncPermissions([PermissionEnum::MY_DISPATCH_ORDERS_VIEW->value]);
+        $managePermission->forceFill(['is_active' => false])->save();
+
+        $this->seed(AuthDatabaseSeeder::class);
+
+        $driver->refresh();
+        $managePermission->refresh();
+
+        $this->assertTrue($managePermission->is_active);
+        $this->assertTrue($driver->hasPermissionTo(PermissionEnum::MY_DISPATCH_ORDERS_VIEW->value));
+        $this->assertTrue($driver->hasPermissionTo(PermissionEnum::MY_DISPATCH_ORDERS_MANAGE->value));
+    }
+
     public function test_seeder_creates_an_account_for_every_role(): void
     {
         $this->seed(AuthDatabaseSeeder::class);

@@ -9,7 +9,11 @@ use Illuminate\Validation\Rule;
 
 class UpdateTripScheduleRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     public function rules(): array
     {
         return [
@@ -24,5 +28,9 @@ class UpdateTripScheduleRequest extends FormRequest
             'note' => ['nullable', 'string'],
         ];
     }
-    public function toDTO(): TripScheduleData { return new TripScheduleData($this->validated()); }
+
+    public function toDTO(): TripScheduleData
+    {
+        return new TripScheduleData($this->validated());
+    }
 }

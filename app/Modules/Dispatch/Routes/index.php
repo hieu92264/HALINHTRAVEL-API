@@ -31,13 +31,11 @@ Route::prefix('dispatch')->group(function () {
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::TRIP_ASSIGNMENTS_MANAGE->value])->group(function () {
         Route::post('/trip-schedules/{tripSchedule}/assignments', [TripAssignmentController::class, 'store']);
         Route::post('/trip-schedules/{tripSchedule}/assignments/substitute', [TripAssignmentController::class, 'substitute']);
-        Route::delete('/assignments/{tripAssignment}', [TripAssignmentController::class, 'destroy']);
+        Route::delete('/trip-assignments/{tripAssignment}', [TripAssignmentController::class, 'destroy']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::DISPATCH_ORDERS_MANAGE->value])->group(function () {
         Route::post('/trip-schedules/{tripSchedule}/orders', [DispatchOrderController::class, 'issue']);
         Route::post('/orders/{dispatchOrder}/assign', [DispatchOrderController::class, 'assign']);
-        Route::post('/orders/{dispatchOrder}/start', [DispatchOrderController::class, 'start']);
-        Route::post('/orders/{dispatchOrder}/report-completion', [DispatchOrderController::class, 'report']);
         Route::post('/orders/{dispatchOrder}/confirm-completion', [DispatchOrderController::class, 'confirm']);
         Route::post('/orders/{dispatchOrder}/return-completion', [DispatchOrderController::class, 'returnCompletion']);
         Route::post('/orders/{dispatchOrder}/cancel', [DispatchOrderController::class, 'cancel']);
