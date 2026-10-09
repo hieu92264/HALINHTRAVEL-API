@@ -21,16 +21,12 @@ class StoreRentalRequest extends FormRequest
         return [
             'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
             'source' => ['nullable', 'string', 'max:30'],
-            'requested_at' => ['required', 'date'],
+            'requested_at' => ['required', 'date', 'before_or_equal:now', 'before_or_equal:start_at'],
             'service_type' => ['required', Rule::enum(RentalServiceTypeEnum::class)],
             'pickup_location' => ['nullable', 'string', 'max:500'],
             'dropoff_location' => ['nullable', 'string', 'max:500'],
-            'start_at' => ['required', 'date'],
-            'end_at' => [
-                'nullable',
-                'date',
-                Rule::when($this->filled('start_at'), ['after_or_equal:start_at']),
-            ],
+            'start_at' => ['required', 'date', 'after:now'],
+            'end_at' => ['required', 'date', 'after:start_at'],
             'note' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.vehicle_type_id' => ['required', 'integer', Rule::exists('vehicle_types', 'id')->where('is_active', true)],
@@ -43,6 +39,12 @@ class StoreRentalRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $pickup = $this->normalizeLocation($this->input('pickup_location'));
+            $dropoff = $this->normalizeLocation($this->input('dropoff_location'));
+            if ($pickup !== null && $pickup === $dropoff) {
+                $validator->errors()->add('dropoff_location', 'Điểm trả phải khác điểm đón.');
+            }
+
             /** @var list<array{route_id?: int|string|null}> $items */
             $items = $this->input('items', []);
             if (! is_array($items) || $items === [] || collect($items)->contains(static fn (mixed $item): bool => ! is_array($item))) {
@@ -78,6 +80,15 @@ class StoreRentalRequest extends FormRequest
                 $validator->errors()->add('items', 'Tất cả hạng mục phải dùng cùng một tuyến hoặc đều không chọn tuyến.');
             }
         });
+    }
+
+    private function normalizeLocation(mixed $value): ?string
+    {
+        if (! is_string($value) || blank($value)) {
+            return null;
+        }
+
+        return mb_strtoupper(preg_replace('/\s+/u', ' ', trim($value)) ?? '');
     }
 
     public function toDTO(): CreateRentalRequestData

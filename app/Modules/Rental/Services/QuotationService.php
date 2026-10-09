@@ -20,6 +20,7 @@ use App\Shared\Enums\QuotationStatusEnum;
 use App\Shared\Enums\RentalRequestStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -117,8 +118,9 @@ class QuotationService implements QuotationServiceInterface
             $locked = Quotation::query()->with(['customer', 'items.vehicleType'])->lockForUpdate()->findOrFail($quotation->id);
             $this->assertDraft($locked);
             $this->assertWithinValidity($locked);
-            if (blank($locked->customer->email)) {
-                abort(422, 'Khách hàng cần có email trước khi gửi báo giá.');
+            $recipient = $locked->customer->email;
+            if (blank($recipient) || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+                abort(422, 'Khách hàng cần có địa chỉ email hợp lệ trước khi gửi báo giá.');
             }
             $plainToken = Str::random(80);
             $expiresAt = $locked->valid_until?->copy()->endOfDay() ?? now()->addDays(7);
@@ -139,10 +141,24 @@ class QuotationService implements QuotationServiceInterface
             }
             $frontendUrl = (string) config('rental.frontend_quotation_response_url');
             if (blank($frontendUrl)) {
-                abort(500, 'FRONTEND_QUOTATION_RESPONSE_URL chưa được cấu hình.');
+                Log::error('Thiếu cấu hình URL phản hồi báo giá.', [
+                    'quotation_id' => $locked->id,
+                    'mailer' => config('mail.default'),
+                ]);
+                abort(422, 'Chưa thể gửi email báo giá vì URL phản hồi chưa được cấu hình.');
             }
             $responseUrl = rtrim($frontendUrl, '?/').'?token='.urlencode($plainToken);
-            Mail::to($locked->customer->email)->queue((new QuotationSentMail($locked, $responseUrl))->afterCommit());
+            try {
+                Mail::to($recipient)->queue((new QuotationSentMail($locked, $responseUrl))->afterCommit());
+            } catch (\Throwable $exception) {
+                Log::error('Không thể xếp hàng email báo giá.', [
+                    'quotation_id' => $locked->id,
+                    'recipient' => $recipient,
+                    'mailer' => config('mail.default'),
+                    'exception' => $exception,
+                ]);
+                abort(422, 'Không thể gửi email báo giá. Hãy kiểm tra cấu hình mail và thử lại.');
+            }
 
             return $this->quotation($locked->fresh());
         });
