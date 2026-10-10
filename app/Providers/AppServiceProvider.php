@@ -24,9 +24,13 @@ use App\Modules\Dispatch\Services\AvailabilityService;
 use App\Modules\Dispatch\Services\DispatchOrderService;
 use App\Modules\Dispatch\Services\TripAssignmentService;
 use App\Modules\Dispatch\Services\TripScheduleService;
+use App\Modules\DriverPayroll\Interfaces\DriverPayrollServiceInterface;
+use App\Modules\DriverPayroll\Services\DriverPayrollService;
+use App\Modules\Finance\Interfaces\FinanceServiceInterface;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Modules\Finance\Models\Receipt;
+use App\Modules\Finance\Services\FinanceService;
 use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Interfaces\DriverServiceInterface;
 use App\Modules\MasterData\Interfaces\ExpenseTypeServiceInterface;
@@ -45,6 +49,8 @@ use App\Modules\MasterData\Services\RouteRateService;
 use App\Modules\MasterData\Services\RouteService;
 use App\Modules\MasterData\Services\VehicleService;
 use App\Modules\MasterData\Services\VehicleTypeService;
+use App\Modules\Other\Interfaces\DebtReportServiceInterface;
+use App\Modules\Other\Services\DebtReportService;
 use App\Modules\Rental\Interfaces\QuotationServiceInterface;
 use App\Modules\Rental\Interfaces\RentalRequestServiceInterface;
 use App\Modules\Rental\Services\QuotationService;
@@ -78,6 +84,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TripAssignmentServiceInterface::class, TripAssignmentService::class);
         $this->app->singleton(DispatchOrderServiceInterface::class, DispatchOrderService::class);
         $this->app->singleton(DashboardOverviewServiceInterface::class, DashboardOverviewService::class);
+        $this->app->singleton(FinanceServiceInterface::class, FinanceService::class);
+        $this->app->singleton(DriverPayrollServiceInterface::class, DriverPayrollService::class);
+        $this->app->singleton(DebtReportServiceInterface::class, DebtReportService::class);
 
         // rental
         $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);

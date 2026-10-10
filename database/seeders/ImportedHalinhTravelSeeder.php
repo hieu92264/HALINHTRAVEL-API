@@ -206,7 +206,8 @@ class ImportedHalinhTravelSeeder extends Seeder
 
         $this->seedTable('driver_attendances', ['dispatch_order_id']);
         $this->seedTable('driver_advances', ['advance_no'], static function (array $row): array {
-            $row['status'] = $row['status'] === 'confirmed' ? 'approved' : $row['status'];
+            // The current workflow calls an approved advance "confirmed".
+            $row['status'] = $row['status'] === 'approved' ? 'confirmed' : $row['status'];
 
             return $row;
         });
