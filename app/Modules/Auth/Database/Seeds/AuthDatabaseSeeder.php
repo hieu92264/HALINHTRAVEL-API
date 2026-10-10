@@ -87,7 +87,10 @@ class AuthDatabaseSeeder extends Seeder
         ));
 
         $driver = RoleModel::findOrCreate(RoleEnum::DRIVER->value, 'api');
-        $driver->syncPermissions([]);
+        $driver->syncPermissions($this->permissionValues([
+            PermissionEnum::DRIVER_ORDERS_VIEW,
+            PermissionEnum::DRIVER_ORDERS_MANAGE,
+        ]));
 
         $this->seedRoleAccounts();
     }

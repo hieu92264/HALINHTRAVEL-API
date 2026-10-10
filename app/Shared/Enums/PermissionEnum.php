@@ -45,6 +45,8 @@ enum PermissionEnum: string
     case TRIP_ASSIGNMENTS_MANAGE = 'trip-assignments.manage';
     case DISPATCH_ORDERS_VIEW = 'dispatch-orders.view';
     case DISPATCH_ORDERS_MANAGE = 'dispatch-orders.manage';
+    case DRIVER_ORDERS_VIEW = 'driver-orders.view';
+    case DRIVER_ORDERS_MANAGE = 'driver-orders.manage';
 
     case RECEIPTS_VIEW = 'receipts.view';
     case RECEIPTS_MANAGE = 'receipts.manage';

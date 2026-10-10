@@ -14,10 +14,12 @@ use App\Modules\Dashboard\Interfaces\DashboardOverviewServiceInterface;
 use App\Modules\Dashboard\Observers\DashboardModelObserver;
 use App\Modules\Dashboard\Services\DashboardOverviewService;
 use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
+use App\Modules\Dispatch\Interfaces\DispatchServiceInterface;
 use App\Modules\Dispatch\Models\DispatchOrder;
 use App\Modules\Dispatch\Models\TripAssignment;
 use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\Dispatch\Services\AvailabilityService;
+use App\Modules\Dispatch\Services\DispatchService;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Modules\Finance\Models\Receipt;
@@ -68,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(VehicleTypeServiceInterface::class, VehicleTypeService::class);
         $this->app->singleton(VehicleServiceInterface::class, VehicleService::class);
         $this->app->singleton(AvailabilityServiceInterface::class, AvailabilityService::class);
+        $this->app->singleton(DispatchServiceInterface::class, DispatchService::class);
         $this->app->singleton(DashboardOverviewServiceInterface::class, DashboardOverviewService::class);
 
         // rental
