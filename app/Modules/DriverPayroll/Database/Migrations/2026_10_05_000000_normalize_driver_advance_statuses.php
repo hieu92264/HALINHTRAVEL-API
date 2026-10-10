@@ -1,6 +1,5 @@
 <?php
 
-use App\Shared\Enums\DriverAdvanceStatusEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,17 +18,21 @@ return new class extends Migration
         $intermediateValues = [
             'pending',
             'confirmed',
+            'approved',
             'payroll_locked',
-            ...DriverAdvanceStatusEnum::values(),
+            'paid',
+            'cancelled',
         ];
 
         $this->modifyStatusColumn($intermediateValues);
 
         DB::table('driver_advances')
             ->where('status', 'confirmed')
-            ->update(['status' => DriverAdvanceStatusEnum::APPROVED->value]);
+            ->update(['status' => 'approved']);
 
-        $this->modifyStatusColumn(DriverAdvanceStatusEnum::values());
+        // Preserve the historical status domain. The subsequent workflow
+        // migration converts approved advances to confirmed advances.
+        $this->modifyStatusColumn(['pending', 'approved', 'paid', 'cancelled']);
     }
 
     /**

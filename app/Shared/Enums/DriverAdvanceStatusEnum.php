@@ -9,7 +9,10 @@ enum DriverAdvanceStatusEnum: string
     use EnumToArray;
 
     case PENDING = 'pending';
-    case APPROVED = 'approved';
+    case CONFIRMED = 'confirmed';
+    case PAYROLL_LOCKED = 'payroll_locked';
+
+    // Legacy states are retained for audit only. New workflows never create them.
     case PAID = 'paid';
     case CANCELLED = 'cancelled';
 }

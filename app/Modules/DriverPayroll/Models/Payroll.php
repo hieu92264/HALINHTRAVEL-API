@@ -45,4 +45,9 @@ class Payroll extends Model
     {
         return $this->hasMany(PayrollItem::class);
     }
+
+    public function advances(): HasMany
+    {
+        return $this->hasMany(DriverAdvance::class);
+    }
 }

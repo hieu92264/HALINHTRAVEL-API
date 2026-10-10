@@ -77,7 +77,7 @@ class ImportedHalinhTravelSeederTest extends TestCase
         $this->assertDatabaseCount('payroll_item_details', 5);
         $this->assertSame(12, \DB::table('quotations')->whereNotNull('rental_request_id')->count());
         $this->assertSame(5, \DB::table('rental_requests')->where('status', 'converted')->count());
-        $this->assertSame(5, \DB::table('driver_advances')->where('status', 'approved')->count());
+        $this->assertSame(5, \DB::table('driver_advances')->where('status', 'confirmed')->count());
 
         foreach (['nguyenha', 'cuongtran', 'tuhoang', 'tuanvu'] as $userName) {
             $this->assertTrue(User::query()->where('user_name', $userName)->firstOrFail()->hasRole('driver'));

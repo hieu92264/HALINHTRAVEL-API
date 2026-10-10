@@ -21,6 +21,7 @@ class DriverAdvance extends Model
         'description',
         'status',
         'approved_by',
+        'payroll_id',
     ];
 
     protected function casts(): array
@@ -40,5 +41,10 @@ class DriverAdvance extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by', 'user_name');
+    }
+
+    public function payroll(): BelongsTo
+    {
+        return $this->belongsTo(Payroll::class);
     }
 }
