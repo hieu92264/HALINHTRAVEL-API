@@ -11,6 +11,7 @@ use App\Modules\Contract\Models\Contract;
 use App\Modules\Dispatch\DTOs\AvailabilityItemData;
 use App\Modules\Dispatch\DTOs\CheckAvailabilityData;
 use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
+use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Route;
 use App\Modules\MasterData\Models\VehicleType;
@@ -20,6 +21,7 @@ use App\Shared\Enums\ContractStatusEnum;
 use App\Shared\Enums\ContractTypeEnum;
 use App\Shared\Enums\QuotationStatusEnum;
 use App\Shared\Enums\RentalRequestStatusEnum;
+use App\Shared\Enums\TripScheduleStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -153,6 +155,7 @@ class ContractService implements ContractServiceInterface
             }
             if ($to === ContractStatusEnum::ACTIVE && $locked->contract_type === ContractTypeEnum::TRIP) {
                 $this->assertTripCapacity($locked);
+                $this->generateTripSchedules($locked);
             }
             if ($to === ContractStatusEnum::COMPLETED && $locked->tripSchedules()->whereNotIn('status', ['COMPLETED', 'CANCELLED'])->exists()) {
                 abort(409, 'Không thể hoàn thành khi còn lịch chuyến mở.');
@@ -239,6 +242,41 @@ class ContractService implements ContractServiceInterface
         }
 
         abort(422, 'Không đủ năng lực điều độ để kích hoạt hợp đồng theo chuyến.');
+    }
+
+    private function generateTripSchedules(Contract $contract): void
+    {
+        $request = RentalRequest::query()->findOrFail($contract->rental_request_id);
+        if ($request->start_at === null || $request->end_at === null) {
+            abort(422, 'Không thể sinh lịch chuyến khi yêu cầu thuê xe thiếu thời gian.');
+        }
+        foreach ($contract->items as $item) {
+            for ($index = 0; $index < $item->quantity; $index++) {
+                TripSchedule::create([
+                    'schedule_no' => $this->nextTripScheduleNo($request->start_at),
+                    'contract_id' => $contract->id,
+                    'contract_item_id' => $item->id,
+                    'service_type' => $item->service_type->value,
+                    'route_id' => $item->route_id,
+                    'scheduled_start_at' => $request->start_at,
+                    'scheduled_end_at' => $request->end_at,
+                    'pickup_location' => $item->pickup_location,
+                    'dropoff_location' => $item->dropoff_location,
+                    'required_vehicle_type_id' => $item->vehicle_type_id,
+                    'status' => TripScheduleStatusEnum::PLANNED,
+                    'note' => $item->note,
+                ]);
+            }
+        }
+    }
+
+    private function nextTripScheduleNo(Carbon $at): string
+    {
+        $prefix = 'LT'.$at->format('Ymd');
+        $highest = TripSchedule::query()->where('schedule_no', 'like', $prefix.'%')->lockForUpdate()->pluck('schedule_no')
+            ->reduce(static fn (int $carry, string $number): int => preg_match('/^'.preg_quote($prefix, '/').'(\\d{4,})$/', $number, $matches) === 1 ? max($carry, (int) $matches[1]) : $carry, 0);
+
+        return $prefix.str_pad((string) ($highest + 1), 4, '0', STR_PAD_LEFT);
     }
 
     /** @param list<ContractItemData> $items */

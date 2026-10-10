@@ -11,6 +11,7 @@ enum DispatchOrderStatusEnum: string
     case ISSUED = 'ISSUED';
     case ASSIGNED = 'ASSIGNED';
     case IN_PROGRESS = 'IN_PROGRESS';
+    case PENDING_CONFIRMATION = 'PENDING_CONFIRMATION';
     case COMPLETED = 'COMPLETED';
     case CANCELLED = 'CANCELLED';
 }

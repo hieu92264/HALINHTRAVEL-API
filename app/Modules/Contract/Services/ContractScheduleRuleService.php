@@ -175,37 +175,50 @@ class ContractScheduleRuleService implements ContractScheduleRuleServiceInterfac
                         ->where('contract_item_id', $item->id)
                         ->where('scheduled_start_at', $startAt->toDateTimeString())
                         ->lockForUpdate()
-                        ->first();
+                        ->get();
 
-                    if ($existing !== null) {
-                        $result = $this->scheduleSummary($existing);
-                        if ($existing->schedule_rule_id === $rule->id) {
-                            $skipped[] = $result;
-                        } else {
-                            $conflicts[] = $result;
+                    $conflictingSchedules = $existing
+                        ->filter(fn (TripSchedule $schedule): bool => $schedule->schedule_rule_id !== $rule->id);
+                    if ($conflictingSchedules->isNotEmpty()) {
+                        foreach ($conflictingSchedules as $schedule) {
+                            $conflicts[] = $this->scheduleSummary($schedule);
+                        }
+
+                        continue;
+                    }
+
+                    $sameRuleSchedules = $existing
+                        ->filter(fn (TripSchedule $schedule): bool => $schedule->schedule_rule_id === $rule->id)
+                        ->values();
+                    $requiredQuantity = max(1, (int) $item->quantity);
+                    if ($sameRuleSchedules->count() >= $requiredQuantity) {
+                        foreach ($sameRuleSchedules as $schedule) {
+                            $skipped[] = $this->scheduleSummary($schedule);
                         }
 
                         continue;
                     }
 
                     $route = $rule->route_id !== null ? $rule->route : $item->route;
-                    $schedule = TripSchedule::create([
-                        'schedule_no' => $this->nextScheduleNo($startAt),
-                        'contract_id' => $contract->id,
-                        'contract_item_id' => $item->id,
-                        'schedule_rule_id' => $rule->id,
-                        'service_type' => $item->service_type->value,
-                        'route_id' => $route?->id,
-                        'scheduled_start_at' => $startAt,
-                        'scheduled_end_at' => $endAt,
-                        'pickup_location' => $route?->pickup_location ?? $item->pickup_location,
-                        'dropoff_location' => $route?->dropoff_location ?? $item->dropoff_location,
-                        'journey' => null,
-                        'required_vehicle_type_id' => $item->vehicle_type_id,
-                        'status' => TripScheduleStatusEnum::PLANNED,
-                        'note' => $day->shift_name ?? $rule->note,
-                    ]);
-                    $created[] = $this->scheduleSummary($schedule);
+                    for ($index = $sameRuleSchedules->count(); $index < $requiredQuantity; $index++) {
+                        $schedule = TripSchedule::create([
+                            'schedule_no' => $this->nextScheduleNo($startAt),
+                            'contract_id' => $contract->id,
+                            'contract_item_id' => $item->id,
+                            'schedule_rule_id' => $rule->id,
+                            'service_type' => $item->service_type->value,
+                            'route_id' => $route?->id,
+                            'scheduled_start_at' => $startAt,
+                            'scheduled_end_at' => $endAt,
+                            'pickup_location' => $route?->pickup_location ?? $item->pickup_location,
+                            'dropoff_location' => $route?->dropoff_location ?? $item->dropoff_location,
+                            'journey' => null,
+                            'required_vehicle_type_id' => $item->vehicle_type_id,
+                            'status' => TripScheduleStatusEnum::PLANNED,
+                            'note' => $day->shift_name ?? $rule->note,
+                        ]);
+                        $created[] = $this->scheduleSummary($schedule);
+                    }
                 }
                 $date = $date->addDay();
             }

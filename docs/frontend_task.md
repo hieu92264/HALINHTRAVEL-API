@@ -48,6 +48,10 @@ Trong các bảng task, path đầu tiên luôn nêu đủ prefix module. Các p
 
 ## 2. Quy ước trải nghiệm dùng chung
 
+> **Quy ước thay thế (Dispatch và bán hàng, 08/10/2026):** Khi có mâu thuẫn với các task cũ, frontend dùng luồng request → quotation → trip contract → activate → schedules → assignment → order. Không còn CTA tạo báo giá độc lập; báo giá từ request khóa phạm vi và bắt buộc hạn hiệu lực. Hợp đồng tạo tay chỉ `principle`; hợp đồng `trip` tạo từ quotation được duyệt.
+>
+> Dispatch phải dùng API thật `/api/dispatch/trip-schedules`, `/api/dispatch/orders`, `/api/dispatch/my-orders`. Domain layer gồm type, service, Vue Query key/mutation và schema trước khi nối UI. `PENDING_CONFIRMATION` hiển thị “Chờ điều hành xác nhận”. Driver chỉ gọi `/my-orders`, không nhận/hiển thị `customer_amount`, `partner_vehicle_cost`, `external_driver_cost`. Mọi thao tác hủy, thay assignment, phát hành, trả/xác nhận báo cáo dùng `AccessDialog`, khóa nút khi mutation pending và invalidate schedule/order/availability khi thành công.
+
 ### 2.1. Khung vận hành và trạng thái
 
 - Sidebar nhóm: Tổng quan, Bán hàng, Điều hành, Tài chính–nhân sự, Báo cáo, Danh mục và Quản trị. Nhóm/mục chỉ hiện khi user có permission `.view` phù hợp; thao tác ghi cần `.manage`.
@@ -133,8 +137,8 @@ Mỗi danh mục dùng list + form/detail, confirmation trước deactivate và 
 | FND-30 — Lịch chuyến | `trip-schedules.view/manage`; `GET, POST /api/dispatch/trip-schedules`; `GET, PATCH, DELETE /trip-schedules/{id}`; `POST /trip-schedules/{id}/cancel` | Timeline/route strip theo ngày-tuần và bảng dự phòng; filter thời gian, trạng thái, hợp đồng, dịch vụ, tuyến, xe/tài xế; sửa/xóa theo lifecycle backend. |
 | FND-31 — Kiểm tra năng lực | `rental-capacity.view`; `POST /api/dispatch/availability` | Panel dùng từ Rental Request/Quotation/dialog tạo Contract: chỉ enable khi có `start_at`, `end_at` và items; gửi `items[]` theo loại xe, có filter nguồn/đối tác tùy chọn. Hiển thị xe và tài xế công ty/đối tác, danh sách ứng viên, đủ/thiếu, `checked_at` và cảnh báo đây là snapshot không giữ tài nguyên. Sales được quyền xem nhưng không được cấp quyền Dispatch. |
 | FND-32 — Phân công/thay thế | `trip-assignments.view/manage`; `GET /api/dispatch/trip-schedules/{id}/assignments`; `POST /assignments`, `/assignments/substitute`; `DELETE /api/dispatch/trip-assignments/{id}` | Chọn từ availability, partner tự phản ánh theo xe, lịch sử assignment trên timeline; replace bắt buộc lý do. Khi `409`, giữ lựa chọn và cho chạy lại availability; không có xóa history substitute. |
-| FND-33 — Lệnh điều xe | `dispatch-orders.view/manage`; `GET /api/dispatch/dispatch-orders`; `GET /dispatch-orders/{id}`; `POST /trip-schedules/{id}/dispatch-order`; `POST /dispatch-orders/{id}/assign`, `/cancel` | List theo ngày, xe/tài xế/khách/tuyến và detail in gọn. Chỉ tạo từ schedule assigned có assignment hiện hành; một schedule chỉ có một lệnh. |
-| FND-34 — Bắt đầu/hoàn thành chuyến | `POST /api/dispatch/dispatch-orders/{id}/start`, `/complete` | Form thực tế cho giờ, ODO, km, giờ chờ, doanh thu/chi phí và note; client kiểm tra thứ tự thời gian/ODO, backend xác nhận cuối; complete refresh lệnh, schedule, ODO và link công. |
+| FND-33 — Lệnh điều xe | `dispatch-orders.view/manage`; `GET /api/dispatch/orders`; `GET /orders/{id}`; `POST /trip-schedules/{id}/orders`; `POST /orders/{id}/assign`, `/cancel`, `/confirm-completion`, `/return-completion` | List theo ngày, xe/tài xế/khách/tuyến và detail in gọn. Chỉ tạo từ schedule assigned có assignment hiện hành; chỉ điều hành xác nhận hoặc trả báo cáo hoàn tất. |
+| FND-34 — Bắt đầu/hoàn thành chuyến | Tài xế gọi `POST /api/dispatch/my-orders/{id}/start` và `/report-completion` | Start gửi `actual_start_at`, `start_odometer`, note; report chỉ gửi dữ liệu kết thúc, km/giờ chờ và note, không có tiền. Điều hành xác nhận tiền/ODO cuối; sau mutation refresh lệnh, schedule và ODO. |
 
 ### 6.2. Mobile tài xế — phụ thuộc API
 
@@ -159,7 +163,7 @@ Mỗi danh mục dùng list + form/detail, confirmation trước deactivate và 
 | Task | Permission/API | Màn hình và tiêu chí hoàn thành |
 | --- | --- | --- |
 | FND-44 — Tạm ứng | `driver-advances.view/manage`; `/api/driver-payroll/advances` CRUD; `POST /advances/{id}/confirm` | List/form theo tài xế/kỳ/state; pending được sửa theo API, confirmed/payroll_locked chỉ đọc và có link payroll nếu có. |
-| FND-45 — Chấm công chuyến | `driver-attendances.view/manage`; `GET /api/driver-payroll/attendances`, `/attendances/{id}`; `POST /dispatch-orders/{id}/attendance`; `PATCH /attendances/{id}`; `POST /attendances/{id}/confirm` | Tạo/xem công từ lệnh completed; detail thể hiện công thức server tính; không tự tạo trước completion và không sửa locked. |
+| FND-45 — Chấm công chuyến *(Phase DriverPayroll)* | `driver-attendances.view/manage`; `GET /api/driver-payroll/attendances`, `/attendances/{id}`; `POST /api/dispatch/orders/{id}/attendance`; `PATCH /attendances/{id}`; `POST /attendances/{id}/confirm` | Handoff sau core Dispatch: tạo/xem công từ lệnh completed; detail thể hiện công thức server tính; không tự tạo trước completion và không sửa locked. |
 | FND-46 — Kỳ lương | `payrolls.view/manage`; `GET, POST /api/driver-payroll/payrolls`; `GET, PATCH /payrolls/{id}` | List theo tháng/năm/status; tạo kỳ, detail tổng gross/net và items; `409` tháng/năm đã tồn tại hiển thị rõ. |
 | FND-47 — Tính/duyệt/chốt lương | `POST /api/driver-payroll/payrolls/{id}/calculate`, `/approve`, `/mark-paid`, `/lock`; `PATCH /payrolls/{id}/items/{item_id}` | State header, bảng từng tài xế, expand nguồn công, điều chỉnh allowance/deduction/note; totals luôn từ response. Lock nêu bất biến và chuyển toàn trang read-only. |
 
