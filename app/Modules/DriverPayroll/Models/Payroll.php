@@ -22,6 +22,7 @@ class Payroll extends Model
         'status',
         'approved_by',
         'approved_at',
+        'paid_at',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class Payroll extends Model
             'to_date' => 'date',
             'status' => PayrollStatusEnum::class,
             'approved_at' => 'datetime',
+            'paid_at' => 'datetime',
         ]);
     }
 

@@ -50,7 +50,9 @@ use App\Modules\MasterData\Services\RouteService;
 use App\Modules\MasterData\Services\VehicleService;
 use App\Modules\MasterData\Services\VehicleTypeService;
 use App\Modules\Other\Interfaces\DebtReportServiceInterface;
+use App\Modules\Other\Interfaces\ReportServiceInterface;
 use App\Modules\Other\Services\DebtReportService;
+use App\Modules\Other\Services\ReportService;
 use App\Modules\Rental\Interfaces\QuotationServiceInterface;
 use App\Modules\Rental\Interfaces\RentalRequestServiceInterface;
 use App\Modules\Rental\Services\QuotationService;
@@ -87,6 +89,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(FinanceServiceInterface::class, FinanceService::class);
         $this->app->singleton(DriverPayrollServiceInterface::class, DriverPayrollService::class);
         $this->app->singleton(DebtReportServiceInterface::class, DebtReportService::class);
+        $this->app->singleton(ReportServiceInterface::class, ReportService::class);
 
         // rental
         $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
