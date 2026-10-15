@@ -171,6 +171,43 @@ class RouteApiTest extends TestCase
         ]);
     }
 
+    public function test_route_rejects_matching_times_but_allows_an_overnight_route(): void
+    {
+        $dispatcher = $this->seededUser('dispatcher');
+        $matchingTimes = [
+            'name' => 'Tuyến giờ trùng',
+            'pickup_location' => 'A',
+            'dropoff_location' => 'B',
+            'default_pickup_time' => '14:22',
+            'default_return_time' => '14:22',
+        ];
+
+        $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/routes', $matchingTimes)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Giờ về mặc định phải khác giờ đón mặc định.');
+
+        $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/routes', [
+            ...$matchingTimes,
+            'name' => 'Tuyến qua đêm',
+            'default_return_time' => '02:30',
+        ])->assertCreated();
+    }
+
+    public function test_route_update_rejects_matching_a_stored_time(): void
+    {
+        $dispatcher = $this->seededUser('dispatcher');
+        $route = $this->createRoute('TUYEN001');
+        $route->forceFill([
+            'default_pickup_time' => '06:30:00',
+            'default_return_time' => '17:30:00',
+        ])->save();
+
+        $this->actingAs($dispatcher, 'api')->putJson("/api/master-data/routes/{$route->id}", [
+            'default_return_time' => '06:30',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Giờ về mặc định phải khác giờ đón mặc định.');
+    }
+
     private function createRoute(string $code, bool $isActive = true, ?Customer $customer = null): Route
     {
         return Route::create([

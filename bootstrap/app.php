@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\SetLocale;
+use App\Modules\Auth\Commands\SyncSystemCapacityPermissions;
 use App\Modules\Rental\Commands\ExpireQuotations;
 use App\Shared\Helpers\LocaleHelper;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([
         ExpireQuotations::class,
+        SyncSystemCapacityPermissions::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Spatie Permission middleware aliases. Keep the auth middleware before

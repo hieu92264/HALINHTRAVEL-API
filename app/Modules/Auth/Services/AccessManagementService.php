@@ -12,6 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\PermissionRegistrar;
 
 class AccessManagementService implements AccessManagementServiceInterface
 {
@@ -58,6 +59,7 @@ class AccessManagementService implements AccessManagementServiceInterface
         return DB::transaction(function () use ($attributes, $roleIds): array {
             $user = User::create($attributes);
             $user->syncRoles($this->activeRoles($roleIds));
+            $this->forgetCachedPermissions();
 
             return $this->user($user->fresh(['roles', 'permissions']));
         });
@@ -96,6 +98,7 @@ class AccessManagementService implements AccessManagementServiceInterface
         }
 
         $user->syncRoles($roles);
+        $this->forgetCachedPermissions();
 
         return $this->user($user->fresh(['roles', 'permissions']));
     }
@@ -103,6 +106,7 @@ class AccessManagementService implements AccessManagementServiceInterface
     public function syncUserPermissions(User $user, array $permissionIds): array
     {
         $user->syncPermissions($this->activePermissions($permissionIds));
+        $this->forgetCachedPermissions();
 
         return $this->user($user->fresh(['roles', 'permissions']));
     }
@@ -158,11 +162,13 @@ class AccessManagementService implements AccessManagementServiceInterface
     {
         $this->ensureCustomRole($role);
         $role->delete();
+        $this->forgetCachedPermissions();
     }
 
     public function syncRolePermissions(Role $role, array $permissionIds): array
     {
         $role->syncPermissions($this->activePermissions($permissionIds));
+        $this->forgetCachedPermissions();
 
         return $this->role($role->fresh('permissions'));
     }
@@ -216,6 +222,7 @@ class AccessManagementService implements AccessManagementServiceInterface
     {
         $this->ensureCustomPermission($permission);
         $permission->delete();
+        $this->forgetCachedPermissions();
     }
 
     private function ensureUserCanBeDeactivated(User $actor, User $user): void
@@ -256,6 +263,11 @@ class AccessManagementService implements AccessManagementServiceInterface
     private function activeAdminCount(): int
     {
         return User::query()->active()->role(RoleEnum::ADMIN->value)->count();
+    }
+
+    private function forgetCachedPermissions(): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     /** @param list<int> $roleIds */
