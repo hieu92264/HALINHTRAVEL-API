@@ -22,6 +22,7 @@ class RentalRequestService implements RentalRequestServiceInterface
     {
         return RentalRequest::query()
             ->with(['items'])
+            ->where('is_active', true)
             ->orderBy('id')
             ->get()
             ->map(fn (RentalRequest $rentalRequest): array => $this->rentalRequest($rentalRequest))

@@ -48,6 +48,8 @@ class RouteService implements RouteServiceInterface
     public function create(CreateRouteData $data): array
     {
         return DB::transaction(function () use ($data): array {
+            $this->ensureTimesAreDistinct($data->defaultPickupTime, $data->defaultReturnTime);
+
             $route = Route::create([
                 ...$data->toArray(),
                 'code' => $this->nextCode(),
@@ -60,6 +62,11 @@ class RouteService implements RouteServiceInterface
     public function update(Route $route, UpdateRouteData $data): array
     {
         $changes = $data->toArray();
+
+        $this->ensureTimesAreDistinct(
+            $changes['default_pickup_time'] ?? $route->default_pickup_time,
+            $changes['default_return_time'] ?? $route->default_return_time,
+        );
 
         if (array_key_exists('is_active', $changes)) {
             $route->forceFill(['is_active' => $changes['is_active']]);
@@ -91,5 +98,16 @@ class RouteService implements RouteServiceInterface
             }, 0);
 
         return 'TUYEN'.str_pad((string) ($highestSequence + 1), 3, '0', STR_PAD_LEFT);
+    }
+
+    private function ensureTimesAreDistinct(?string $pickupTime, ?string $returnTime): void
+    {
+        if ($pickupTime === null || $returnTime === null) {
+            return;
+        }
+
+        if (substr($pickupTime, 0, 5) === substr($returnTime, 0, 5)) {
+            abort(422, 'Giờ về mặc định phải khác giờ đón mặc định.');
+        }
     }
 }

@@ -146,6 +146,25 @@ class RentalRequestStoreApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_deactivated_rental_request_is_hidden_from_the_default_list(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+        $rentalRequest = $this->createRentalRequest($customer, $vehicleType);
+        $sales = $this->salesUser();
+
+        $this->actingAs($sales, 'api')->deleteJson("/api/rental/requests/{$rentalRequest->id}")
+            ->assertOk();
+
+        $this->assertDatabaseHas('rental_requests', [
+            'id' => $rentalRequest->id,
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($sales, 'api')->getJson('/api/rental/requests')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $rentalRequest->id]);
+    }
+
     public function test_store_rejects_inactive_customer_vehicle_type_and_route(): void
     {
         [$customer, $vehicleType] = $this->references();
