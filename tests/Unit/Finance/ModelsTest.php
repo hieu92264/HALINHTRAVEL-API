@@ -13,7 +13,9 @@ use App\Modules\MasterData\Models\ExpenseType;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Models\Vehicle;
 use App\Shared\Enums\ExpenseScopeEnum;
+use App\Shared\Enums\ExpenseSettlementTypeEnum;
 use App\Shared\Enums\PaymentMethodEnum;
+use App\Shared\Enums\ReceiptSettlementTypeEnum;
 use App\Shared\Enums\ReceiptTypeEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,12 +31,14 @@ class ModelsTest extends TestCase
             'received_at' => '2026-09-25 10:30:00',
             'amount' => '1250',
             'payment_method' => 'cash',
+            'settlement_type' => 'driver_direct_collection',
             'is_locked' => true,
         ]);
         $expense = new Expense([
             'scope' => 'trip',
             'expense_date' => '2026-09-25 11:30:00',
             'amount' => '2500',
+            'settlement_type' => 'driver_reimbursement',
             'is_locked' => true,
         ]);
         $partnerPayment = new PartnerPayment([
@@ -48,9 +52,11 @@ class ModelsTest extends TestCase
         $this->assertInstanceOf(Carbon::class, $receipt->received_at);
         $this->assertSame('1250.00', $receipt->amount);
         $this->assertSame(PaymentMethodEnum::CASH, $receipt->payment_method);
+        $this->assertSame(ReceiptSettlementTypeEnum::DRIVER_DIRECT_COLLECTION, $receipt->settlement_type);
         $this->assertTrue($receipt->is_locked);
 
         $this->assertSame(ExpenseScopeEnum::TRIP, $expense->scope);
+        $this->assertSame(ExpenseSettlementTypeEnum::DRIVER_REIMBURSEMENT, $expense->settlement_type);
         $this->assertInstanceOf(Carbon::class, $expense->expense_date);
         $this->assertSame('2500.00', $expense->amount);
         $this->assertTrue($expense->is_locked);
@@ -65,6 +71,8 @@ class ModelsTest extends TestCase
     {
         $this->assertInstanceOf(BelongsTo::class, (new Receipt)->customer());
         $this->assertInstanceOf(BelongsTo::class, (new Receipt)->contract());
+        $this->assertInstanceOf(BelongsTo::class, (new Receipt)->dispatchOrder());
+        $this->assertInstanceOf(BelongsTo::class, (new Receipt)->driver());
         $this->assertInstanceOf(BelongsTo::class, (new Expense)->expenseType());
         $this->assertInstanceOf(BelongsTo::class, (new Expense)->vehicle());
         $this->assertInstanceOf(BelongsTo::class, (new Expense)->dispatchOrder());

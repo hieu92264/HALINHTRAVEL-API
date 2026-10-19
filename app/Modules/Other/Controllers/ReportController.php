@@ -58,6 +58,11 @@ class ReportController extends Controller
         return $this->respond($request, 'partner-debts', 'Công nợ đối tác', ['filters' => $request->filters(), 'generated_at' => now()->toISOString(), 'totals' => [], 'rows' => $this->debts->partnerDebts($request->validated('from_date'), $request->validated('to_date'))]);
     }
 
+    public function externalDriverDebts(ReportRequest $request): JsonResponse|BinaryFileResponse
+    {
+        return $this->respond($request, 'external-driver-debts', 'Công nợ thuê lái', ['filters' => $request->filters(), 'generated_at' => now()->toISOString(), 'totals' => [], 'rows' => $this->debts->externalDriverDebts($request->validated('from_date'), $request->validated('to_date'))]);
+    }
+
     private function respond(ReportRequest $request, string $slug, string $message, array $data): JsonResponse|BinaryFileResponse
     {
         if ($request->validated('format') !== 'xlsx') {

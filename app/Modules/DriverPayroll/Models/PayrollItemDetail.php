@@ -3,6 +3,8 @@
 namespace App\Modules\DriverPayroll\Models;
 
 use App\Modules\Dispatch\Models\DispatchOrder;
+use App\Modules\Finance\Models\Expense;
+use App\Modules\Finance\Models\Receipt;
 use App\Shared\Enums\PayrollCalculationTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +23,8 @@ class PayrollItemDetail extends Model
         'rate',
         'amount',
         'description',
+        'receipt_id',
+        'expense_id',
     ];
 
     protected function casts(): array
@@ -46,5 +50,15 @@ class PayrollItemDetail extends Model
     public function dispatchOrder(): BelongsTo
     {
         return $this->belongsTo(DispatchOrder::class);
+    }
+
+    public function receipt(): BelongsTo
+    {
+        return $this->belongsTo(Receipt::class);
+    }
+
+    public function expense(): BelongsTo
+    {
+        return $this->belongsTo(Expense::class);
     }
 }

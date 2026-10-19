@@ -23,6 +23,8 @@ class PayrollItem extends Model
         'other_allowance',
         'advance_amount',
         'deduction_amount',
+        'direct_customer_collection',
+        'driver_reimbursement',
         'gross_salary',
         'net_salary',
         'note',
@@ -39,6 +41,8 @@ class PayrollItem extends Model
             'other_allowance' => 'decimal:2',
             'advance_amount' => 'decimal:2',
             'deduction_amount' => 'decimal:2',
+            'direct_customer_collection' => 'decimal:2',
+            'driver_reimbursement' => 'decimal:2',
             'gross_salary' => 'decimal:2',
             'net_salary' => 'decimal:2',
         ]);

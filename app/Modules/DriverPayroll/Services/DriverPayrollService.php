@@ -10,13 +10,17 @@ use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\DriverPayroll\Models\Payroll;
 use App\Modules\DriverPayroll\Models\PayrollItem;
 use App\Modules\DriverPayroll\Models\PayrollItemDetail;
+use App\Modules\Finance\Models\Expense;
+use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Models\Driver;
 use App\Shared\Enums\DispatchOrderStatusEnum;
 use App\Shared\Enums\DriverAdvanceStatusEnum;
 use App\Shared\Enums\DriverAttendanceStatusEnum;
+use App\Shared\Enums\ExpenseSettlementTypeEnum;
 use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\PayrollCalculationTypeEnum;
 use App\Shared\Enums\PayrollStatusEnum;
+use App\Shared\Enums\ReceiptSettlementTypeEnum;
 use App\Shared\Enums\RentalServiceTypeEnum;
 use App\Shared\Enums\WorkTypeEnum;
 use Illuminate\Support\Facades\DB;
@@ -140,7 +144,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     public function payroll(Payroll $payroll): array
     {
-        return $this->payrollData($payroll->load(['items.driver', 'items.details.driverAttendance', 'items.details.dispatchOrder']));
+        return $this->payrollData($payroll->load(['items.driver', 'items.details.driverAttendance', 'items.details.dispatchOrder', 'items.details.receipt', 'items.details.expense']));
     }
 
     public function createPayroll(array $data): array
@@ -174,14 +178,23 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             foreach ($drivers as $driver) {
                 $attendances = DriverAttendance::query()->where('driver_id', $driver->id)->where('status', DriverAttendanceStatusEnum::CONFIRMED)->whereBetween('work_date', [$locked->from_date, $locked->to_date])->get();
                 $advances = DriverAdvance::query()->where('driver_id', $driver->id)->where('status', DriverAdvanceStatusEnum::CONFIRMED)->whereBetween('advance_date', [$locked->from_date, $locked->to_date])->get();
+                $directCollections = Receipt::query()->where('is_active', true)->where('settlement_type', ReceiptSettlementTypeEnum::DRIVER_DIRECT_COLLECTION->value)->where('driver_id', $driver->id)->whereBetween('received_at', [$locked->from_date, $locked->to_date.' 23:59:59'])->get();
+                $reimbursements = Expense::query()->where('is_active', true)->where('settlement_type', ExpenseSettlementTypeEnum::DRIVER_REIMBURSEMENT->value)->where('driver_id', $driver->id)->whereBetween('expense_date', [$locked->from_date, $locked->to_date.' 23:59:59'])->get();
                 $fixed = $attendances->where('work_type', WorkTypeEnum::FIXED_TRIP)->sum('calculated_wage');
                 $tourism = $attendances->where('work_type', WorkTypeEnum::TOURISM_TRIP)->sum('calculated_wage');
-                $other = $attendances->where('work_type', WorkTypeEnum::OTHER)->sum('calculated_wage');
                 $advance = $advances->sum('amount');
-                $gross = (float) $driver->base_salary + (float) $driver->responsibility_allowance + (float) $fixed + (float) $tourism + (float) $other;
-                $item = PayrollItem::create(['payroll_id' => $locked->id, 'driver_id' => $driver->id, 'base_salary' => $driver->base_salary ?? 0, 'responsibility_allowance' => $driver->responsibility_allowance ?? 0, 'fixed_trip_wage' => $fixed, 'tourism_commission' => $tourism, 'other_allowance' => $other, 'advance_amount' => $advance, 'gross_salary' => $gross, 'net_salary' => $gross - (float) $advance]);
-                foreach ($attendances as $attendance) {
+                $directCollection = $directCollections->sum('amount');
+                $reimbursement = $reimbursements->sum('amount');
+                $gross = (float) $driver->responsibility_allowance + (float) $fixed + (float) $tourism;
+                $item = PayrollItem::create(['payroll_id' => $locked->id, 'driver_id' => $driver->id, 'base_salary' => 0, 'responsibility_allowance' => $driver->responsibility_allowance ?? 0, 'fixed_trip_wage' => $fixed, 'tourism_commission' => $tourism, 'other_allowance' => 0, 'advance_amount' => $advance, 'direct_customer_collection' => $directCollection, 'driver_reimbursement' => $reimbursement, 'gross_salary' => $gross, 'net_salary' => $gross - (float) $advance - (float) $directCollection + (float) $reimbursement]);
+                foreach ($attendances->whereIn('work_type', [WorkTypeEnum::FIXED_TRIP, WorkTypeEnum::TOURISM_TRIP]) as $attendance) {
                     PayrollItemDetail::create(['payroll_item_id' => $item->id, 'driver_attendance_id' => $attendance->id, 'dispatch_order_id' => $attendance->dispatch_order_id, 'calculation_type' => $attendance->work_type === WorkTypeEnum::TOURISM_TRIP ? PayrollCalculationTypeEnum::TOURISM_COMMISSION : PayrollCalculationTypeEnum::FIXED_TRIP, 'base_amount' => $attendance->base_amount, 'rate' => $attendance->rate, 'amount' => $attendance->calculated_wage]);
+                }
+                foreach ($directCollections as $receipt) {
+                    PayrollItemDetail::create(['payroll_item_id' => $item->id, 'receipt_id' => $receipt->id, 'dispatch_order_id' => $receipt->dispatch_order_id, 'calculation_type' => PayrollCalculationTypeEnum::DIRECT_CUSTOMER_COLLECTION, 'base_amount' => $receipt->amount, 'rate' => 1, 'amount' => $receipt->amount, 'description' => $receipt->receipt_no]);
+                }
+                foreach ($reimbursements as $expense) {
+                    PayrollItemDetail::create(['payroll_item_id' => $item->id, 'expense_id' => $expense->id, 'dispatch_order_id' => $expense->dispatch_order_id, 'calculation_type' => PayrollCalculationTypeEnum::DRIVER_REIMBURSEMENT, 'base_amount' => $expense->amount, 'rate' => 1, 'amount' => $expense->amount, 'description' => $expense->expense_no]);
                 }
             } $locked->forceFill(['status' => PayrollStatusEnum::CALCULATED])->save();
 
@@ -194,8 +207,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
         if ($item->payroll_id !== $payroll->id || $payroll->status !== PayrollStatusEnum::CALCULATED) {
             abort(409, 'Chỉ có thể điều chỉnh item của kỳ lương đã tính.');
         } $item->fill($data);
-        $gross = (float) $item->base_salary + (float) $item->responsibility_allowance + (float) $item->meal_allowance + (float) $item->fixed_trip_wage + (float) $item->tourism_commission + (float) $item->other_allowance;
-        $item->forceFill(['gross_salary' => $gross, 'net_salary' => $gross - (float) $item->advance_amount - (float) $item->deduction_amount])->save();
+        $gross = (float) $item->responsibility_allowance + (float) $item->fixed_trip_wage + (float) $item->tourism_commission;
+        $item->forceFill(['gross_salary' => $gross, 'net_salary' => $gross - (float) $item->advance_amount - (float) $item->direct_customer_collection + (float) $item->driver_reimbursement])->save();
 
         return $this->payroll($payroll->fresh());
     }
@@ -268,6 +281,6 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         $items = $item->relationLoaded('items') ? $item->items : collect();
 
-        return ['id' => $item->id, 'code' => $item->code, 'month' => $item->month, 'year' => $item->year, 'from_date' => $item->from_date?->toDateString(), 'to_date' => $item->to_date?->toDateString(), 'status' => $item->status?->value, 'paid_at' => $item->paid_at?->toISOString(), 'total_gross' => (string) $items->sum('gross_salary'), 'total_net' => (string) $items->sum('net_salary'), 'items' => $items->map(fn (PayrollItem $row) => ['id' => $row->id, 'driver_id' => $row->driver_id, 'driver_name' => $row->driver?->full_name, 'base_salary' => $row->base_salary, 'responsibility_allowance' => $row->responsibility_allowance, 'meal_allowance' => $row->meal_allowance, 'fixed_trip_wage' => $row->fixed_trip_wage, 'tourism_commission' => $row->tourism_commission, 'other_allowance' => $row->other_allowance, 'advance_amount' => $row->advance_amount, 'deduction_amount' => $row->deduction_amount, 'gross_salary' => $row->gross_salary, 'net_salary' => $row->net_salary, 'note' => $row->note, 'details' => $row->details->map(fn (PayrollItemDetail $detail) => ['id' => $detail->id, 'calculation_type' => $detail->calculation_type?->value, 'base' => $detail->base_amount, 'rate' => $detail->rate, 'amount' => $detail->amount, 'driver_attendance_id' => $detail->driver_attendance_id, 'dispatch_order_no' => $detail->dispatchOrder?->order_no, 'work_date' => $detail->driverAttendance?->work_date?->toDateString()])->all()])->all()];
+        return ['id' => $item->id, 'code' => $item->code, 'month' => $item->month, 'year' => $item->year, 'from_date' => $item->from_date?->toDateString(), 'to_date' => $item->to_date?->toDateString(), 'status' => $item->status?->value, 'paid_at' => $item->paid_at?->toISOString(), 'total_gross' => (string) $items->sum('gross_salary'), 'total_net' => (string) $items->sum('net_salary'), 'items' => $items->map(fn (PayrollItem $row) => ['id' => $row->id, 'driver_id' => $row->driver_id, 'driver_name' => $row->driver?->full_name, 'base_salary' => $row->base_salary, 'responsibility_allowance' => $row->responsibility_allowance, 'meal_allowance' => $row->meal_allowance, 'fixed_trip_wage' => $row->fixed_trip_wage, 'tourism_commission' => $row->tourism_commission, 'other_allowance' => $row->other_allowance, 'advance_amount' => $row->advance_amount, 'deduction_amount' => $row->deduction_amount, 'direct_customer_collection' => $row->direct_customer_collection, 'driver_reimbursement' => $row->driver_reimbursement, 'gross_salary' => $row->gross_salary, 'net_salary' => $row->net_salary, 'note' => $row->note, 'details' => $row->details->map(fn (PayrollItemDetail $detail) => ['id' => $detail->id, 'calculation_type' => $detail->calculation_type?->value, 'base' => $detail->base_amount, 'rate' => $detail->rate, 'amount' => $detail->amount, 'driver_attendance_id' => $detail->driver_attendance_id, 'dispatch_order_no' => $detail->dispatchOrder?->order_no, 'receipt_no' => $detail->receipt?->receipt_no, 'expense_no' => $detail->expense?->expense_no, 'work_date' => $detail->driverAttendance?->work_date?->toDateString()])->all()])->all()];
     }
 }

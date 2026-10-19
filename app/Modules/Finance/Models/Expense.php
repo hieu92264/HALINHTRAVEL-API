@@ -8,6 +8,7 @@ use App\Modules\MasterData\Models\ExpenseType;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Models\Vehicle;
 use App\Shared\Enums\ExpenseScopeEnum;
+use App\Shared\Enums\ExpenseSettlementTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,7 @@ class Expense extends Model
         'payment_method',
         'document_no',
         'description',
+        'settlement_type',
         'is_locked',
     ];
 
@@ -36,6 +38,7 @@ class Expense extends Model
     {
         return array_merge($this->baseMetadataCasts(), [
             'scope' => ExpenseScopeEnum::class,
+            'settlement_type' => ExpenseSettlementTypeEnum::class,
             'expense_date' => 'datetime',
             'amount' => 'decimal:2',
             'is_locked' => 'boolean',
