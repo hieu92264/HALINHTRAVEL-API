@@ -17,7 +17,7 @@ class ReportRequest extends FormRequest
         return [
             'from_date' => ['required', 'date'],
             'to_date' => ['required', 'date', 'after_or_equal:from_date'],
-            'format' => ['sometimes', Rule::in(['json', 'xlsx'])],
+            'format' => ['sometimes', Rule::in(['json', 'xlsx', 'docx'])],
             'basis' => ['sometimes', Rule::in(['accrual', 'cash'])],
             'route_id' => ['sometimes', 'integer'],
             'customer_id' => ['sometimes', 'integer'],

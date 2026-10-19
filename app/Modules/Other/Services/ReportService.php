@@ -100,7 +100,7 @@ class ReportService implements ReportServiceInterface
             ->whereBetween('to_date', [$from, $to])
             ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))
             ->get();
-        $rows = $payrolls->flatMap(fn (Payroll $payroll) => $payroll->items->filter(fn ($item) => ! isset($filters['driver_id']) || $item->driver_id === (int) $filters['driver_id'])->map(fn ($item) => ['id' => $item->id, 'payroll_id' => $payroll->id, 'payroll_code' => $payroll->code, 'period' => $payroll->from_date?->toDateString().' - '.$payroll->to_date?->toDateString(), 'status' => $payroll->status?->value, 'paid_at' => $payroll->paid_at?->toDateString(), 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'gross_salary' => $item->gross_salary, 'net_salary' => $item->net_salary, 'advance_amount' => $item->advance_amount, 'deduction_amount' => $item->deduction_amount, 'details' => $item->details->map(fn ($detail) => ['order_no' => $detail->dispatchOrder?->order_no, 'amount' => $detail->amount, 'calculation_type' => $detail->calculation_type?->value])->all()]));
+        $rows = $payrolls->flatMap(fn (Payroll $payroll) => $payroll->items->filter(fn ($item) => ! isset($filters['driver_id']) || $item->driver_id === (int) $filters['driver_id'])->map(fn ($item) => ['id' => $item->id, 'payroll_id' => $payroll->id, 'payroll_code' => $payroll->code, 'period' => $payroll->from_date?->toDateString().' - '.$payroll->to_date?->toDateString(), 'status' => $payroll->status?->value, 'paid_at' => $payroll->paid_at?->toDateString(), 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'responsibility_allowance' => $item->responsibility_allowance, 'fixed_trip_wage' => $item->fixed_trip_wage, 'tourism_commission' => $item->tourism_commission, 'driver_reimbursement' => $item->driver_reimbursement, 'direct_customer_collection' => $item->direct_customer_collection, 'driver_remittance_amount' => $item->driver_remittance_amount, 'gross_salary' => $item->gross_salary, 'net_salary' => $item->net_salary, 'advance_amount' => $item->advance_amount, 'deduction_amount' => $item->deduction_amount, 'details' => $item->details->map(fn ($detail) => ['order_no' => $detail->dispatchOrder?->order_no, 'amount' => $detail->amount, 'calculation_type' => $detail->calculation_type?->value])->all()]));
 
         return $this->result($filters, $rows->values()->all(), ['gross_salary' => $this->money($rows->sum('gross_salary')), 'net_salary' => $this->money($rows->sum('net_salary')), 'advance_amount' => $this->money($rows->sum('advance_amount'))]);
     }
@@ -162,11 +162,36 @@ class ReportService implements ReportServiceInterface
     {
         $payroll = Payroll::query()->with(['items.driver', 'items.details.driverAttendance', 'items.details.dispatchOrder.tripSchedule', 'items.details.receipt', 'items.details.expense', 'items.details.driverCashRemittance'])
             ->findOrFail($filters['payroll_id']);
-        $rows = $payroll->items->filter(fn ($item) => empty($filters['driver_id']) || $item->driver_id === (int) $filters['driver_id'])->flatMap(function ($item) {
-            return $item->details->map(fn ($detail) => ['driver_name' => $item->driver?->full_name, 'calculation_type' => $detail->calculation_type?->value, 'date' => $detail->driverAttendance?->work_date?->toDateString(), 'order_no' => $detail->dispatchOrder?->order_no, 'journey' => $detail->dispatchOrder?->tripSchedule?->journey, 'receipt_no' => $detail->receipt?->receipt_no, 'expense_no' => $detail->expense?->expense_no, 'remittance_no' => $detail->driverCashRemittance?->remittance_no, 'base_amount' => $detail->base_amount, 'rate' => $detail->rate, 'amount' => $detail->amount, 'description' => $detail->description]);
+        $items = $payroll->items->filter(fn ($item) => empty($filters['driver_id']) || $item->driver_id === (int) $filters['driver_id']);
+        $rows = $items->flatMap(function ($item) {
+            return $item->details->map(fn ($detail) => [
+                'driver_name' => $item->driver?->full_name,
+                'calculation_type' => $detail->calculation_type?->value,
+                'date' => $detail->driverAttendance?->work_date?->toDateString()
+                    ?? $detail->receipt?->received_at?->toDateString()
+                    ?? $detail->expense?->expense_date?->toDateString()
+                    ?? $detail->driverCashRemittance?->remitted_at?->toDateString(),
+                'order_no' => $detail->dispatchOrder?->order_no,
+                'journey' => $detail->dispatchOrder?->tripSchedule?->journey,
+                'receipt_no' => $detail->receipt?->receipt_no,
+                'expense_no' => $detail->expense?->expense_no,
+                'remittance_no' => $detail->driverCashRemittance?->remittance_no,
+                'base_amount' => $detail->base_amount,
+                'rate' => $detail->rate,
+                'amount' => $detail->amount,
+                'description' => $detail->description,
+            ]);
         })->values();
 
-        return $this->result($filters, $rows->all(), ['gross_salary' => $this->money($payroll->items->sum('gross_salary')), 'net_salary' => $this->money($payroll->items->sum('net_salary'))]);
+        $result = $this->result($filters, $rows->all(), ['gross_salary' => $this->money($items->sum('gross_salary')), 'net_salary' => $this->money($items->sum('net_salary'))]);
+        $result['payroll'] = [
+            'id' => $payroll->id,
+            'code' => $payroll->code,
+            'from_date' => $payroll->from_date?->toDateString(),
+            'to_date' => $payroll->to_date?->toDateString(),
+        ];
+
+        return $result;
     }
 
     private function tripOrders(array $filters, array $types): Builder
