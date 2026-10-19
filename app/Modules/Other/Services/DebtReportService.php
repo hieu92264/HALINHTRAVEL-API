@@ -103,6 +103,54 @@ class DebtReportService implements DebtReportServiceInterface
         })->all();
     }
 
+    public function customerDebtDetails(int $customerId, string $fromDate, string $toDate): array
+    {
+        $customer = Customer::query()->findOrFail($customerId);
+        $orders = $this->completedOrders()->filter(fn (DispatchOrder $order) => (int) $order->tripSchedule?->contract?->customer_id === $customerId);
+        $receipts = Receipt::query()->with(['dispatchOrder.tripSchedule', 'driver'])->where('is_active', true)->where('customer_id', $customerId)->get();
+        $opening = (float) $customer->opening_balance + $this->sumBefore($orders, 'customer_amount', 'completed_at', $fromDate) - $this->sumBefore($receipts, 'amount', 'received_at', $fromDate);
+        $entries = collect();
+        foreach ($this->inPeriod($orders, 'completed_at', $fromDate, $toDate) as $order) {
+            $entries->push(['date' => $order->completed_at, 'document_no' => $order->order_no, 'type' => 'Lệnh hoàn tất', 'journey' => $order->tripSchedule?->journey, 'vehicle_plate' => $order->tripAssignment?->vehicle?->license_plate, 'pickup_time' => $order->tripSchedule?->scheduled_start_at?->format('H:i'), 'return_time' => $order->tripSchedule?->scheduled_end_at?->format('H:i'), 'debit' => (float) $order->customer_amount, 'credit' => 0, 'note' => $order->note]);
+        }
+        foreach ($this->inPeriod($receipts, 'received_at', $fromDate, $toDate) as $receipt) {
+            $entries->push(['date' => $receipt->received_at, 'document_no' => $receipt->receipt_no, 'type' => $receipt->settlement_type?->value === 'driver_direct_collection' ? 'Khách trả lái xe' : 'Khách nộp công ty', 'journey' => $receipt->dispatchOrder?->tripSchedule?->journey, 'vehicle_plate' => $receipt->dispatchOrder?->tripAssignment?->vehicle?->license_plate, 'pickup_time' => null, 'return_time' => null, 'debit' => 0, 'credit' => (float) $receipt->amount, 'note' => $receipt->description]);
+        }
+        $balance = $opening;
+        $rows = $entries->sortBy('date')->values()->map(function (array $entry, int $index) use (&$balance): array {
+            $balance += $entry['debit'] - $entry['credit'];
+
+            return [...$entry, 'stt' => $index + 1, 'date' => $entry['date']?->toDateString(), 'debit' => $this->money($entry['debit']), 'credit' => $this->money($entry['credit']), 'balance' => $this->money($balance)];
+        })->all();
+        array_unshift($rows, ['stt' => 0, 'date' => $fromDate, 'document_no' => null, 'type' => 'Nợ đầu kỳ', 'journey' => null, 'vehicle_plate' => null, 'pickup_time' => null, 'return_time' => null, 'debit' => '0.00', 'credit' => '0.00', 'balance' => $this->money($opening), 'note' => null]);
+
+        return ['subject_name' => $customer->name, 'opening_balance' => $this->money($opening), 'rows' => $rows, 'closing_balance' => $this->money($balance)];
+    }
+
+    public function partnerDebtDetails(int $partnerId, string $fromDate, string $toDate): array
+    {
+        $partner = Partner::query()->findOrFail($partnerId);
+        $orders = $this->completedOrders()->filter(fn (DispatchOrder $order) => $this->carrierPartnerId($order) === $partnerId);
+        $payments = PartnerPayment::query()->with(['dispatchOrder.tripSchedule', 'dispatchOrder.tripAssignment.vehicle'])->where('is_active', true)->where('partner_id', $partnerId)->get();
+        $opening = (float) $partner->opening_balance + $this->sumBefore($orders, 'partner_vehicle_cost', 'completed_at', $fromDate) - $this->sumBefore($payments, 'amount', 'paid_at', $fromDate);
+        $entries = collect();
+        foreach ($this->inPeriod($orders, 'completed_at', $fromDate, $toDate) as $order) {
+            $entries->push(['date' => $order->completed_at, 'document_no' => $order->order_no, 'type' => 'Chi phí thuê xe', 'journey' => $order->tripSchedule?->journey, 'vehicle_plate' => $order->tripAssignment?->vehicle?->license_plate, 'pickup_time' => $order->tripSchedule?->scheduled_start_at?->format('H:i'), 'return_time' => $order->tripSchedule?->scheduled_end_at?->format('H:i'), 'debit' => (float) $order->partner_vehicle_cost, 'credit' => 0, 'note' => $order->note]);
+        }
+        foreach ($this->inPeriod($payments, 'paid_at', $fromDate, $toDate) as $payment) {
+            $entries->push(['date' => $payment->paid_at, 'document_no' => $payment->payment_no, 'type' => 'Chi trả chủ xe', 'journey' => $payment->dispatchOrder?->tripSchedule?->journey, 'vehicle_plate' => $payment->dispatchOrder?->tripAssignment?->vehicle?->license_plate, 'pickup_time' => null, 'return_time' => null, 'debit' => 0, 'credit' => (float) $payment->amount, 'note' => $payment->description]);
+        }
+        $balance = $opening;
+        $rows = $entries->sortBy('date')->values()->map(function (array $entry, int $index) use (&$balance): array {
+            $balance += $entry['debit'] - $entry['credit'];
+
+            return [...$entry, 'stt' => $index + 1, 'date' => $entry['date']?->toDateString(), 'debit' => $this->money($entry['debit']), 'credit' => $this->money($entry['credit']), 'balance' => $this->money($balance)];
+        })->all();
+        array_unshift($rows, ['stt' => 0, 'date' => $fromDate, 'document_no' => null, 'type' => 'Nợ đầu kỳ', 'journey' => null, 'vehicle_plate' => null, 'pickup_time' => null, 'return_time' => null, 'debit' => '0.00', 'credit' => '0.00', 'balance' => $this->money($opening), 'note' => null]);
+
+        return ['subject_name' => $partner->name, 'opening_balance' => $this->money($opening), 'rows' => $rows, 'closing_balance' => $this->money($balance)];
+    }
+
     /** @return Collection<int, DispatchOrder> */
     private function completedOrders(): Collection
     {
@@ -153,5 +201,10 @@ class DebtReportService implements DebtReportServiceInterface
         }
 
         return $row;
+    }
+
+    private function money(float $amount): string
+    {
+        return number_format($amount, 2, '.', '');
     }
 }

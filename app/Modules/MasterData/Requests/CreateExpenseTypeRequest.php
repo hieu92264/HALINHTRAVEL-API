@@ -4,6 +4,7 @@ namespace App\Modules\MasterData\Requests;
 
 use App\Modules\MasterData\DTOs\CreateExpenseTypeData;
 use App\Shared\Enums\ExpenseTypeEnum;
+use App\Shared\Enums\ProfitCategoryEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,6 +21,7 @@ class CreateExpenseTypeRequest extends FormRequest
             'code' => ['required', 'string', 'max:50', Rule::unique('expense_types', 'code')],
             'name' => ['required', 'string', 'max:150'],
             'scope' => ['required', Rule::enum(ExpenseTypeEnum::class)],
+            'profit_category' => ['sometimes', 'nullable', Rule::enum(ProfitCategoryEnum::class)],
         ];
     }
 
@@ -40,6 +42,7 @@ class CreateExpenseTypeRequest extends FormRequest
             code: $data['code'],
             name: $data['name'],
             scope: ExpenseTypeEnum::from($data['scope']),
+            profitCategory: isset($data['profit_category']) ? ProfitCategoryEnum::from($data['profit_category']) : null,
         );
     }
 }

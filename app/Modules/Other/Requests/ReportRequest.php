@@ -23,6 +23,7 @@ class ReportRequest extends FormRequest
             'customer_id' => ['sometimes', 'integer'],
             'vehicle_id' => ['sometimes', 'integer'],
             'driver_id' => ['sometimes', 'integer'],
+            'payroll_id' => ['sometimes', 'integer', 'exists:payrolls,id'],
             'partner_id' => ['sometimes', 'integer'],
             'expense_type_id' => ['sometimes', 'integer'],
             'scope' => ['sometimes', Rule::in(['vehicle', 'trip', 'general'])],

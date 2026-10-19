@@ -25,6 +25,7 @@ class PayrollItem extends Model
         'deduction_amount',
         'direct_customer_collection',
         'driver_reimbursement',
+        'driver_remittance_amount',
         'gross_salary',
         'net_salary',
         'note',
@@ -43,6 +44,7 @@ class PayrollItem extends Model
             'deduction_amount' => 'decimal:2',
             'direct_customer_collection' => 'decimal:2',
             'driver_reimbursement' => 'decimal:2',
+            'driver_remittance_amount' => 'decimal:2',
             'gross_salary' => 'decimal:2',
             'net_salary' => 'decimal:2',
         ]);

@@ -3,6 +3,7 @@
 namespace App\Modules\DriverPayroll\Models;
 
 use App\Modules\Dispatch\Models\DispatchOrder;
+use App\Modules\Finance\Models\DriverCashRemittance;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\Receipt;
 use App\Shared\Enums\PayrollCalculationTypeEnum;
@@ -25,6 +26,7 @@ class PayrollItemDetail extends Model
         'description',
         'receipt_id',
         'expense_id',
+        'driver_cash_remittance_id',
     ];
 
     protected function casts(): array
@@ -60,5 +62,10 @@ class PayrollItemDetail extends Model
     public function expense(): BelongsTo
     {
         return $this->belongsTo(Expense::class);
+    }
+
+    public function driverCashRemittance(): BelongsTo
+    {
+        return $this->belongsTo(DriverCashRemittance::class);
     }
 }

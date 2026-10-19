@@ -4,7 +4,9 @@ namespace App\Modules\Finance\Services;
 
 use App\Modules\Contract\Models\Contract;
 use App\Modules\Dispatch\Models\DispatchOrder;
+use App\Modules\DriverPayroll\Models\Payroll;
 use App\Modules\Finance\Interfaces\FinanceServiceInterface;
+use App\Modules\Finance\Models\DriverCashRemittance;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Modules\Finance\Models\Receipt;
@@ -17,6 +19,7 @@ use App\Shared\Enums\DispatchOrderStatusEnum;
 use App\Shared\Enums\ExpenseScopeEnum;
 use App\Shared\Enums\ExpenseSettlementTypeEnum;
 use App\Shared\Enums\OwnershipTypeEnum;
+use App\Shared\Enums\PayrollStatusEnum;
 use App\Shared\Enums\ReceiptSettlementTypeEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +67,44 @@ class FinanceService implements FinanceServiceInterface
     public function lockReceipt(Receipt $receipt): array
     {
         return $this->lock($receipt, fn (Receipt $item) => $this->receipt($item));
+    }
+
+    public function driverCashRemittances(): array
+    {
+        return DriverCashRemittance::query()->with(['receipt', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('remitted_at')->get()->map(fn (DriverCashRemittance $item) => $this->driverCashRemittanceData($item))->all();
+    }
+
+    public function driverCashRemittance(DriverCashRemittance $driverCashRemittance): array
+    {
+        return $this->driverCashRemittanceData($driverCashRemittance->load(['receipt', 'dispatchOrder', 'driver']));
+    }
+
+    public function createDriverCashRemittance(array $data): array
+    {
+        return DB::transaction(function () use ($data): array {
+            $this->validateDriverCashRemittance($data);
+            $item = DriverCashRemittance::create([...$data, 'remittance_no' => $this->nextCode(DriverCashRemittance::class, 'remittance_no', 'NTLX')]);
+
+            return $this->driverCashRemittance($item);
+        });
+    }
+
+    public function updateDriverCashRemittance(DriverCashRemittance $driverCashRemittance, array $data): array
+    {
+        return DB::transaction(function () use ($driverCashRemittance, $data): array {
+            $this->assertMutable($driverCashRemittance);
+            $merged = [...$driverCashRemittance->only(['receipt_id', 'dispatch_order_id', 'driver_id', 'remitted_at', 'amount', 'payment_method', 'description']), ...$data];
+            $this->validateDriverCashRemittance($merged, $driverCashRemittance->id);
+            $driverCashRemittance->fill($merged)->save();
+
+            return $this->driverCashRemittance($driverCashRemittance->fresh());
+        });
+    }
+
+    public function deactivateDriverCashRemittance(DriverCashRemittance $driverCashRemittance): void
+    {
+        $this->assertMutable($driverCashRemittance);
+        $driverCashRemittance->forceFill(['is_active' => false])->save();
     }
 
     public function expenses(): array
@@ -172,8 +213,16 @@ class FinanceService implements FinanceServiceInterface
                 abort(422, 'Hợp đồng phải khớp với lệnh điều xe.');
             }
         } else {
-            $data['dispatch_order_id'] = null;
             $data['driver_id'] = null;
+            if (! empty($data['dispatch_order_id'])) {
+                $order = DispatchOrder::query()->with('tripSchedule.contract')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
+                if ($order->status !== DispatchOrderStatusEnum::COMPLETED || (int) $order->tripSchedule?->contract?->customer_id !== (int) $customer->id) {
+                    abort(422, 'Lệnh điều xe phải hoàn tất và thuộc đúng khách hàng phiếu thu.');
+                }
+                if (! empty($data['contract_id']) && (int) $data['contract_id'] !== (int) $order->tripSchedule?->contract_id) {
+                    abort(422, 'Hợp đồng phải khớp với lệnh điều xe.');
+                }
+            }
         }
         if (! empty($data['contract_id'])) {
             $contract = Contract::query()->whereKey($data['contract_id'])->where('is_active', true)->firstOrFail();
@@ -236,6 +285,27 @@ class FinanceService implements FinanceServiceInterface
         }
     }
 
+    private function validateDriverCashRemittance(array $data, ?int $ignoreId = null): void
+    {
+        $receipt = Receipt::query()->whereKey($data['receipt_id'])->where('is_active', true)->firstOrFail();
+        if ($receipt->settlement_type !== ReceiptSettlementTypeEnum::DRIVER_DIRECT_COLLECTION
+            || (int) $receipt->dispatch_order_id !== (int) $data['dispatch_order_id']
+            || (int) $receipt->driver_id !== (int) $data['driver_id']) {
+            abort(422, 'Chứng từ nộp tiền phải khớp phiếu khách trả trực tiếp, lệnh điều xe và lái xe.');
+        }
+
+        $remitted = (float) DriverCashRemittance::query()->where('is_active', true)->where('receipt_id', $receipt->id)->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))->sum('amount');
+        if ($remitted + (float) $data['amount'] > (float) $receipt->amount) {
+            abort(422, 'Tổng tiền lái xe nộp không được vượt tiền lái xe đã thu.');
+        }
+
+        $isLocked = Payroll::query()->where('status', PayrollStatusEnum::LOCKED->value)
+            ->whereDate('from_date', '<=', $data['remitted_at'])->whereDate('to_date', '>=', $data['remitted_at'])->exists();
+        if ($isLocked) {
+            abort(422, 'Không thể ghi nhận tiền nộp trong kỳ lương đã khóa.');
+        }
+    }
+
     private function validatePartnerPayment(array $data): void
     {
         Partner::query()->whereKey($data['partner_id'])->where('is_active', true)->firstOrFail();
@@ -293,5 +363,10 @@ class FinanceService implements FinanceServiceInterface
     private function partnerPaymentData(PartnerPayment $item): array
     {
         return ['id' => $item->id, 'payment_no' => $item->payment_no, 'partner_id' => $item->partner_id, 'partner_name' => $item->partner?->name, 'dispatch_order_id' => $item->dispatch_order_id, 'dispatch_order_no' => $item->dispatchOrder?->order_no, 'paid_at' => $item->paid_at?->toISOString(), 'amount' => $item->amount, 'payment_method' => $item->payment_method?->value, 'description' => $item->description, 'is_locked' => $item->is_locked, 'is_active' => $item->is_active];
+    }
+
+    private function driverCashRemittanceData(DriverCashRemittance $item): array
+    {
+        return ['id' => $item->id, 'remittance_no' => $item->remittance_no, 'receipt_id' => $item->receipt_id, 'receipt_no' => $item->receipt?->receipt_no, 'dispatch_order_id' => $item->dispatch_order_id, 'dispatch_order_no' => $item->dispatchOrder?->order_no, 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'remitted_at' => $item->remitted_at?->toISOString(), 'amount' => $item->amount, 'payment_method' => $item->payment_method?->value, 'description' => $item->description, 'is_locked' => $item->is_locked, 'is_active' => $item->is_active];
     }
 }

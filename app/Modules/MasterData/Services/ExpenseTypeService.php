@@ -25,6 +25,7 @@ class ExpenseTypeService implements ExpenseTypeServiceInterface
             'code' => $expenseType->code,
             'name' => $expenseType->name,
             'scope' => $expenseType->scope?->value,
+            'profit_category' => $expenseType->profit_category?->value,
             'is_active' => $expenseType->is_active,
             'user_name_created' => $expenseType->user_name_created,
             'user_name_updated' => $expenseType->user_name_updated,
