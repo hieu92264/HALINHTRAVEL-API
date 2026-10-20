@@ -21,4 +21,10 @@ interface ReportServiceInterface
 
     /** @param array<string, mixed> $filters */
     public function profitLoss(array $filters): array;
+
+    /** @param array<string, mixed> $filters */
+    public function vehicleProfit(array $filters): array;
+
+    /** @param array<string, mixed> $filters */
+    public function payrollDetails(array $filters): array;
 }

@@ -5,6 +5,7 @@ namespace App\Modules\MasterData\Requests;
 use App\Modules\MasterData\DTOs\UpdateExpenseTypeData;
 use App\Modules\MasterData\Models\ExpenseType;
 use App\Shared\Enums\ExpenseTypeEnum;
+use App\Shared\Enums\ProfitCategoryEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,6 +36,7 @@ class UpdateExpenseTypeRequest extends FormRequest
             ],
             'name' => ['sometimes', 'string', 'max:150'],
             'scope' => ['sometimes', Rule::enum(ExpenseTypeEnum::class)],
+            'profit_category' => ['sometimes', 'nullable', Rule::enum(ProfitCategoryEnum::class)],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -57,6 +59,7 @@ class UpdateExpenseTypeRequest extends FormRequest
             code: $data['code'] ?? null,
             name: $data['name'] ?? null,
             scope: array_key_exists('scope', $data) ? ExpenseTypeEnum::from($data['scope']) : null,
+            profitCategory: array_key_exists('profit_category', $data) && $data['profit_category'] !== null ? ProfitCategoryEnum::from($data['profit_category']) : null,
             is_active: array_key_exists('is_active', $data) ? (bool) $data['is_active'] : null,
             provided: array_keys($data),
         );

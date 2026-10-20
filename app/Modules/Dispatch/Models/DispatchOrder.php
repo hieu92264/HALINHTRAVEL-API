@@ -3,6 +3,7 @@
 namespace App\Modules\Dispatch\Models;
 
 use App\Modules\Auth\Models\User;
+use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Shared\Enums\DispatchOrderStatusEnum;
@@ -10,6 +11,7 @@ use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class DispatchOrder extends Model
 {
@@ -93,5 +95,10 @@ class DispatchOrder extends Model
     public function partnerPayments(): HasMany
     {
         return $this->hasMany(PartnerPayment::class);
+    }
+
+    public function driverAttendance(): HasOne
+    {
+        return $this->hasOne(DriverAttendance::class);
     }
 }

@@ -37,4 +37,20 @@ class FinanceApiTest extends TestCase
 
         $this->actingAs($user, 'api')->postJson('/api/finance/receipts', ['customer_id' => $customer->id, 'contract_id' => $contract->id, 'receipt_type' => 'contract_payment', 'received_at' => '2026-10-02 08:00:00', 'amount' => '1000000.01', 'payment_method' => 'bank_transfer'])->assertUnprocessable();
     }
+
+    public function test_direct_driver_collection_requires_dispatch_order_and_driver(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $customer = Customer::create(['code' => 'KH0003', 'type' => 'individual', 'name' => 'Khách 3', 'cccd' => '001234567892']);
+        $user = User::query()->where('user_name', 'accountant')->firstOrFail();
+
+        $this->actingAs($user, 'api')->postJson('/api/finance/receipts', [
+            'customer_id' => $customer->id,
+            'receipt_type' => 'other',
+            'settlement_type' => 'driver_direct_collection',
+            'received_at' => '2026-10-02 08:00:00',
+            'amount' => '500000.00',
+            'payment_method' => 'cash',
+        ])->assertUnprocessable();
+    }
 }

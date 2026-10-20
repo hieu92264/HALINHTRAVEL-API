@@ -3,6 +3,7 @@
 namespace App\Modules\Finance\Requests;
 
 use App\Shared\Enums\ExpenseScopeEnum;
+use App\Shared\Enums\ExpenseSettlementTypeEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,7 @@ class ExpenseRequest extends FormRequest
             'payment_method' => ['sometimes', 'nullable', 'string', 'max:30'],
             'document_no' => ['sometimes', 'nullable', 'string', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'settlement_type' => ['sometimes', Rule::enum(ExpenseSettlementTypeEnum::class)],
         ];
     }
 }

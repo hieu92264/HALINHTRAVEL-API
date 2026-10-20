@@ -10,5 +10,8 @@ enum PayrollCalculationTypeEnum: string
 
     case FIXED_TRIP = 'fixed_trip';
     case TOURISM_COMMISSION = 'tourism_commission';
+    case DIRECT_CUSTOMER_COLLECTION = 'direct_customer_collection';
+    case DRIVER_REIMBURSEMENT = 'driver_reimbursement';
+    case DRIVER_CASH_REMITTANCE = 'driver_cash_remittance';
     case ALLOWANCE = 'allowance';
 }

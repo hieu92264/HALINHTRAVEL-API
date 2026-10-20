@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Finance\Controllers\DriverCashRemittanceController;
 use App\Modules\Finance\Controllers\ExpenseController;
 use App\Modules\Finance\Controllers\PartnerPaymentController;
 use App\Modules\Finance\Controllers\ReceiptController;
@@ -10,12 +11,17 @@ Route::prefix('finance')->group(function () {
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::RECEIPTS_VIEW->value])->group(function (): void {
         Route::get('/receipts', [ReceiptController::class, 'index']);
         Route::get('/receipts/{receipt}', [ReceiptController::class, 'show']);
+        Route::get('/driver-cash-remittances', [DriverCashRemittanceController::class, 'index']);
+        Route::get('/driver-cash-remittances/{driverCashRemittance}', [DriverCashRemittanceController::class, 'show']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::RECEIPTS_MANAGE->value])->group(function (): void {
         Route::post('/receipts', [ReceiptController::class, 'store']);
         Route::patch('/receipts/{receipt}', [ReceiptController::class, 'update']);
         Route::delete('/receipts/{receipt}', [ReceiptController::class, 'destroy']);
         Route::post('/receipts/{receipt}/lock', [ReceiptController::class, 'lock']);
+        Route::post('/driver-cash-remittances', [DriverCashRemittanceController::class, 'store']);
+        Route::patch('/driver-cash-remittances/{driverCashRemittance}', [DriverCashRemittanceController::class, 'update']);
+        Route::delete('/driver-cash-remittances/{driverCashRemittance}', [DriverCashRemittanceController::class, 'destroy']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::EXPENSES_VIEW->value])->group(function (): void {
         Route::get('/expenses', [ExpenseController::class, 'index']);

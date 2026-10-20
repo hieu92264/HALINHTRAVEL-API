@@ -2,6 +2,7 @@
 
 namespace App\Modules\Finance\Interfaces;
 
+use App\Modules\Finance\Models\DriverCashRemittance;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Modules\Finance\Models\Receipt;
@@ -19,6 +20,16 @@ interface FinanceServiceInterface
     public function deactivateReceipt(Receipt $receipt): void;
 
     public function lockReceipt(Receipt $receipt): array;
+
+    public function driverCashRemittances(): array;
+
+    public function driverCashRemittance(DriverCashRemittance $driverCashRemittance): array;
+
+    public function createDriverCashRemittance(array $data): array;
+
+    public function updateDriverCashRemittance(DriverCashRemittance $driverCashRemittance, array $data): array;
+
+    public function deactivateDriverCashRemittance(DriverCashRemittance $driverCashRemittance): void;
 
     public function expenses(): array;
 

@@ -3,6 +3,7 @@
 namespace App\Modules\MasterData\DTOs;
 
 use App\Shared\Enums\ExpenseTypeEnum;
+use App\Shared\Enums\ProfitCategoryEnum;
 
 readonly class UpdateExpenseTypeData
 {
@@ -11,6 +12,7 @@ readonly class UpdateExpenseTypeData
         public ?string $code,
         public ?string $name,
         public ?ExpenseTypeEnum $scope,
+        public ?ProfitCategoryEnum $profitCategory,
         public ?bool $is_active,
         public array $provided = [],
     ) {}
@@ -22,6 +24,7 @@ readonly class UpdateExpenseTypeData
             'code' => $this->code,
             'name' => $this->name,
             'scope' => $this->scope?->value,
+            'profit_category' => $this->profitCategory?->value,
             'is_active' => $this->is_active,
         ];
 
