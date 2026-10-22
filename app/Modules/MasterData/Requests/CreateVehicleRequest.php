@@ -4,6 +4,7 @@ namespace App\Modules\MasterData\Requests;
 
 use App\Modules\MasterData\DTOs\CreateVehicleData;
 use App\Shared\Enums\OwnershipTypeEnum;
+use App\Shared\Enums\PartnerTypeEnum;
 use App\Shared\Enums\VehicleStatusEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,14 @@ class CreateVehicleRequest extends FormRequest
             'license_plate' => ['required', 'string', 'max:20', Rule::unique('vehicles', 'license_plate')],
             'vehicle_type_id' => ['required', 'integer', Rule::exists('vehicle_types', 'id')],
             'ownership_type' => ['required', Rule::enum(OwnershipTypeEnum::class)],
-            'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id'), 'required_if:ownership_type,partner'],
+            'partner_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('partners', 'id')
+                    ->where('is_active', true)
+                    ->whereIn('type', [PartnerTypeEnum::VEHICLE_OWNER->value, PartnerTypeEnum::TRANSPORT_COMPANY->value]),
+                'required_if:ownership_type,partner',
+            ],
             'brand' => ['nullable', 'string', 'max:100'],
             'model' => ['nullable', 'string', 'max:100'],
             'manufacture_year' => ['nullable', 'integer', 'min:1886', 'max:9999'],

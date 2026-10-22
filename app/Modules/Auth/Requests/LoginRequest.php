@@ -22,28 +22,22 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        $loginInput = $this->input('user_name');
-
-        $isEmail = filter_var($loginInput, FILTER_VALIDATE_EMAIL);
-
-        $column = $isEmail ? 'email' : 'user_name';
-
         return [
-            $column => [
-                'required',
-                'string',
-                "exists:users,{$column}",
-            ],
+            'user_name' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'max:255'],
             'remember_me' => ['boolean', 'nullable'],
         ];
     }
 
-    public function messages(): array
+    /** @return array<string, mixed> */
+    public function credentials(): array
     {
-        return [
-            'user_name.exists' => 'Tài khoản hoặc email này không tồn tại trong hệ thống.',
-            'email.exists' => 'Tài khoản hoặc email này không tồn tại trong hệ thống.',
-        ];
+        $data = $this->validated();
+        $login = $data['user_name'];
+        unset($data['user_name']);
+
+        $data[filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'user_name'] = $login;
+
+        return $data;
     }
 }

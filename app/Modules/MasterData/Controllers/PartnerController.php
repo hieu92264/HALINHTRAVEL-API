@@ -9,6 +9,9 @@ use App\Modules\MasterData\Requests\CreatePartnerRequest;
 use App\Modules\MasterData\Requests\UpdatePartnerRequest;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use App\Shared\Enums\PartnerTypeEnum;
 use Symfony\Component\HttpFoundation\Response;
 
 class PartnerController extends Controller
@@ -22,9 +25,14 @@ class PartnerController extends Controller
         return $this->success($this->service->partners(), 'Lấy danh sách đối tác thành công.');
     }
 
-    public function options(): JsonResponse
+    public function options(Request $request): JsonResponse
     {
-        return $this->success($this->service->options(), 'Lấy danh sách lựa chọn đối tác thành công.');
+        $data = $request->validate([
+            'types' => ['sometimes', 'array'],
+            'types.*' => [Rule::enum(PartnerTypeEnum::class)],
+        ]);
+
+        return $this->success($this->service->options($data['types'] ?? []), 'Lấy danh sách lựa chọn đối tác thành công.');
     }
 
     public function show(Partner $partner): JsonResponse

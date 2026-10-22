@@ -4,9 +4,12 @@ namespace App\Modules\Rental\Requests;
 
 use App\Modules\Rental\DTOs\RentalRequestItemData;
 use App\Modules\Rental\DTOs\UpdateRentalRequestData;
+use App\Modules\Rental\Models\RentalRequest;
 use App\Shared\Enums\RentalServiceTypeEnum;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateRentalRequest extends FormRequest
 {
@@ -38,6 +41,37 @@ class UpdateRentalRequest extends FormRequest
             'items.*.route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],
             'items.*.note' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->hasAny(['requested_at', 'start_at', 'end_at'])) {
+                return;
+            }
+
+            $rentalRequest = $this->route('rentalRequest');
+            $existing = $rentalRequest instanceof RentalRequest ? $rentalRequest : null;
+            $requestedAt = $this->input('requested_at', $existing?->requested_at?->toDateTimeString());
+            $startAt = $this->input('start_at', $existing?->start_at?->toDateTimeString());
+            $endAt = $this->input('end_at', $existing?->end_at?->toDateTimeString());
+
+            if ($this->has('requested_at') && $requestedAt !== null && Carbon::parse($requestedAt)->isFuture()) {
+                $validator->errors()->add('requested_at', 'Thời điểm tiếp nhận không được ở tương lai.');
+            }
+
+            if ($this->has('requested_at') && $requestedAt !== null && $startAt !== null && Carbon::parse($requestedAt)->gt(Carbon::parse($startAt))) {
+                $validator->errors()->add('requested_at', 'Thời điểm tiếp nhận không được sau khởi hành.');
+            }
+
+            if ($this->has('start_at') && $startAt !== null && Carbon::parse($startAt)->lessThanOrEqualTo(now())) {
+                $validator->errors()->add('start_at', 'Khởi hành phải sau thời điểm hiện tại.');
+            }
+
+            if ($this->has('end_at') && $endAt !== null && $startAt !== null && Carbon::parse($endAt)->lessThanOrEqualTo(Carbon::parse($startAt))) {
+                $validator->errors()->add('end_at', 'Kết thúc phải sau khởi hành.');
+            }
+        });
     }
 
     public function toDTO(): UpdateRentalRequestData
