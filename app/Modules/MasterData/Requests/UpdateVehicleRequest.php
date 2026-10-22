@@ -5,6 +5,7 @@ namespace App\Modules\MasterData\Requests;
 use App\Modules\MasterData\DTOs\UpdateVehicleData;
 use App\Modules\MasterData\Models\Vehicle;
 use App\Shared\Enums\OwnershipTypeEnum;
+use App\Shared\Enums\PartnerTypeEnum;
 use App\Shared\Enums\VehicleStatusEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -41,7 +42,14 @@ class UpdateVehicleRequest extends FormRequest
             ],
             'vehicle_type_id' => ['sometimes', 'integer', Rule::exists('vehicle_types', 'id')],
             'ownership_type' => ['sometimes', Rule::enum(OwnershipTypeEnum::class)],
-            'partner_id' => ['sometimes', 'nullable', 'integer', Rule::exists('partners', 'id')],
+            'partner_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('partners', 'id')
+                    ->where('is_active', true)
+                    ->whereIn('type', [PartnerTypeEnum::VEHICLE_OWNER->value, PartnerTypeEnum::TRANSPORT_COMPANY->value]),
+            ],
             'brand' => ['sometimes', 'nullable', 'string', 'max:100'],
             'model' => ['sometimes', 'nullable', 'string', 'max:100'],
             'manufacture_year' => ['sometimes', 'nullable', 'integer', 'min:1886', 'max:9999'],

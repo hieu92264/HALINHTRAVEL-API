@@ -19,10 +19,11 @@ class PartnerService implements PartnerServiceInterface
             ->all();
     }
 
-    public function options(): array
+    public function options(array $types = []): array
     {
         return Partner::query()
             ->active()
+            ->when($types !== [], fn ($query) => $query->whereIn('type', $types))
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(static fn (Partner $partner): array => [

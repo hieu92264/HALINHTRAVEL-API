@@ -3,9 +3,14 @@
 namespace App\Modules\MasterData\Requests;
 
 use App\Modules\MasterData\DTOs\CreateDriverData;
+use App\Modules\MasterData\Models\Driver;
+use App\Modules\Auth\Models\User;
 use App\Shared\Enums\OwnershipTypeEnum;
+use App\Shared\Enums\PartnerTypeEnum;
+use App\Shared\Enums\RoleEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class CreateDriverRequest extends FormRequest
 {
@@ -25,7 +30,14 @@ class CreateDriverRequest extends FormRequest
     {
         return [
             'user_name' => ['nullable', 'string', 'max:100', Rule::exists('users', 'user_name'), Rule::unique('drivers', 'user_name')],
-            'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id'), 'required_if:type,partner'],
+            'partner_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('partners', 'id')
+                    ->where('is_active', true)
+                    ->whereIn('type', [PartnerTypeEnum::VEHICLE_OWNER->value, PartnerTypeEnum::TRANSPORT_COMPANY->value]),
+                'required_if:type,partner',
+            ],
             'type' => ['required', Rule::enum(OwnershipTypeEnum::class)],
             'full_name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -39,6 +51,36 @@ class CreateDriverRequest extends FormRequest
             'joined_at' => ['nullable', 'date'],
             'left_at' => ['nullable', 'date', 'after_or_equal:joined_at'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $validator->errors()->has('user_name') && $this->filled('user_name')) {
+                $userName = (string) $this->input('user_name');
+                $eligibleUser = User::query()
+                    ->where('user_name', $userName)
+                    ->where('is_active', true)
+                    ->role(RoleEnum::DRIVER->value)
+                    ->exists();
+
+                if (! $eligibleUser) {
+                    $validator->errors()->add('user_name', 'Tài khoản liên kết phải đang hoạt động và có vai trò tài xế.');
+                } elseif (Driver::query()->where('user_name', $userName)->exists()) {
+                    $validator->errors()->add('user_name', 'Tài khoản này đã được liên kết với một tài xế khác.');
+                }
+            }
+
+            if ($validator->errors()->hasAny(['license_issued_at', 'joined_at'])) {
+                return;
+            }
+
+            $licenseIssuedAt = $this->input('license_issued_at');
+            $joinedAt = $this->input('joined_at');
+            if ($licenseIssuedAt !== null && $joinedAt !== null && strtotime((string) $licenseIssuedAt) > strtotime((string) $joinedAt)) {
+                $validator->errors()->add('joined_at', 'Ngày vào làm phải bằng hoặc sau ngày cấp bằng lái.');
+            }
+        });
     }
 
     public function attributes(): array

@@ -12,7 +12,8 @@ interface PartnerServiceInterface
     public function partners(): array;
 
     /** @return list<array{id: int, name: string}> */
-    public function options(): array;
+    /** @param list<string> $types */
+    public function options(array $types = []): array;
 
     /** @return array<string, mixed> */
     public function partner(Partner $partner): array;

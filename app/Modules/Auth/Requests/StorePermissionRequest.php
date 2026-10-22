@@ -18,4 +18,11 @@ class StorePermissionRequest extends FormRequest
             'name' => ['required', 'string', 'max:100', 'regex:/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/', Rule::unique('permissions', 'name')->where('guard_name', 'api')],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'name.regex' => 'Mã quyền phải gồm các phần chữ thường, số hoặc dấu gạch ngang, cách nhau đúng một dấu chấm (ví dụ: customers.view).',
+        ];
+    }
 }

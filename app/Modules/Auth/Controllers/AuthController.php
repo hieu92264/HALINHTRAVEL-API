@@ -16,7 +16,7 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->validated();
+        $credentials = $request->credentials();
         $result = $this->service->login($credentials);
 
         return $this->success($result, 'Đăng nhập thành công.');
