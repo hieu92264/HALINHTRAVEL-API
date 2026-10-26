@@ -15,6 +15,36 @@ class PayrollApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_advances_require_an_active_company_driver_and_legacy_partner_advances_can_be_repaired(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $accountant = User::where('user_name', 'accountant')->firstOrFail();
+        $driverUser = User::where('user_name', 'driver')->firstOrFail();
+        $company = Driver::create(['code' => 'LX-C', 'type' => 'company', 'full_name' => 'Công ty', 'license_number' => 'C', 'license_class' => 'D', 'joined_at' => '2020-01-01']);
+        $partner = Driver::create(['code' => 'LX-P', 'type' => 'partner', 'full_name' => 'Đối tác', 'license_number' => 'P', 'license_class' => 'D', 'joined_at' => '2020-01-01']);
+        $inactive = Driver::create(['code' => 'LX-I', 'type' => 'company', 'full_name' => 'Ngừng hoạt động', 'license_number' => 'I', 'license_class' => 'D', 'joined_at' => '2020-01-01']);
+        $inactive->forceFill(['is_active' => false])->save();
+        $payload = ['driver_id' => $company->id, 'advance_date' => '2026-10-01', 'amount' => '100000'];
+        $this->actingAs($driverUser, 'api')->getJson('/api/driver-payroll/advance-eligible-drivers')->assertForbidden();
+        $this->actingAs($accountant, 'api')->getJson('/api/driver-payroll/advance-eligible-drivers')->assertOk()->assertJsonCount(1, 'metadata')->assertJsonPath('metadata.0.id', $company->id);
+        $this->postJson('/api/driver-payroll/advances', [...$payload, 'driver_id' => $partner->id])->assertUnprocessable();
+        $this->postJson('/api/driver-payroll/advances', [...$payload, 'driver_id' => $inactive->id])->assertUnprocessable();
+        $id = $this->postJson('/api/driver-payroll/advances', $payload)->assertCreated()->json('metadata.id');
+        $this->patchJson("/api/driver-payroll/advances/{$id}", ['driver_id' => $partner->id])->assertUnprocessable();
+        $this->patchJson("/api/driver-payroll/advances/{$id}", ['amount' => '200000'])->assertOk();
+        $this->postJson("/api/driver-payroll/advances/{$id}/confirm")->assertOk();
+
+        $legacy = DriverAdvance::create(['advance_no' => 'TU-OLD', 'driver_id' => $partner->id, 'advance_date' => '2026-10-01', 'amount' => '100000', 'status' => 'pending']);
+        $this->getJson('/api/driver-payroll/advances')->assertOk()->assertJsonFragment(['driver_type' => 'partner']);
+        $this->postJson("/api/driver-payroll/advances/{$legacy->id}/confirm")->assertUnprocessable();
+        $this->patchJson("/api/driver-payroll/advances/{$legacy->id}", ['amount' => '1'])->assertUnprocessable();
+        $this->patchJson("/api/driver-payroll/advances/{$legacy->id}", ['driver_id' => $company->id])->assertOk();
+        $this->postJson("/api/driver-payroll/advances/{$legacy->id}/confirm")->assertOk();
+        $legacyDelete = DriverAdvance::create(['advance_no' => 'TU-OLD2', 'driver_id' => $partner->id, 'advance_date' => '2026-10-01', 'amount' => '100000', 'status' => 'pending']);
+        $this->deleteJson("/api/driver-payroll/advances/{$legacyDelete->id}")->assertOk();
+        $this->assertDatabaseHas('driver_advances', ['id' => $legacyDelete->id, 'is_active' => false]);
+    }
+
     public function test_confirmed_company_advance_is_included_then_locked_with_payroll(): void
     {
         $this->travelTo(Carbon::parse('2026-11-01 00:00:00', 'Asia/Ho_Chi_Minh'));

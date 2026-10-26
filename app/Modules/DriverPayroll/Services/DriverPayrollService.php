@@ -29,6 +29,11 @@ use Illuminate\Support\Facades\DB;
 
 class DriverPayrollService implements DriverPayrollServiceInterface
 {
+    public function eligibleAdvanceDrivers(): array
+    {
+        return Driver::query()->where('is_active', true)->where('type', OwnershipTypeEnum::COMPANY->value)->orderBy('full_name')->get(['id', 'code', 'full_name'])->toArray();
+    }
+
     public function advances(): array
     {
         return DriverAdvance::query()->with(['driver', 'payroll'])->where('is_active', true)->orderByDesc('advance_date')->get()->map(fn (DriverAdvance $item) => $this->advanceData($item))->all();
@@ -42,7 +47,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     public function createAdvance(array $data): array
     {
         return DB::transaction(function () use ($data): array {
-            $this->activeDriver($data['driver_id']);
+            $this->assertAdvanceDriver($data['driver_id']);
             $item = DriverAdvance::create([...$data, 'advance_no' => $this->nextAdvanceNo(), 'status' => DriverAdvanceStatusEnum::PENDING]);
 
             return $this->advance($item);
@@ -51,12 +56,14 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     public function updateAdvance(DriverAdvance $advance, array $data): array
     {
-        $this->assertAdvancePending($advance);
-        if (isset($data['driver_id'])) {
-            $this->activeDriver($data['driver_id']);
-        } $advance->fill($data)->save();
+        return DB::transaction(function () use ($advance, $data): array {
+            $locked = DriverAdvance::query()->lockForUpdate()->findOrFail($advance->id);
+            $this->assertAdvancePending($locked);
+            $this->assertAdvanceDriver($data['driver_id'] ?? $locked->driver_id);
+            $locked->fill($data)->save();
 
-        return $this->advance($advance->fresh());
+            return $this->advance($locked->fresh());
+        });
     }
 
     public function deactivateAdvance(DriverAdvance $advance): void
@@ -70,6 +77,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
         return DB::transaction(function () use ($advance, $user): array {
             $locked = DriverAdvance::query()->lockForUpdate()->findOrFail($advance->id);
             $this->assertAdvancePending($locked);
+            $this->assertAdvanceDriver($locked->driver_id);
             $locked->forceFill(['status' => DriverAdvanceStatusEnum::CONFIRMED, 'approved_by' => $user->user_name])->save();
 
             return $this->advance($locked->fresh());
@@ -92,9 +100,11 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             $loaded = $order->load(['tripAssignment.driver', 'tripAssignment.vehicle.vehicleType', 'tripSchedule.contractItem']);
             if ($loaded->status !== DispatchOrderStatusEnum::COMPLETED) {
                 abort(409, 'Chỉ lệnh đã hoàn thành mới tạo được công chuyến.');
-            } if ($loaded->tripAssignment?->driver === null || DriverAttendance::query()->where('dispatch_order_id', $loaded->id)->exists()) {
+            }
+            if ($loaded->tripAssignment?->driver === null || DriverAttendance::query()->where('dispatch_order_id', $loaded->id)->exists()) {
                 abort(409, 'Lệnh điều xe đã có công chuyến hoặc thiếu tài xế.');
-            } $service = $loaded->tripSchedule?->service_type;
+            }
+            $service = $loaded->tripSchedule?->service_type;
             $driver = $loaded->tripAssignment->driver;
             $units = (string) ($data['work_units'] ?? 1);
             if (in_array($service, [RentalServiceTypeEnum::FIXED, RentalServiceTypeEnum::SCHOOL], true)) {
@@ -110,11 +120,13 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             } else {
                 if (! array_key_exists('rate', $data)) {
                     abort(422, 'Chuyến công tác yêu cầu đơn giá công.');
-                } $type = WorkTypeEnum::OTHER;
+                }
+                $type = WorkTypeEnum::OTHER;
                 $base = $units;
                 $rate = (string) $data['rate'];
                 $wage = (float) $base * (float) $rate;
-            } $item = DriverAttendance::create(['driver_id' => $driver->id, 'dispatch_order_id' => $loaded->id, 'work_date' => ($loaded->actual_end_at ?? $loaded->completed_at ?? now())->toDateString(), 'work_type' => $type, 'work_units' => $units, 'base_amount' => $base, 'rate' => $rate, 'calculated_wage' => number_format($wage, 2, '.', ''), 'status' => DriverAttendanceStatusEnum::PENDING]);
+            }
+            $item = DriverAttendance::create(['driver_id' => $driver->id, 'dispatch_order_id' => $loaded->id, 'work_date' => ($loaded->actual_end_at ?? $loaded->completed_at ?? now())->toDateString(), 'work_type' => $type, 'work_units' => $units, 'base_amount' => $base, 'rate' => $rate, 'calculated_wage' => number_format($wage, 2, '.', ''), 'status' => DriverAttendanceStatusEnum::PENDING]);
 
             return $this->attendance($item);
         });
@@ -124,7 +136,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         if ($attendance->status !== DriverAttendanceStatusEnum::PENDING) {
             abort(409, 'Chỉ công chờ xác nhận mới được cập nhật.');
-        } $attendance->fill($data);
+        }
+        $attendance->fill($data);
         $attendance->forceFill(['calculated_wage' => number_format((float) $attendance->work_units * (float) $attendance->rate, 2, '.', '')])->save();
 
         return $this->attendance($attendance->fresh());
@@ -134,7 +147,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         if ($attendance->status !== DriverAttendanceStatusEnum::PENDING) {
             abort(409, 'Công chuyến không thể xác nhận.');
-        } $attendance->forceFill(['status' => DriverAttendanceStatusEnum::CONFIRMED])->save();
+        }
+        $attendance->forceFill(['status' => DriverAttendanceStatusEnum::CONFIRMED])->save();
 
         return $this->attendance($attendance->fresh());
     }
@@ -155,7 +169,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             $this->assertValidPeriod($data['year'], $data['month'], $data['from_date'], $data['to_date']);
             if (Payroll::query()->where('month', $data['month'])->where('year', $data['year'])->exists()) {
                 abort(409, 'Kỳ lương tháng/năm này đã tồn tại.');
-            } $item = Payroll::create([...$data, 'code' => sprintf('LUONG-%04d-%02d', $data['year'], $data['month']), 'status' => PayrollStatusEnum::DRAFT]);
+            }
+            $item = Payroll::create([...$data, 'code' => sprintf('LUONG-%04d-%02d', $data['year'], $data['month']), 'status' => PayrollStatusEnum::DRAFT]);
 
             return $this->payroll($item);
         });
@@ -216,7 +231,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
                 foreach ($remittances as $remittanceItem) {
                     PayrollItemDetail::create(['payroll_item_id' => $item->id, 'driver_cash_remittance_id' => $remittanceItem->id, 'dispatch_order_id' => $remittanceItem->dispatch_order_id, 'calculation_type' => PayrollCalculationTypeEnum::DRIVER_CASH_REMITTANCE, 'base_amount' => $remittanceItem->amount, 'rate' => 1, 'amount' => $remittanceItem->amount, 'description' => $remittanceItem->remittance_no]);
                 }
-            } $locked->forceFill(['status' => PayrollStatusEnum::CALCULATED])->save();
+            }
+            $locked->forceFill(['status' => PayrollStatusEnum::CALCULATED])->save();
 
             return $this->payroll($locked->fresh());
         });
@@ -226,7 +242,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         if ($item->payroll_id !== $payroll->id || $payroll->status !== PayrollStatusEnum::CALCULATED) {
             abort(409, 'Chỉ có thể điều chỉnh item của kỳ lương đã tính.');
-        } $item->fill($data);
+        }
+        $item->fill($data);
         $gross = (float) $item->responsibility_allowance + (float) $item->fixed_trip_wage + (float) $item->tourism_commission;
         $item->forceFill(['gross_salary' => $gross, 'net_salary' => $gross - (float) $item->advance_amount - (float) $item->direct_customer_collection + (float) $item->driver_reimbursement + (float) $item->driver_remittance_amount])->save();
 
@@ -272,19 +289,27 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             $locked = Payroll::query()->with('items')->lockForUpdate()->findOrFail($payroll->id);
             if ($locked->status !== PayrollStatusEnum::PAID) {
                 abort(409, 'Kỳ lương phải được đánh dấu đã trả trước khi khóa.');
-            } foreach ($locked->items as $item) {
+            }
+            foreach ($locked->items as $item) {
                 $ids = $item->details()->pluck('driver_attendance_id')->filter();
                 DriverAttendance::query()->whereIn('id', $ids)->update(['status' => DriverAttendanceStatusEnum::PAYROLL_LOCKED]);
                 DriverAdvance::query()->where('driver_id', $item->driver_id)->where('status', DriverAdvanceStatusEnum::CONFIRMED)->whereBetween('advance_date', [$locked->from_date, $locked->to_date])->update(['status' => DriverAdvanceStatusEnum::PAYROLL_LOCKED, 'payroll_id' => $locked->id]);
-            } $locked->forceFill(['status' => PayrollStatusEnum::LOCKED])->save();
+            }
+            $locked->forceFill(['status' => PayrollStatusEnum::LOCKED])->save();
 
             return $this->payroll($locked->fresh());
         });
     }
 
-    private function activeDriver(int $id): Driver
+    private function assertAdvanceDriver(int $id): void
     {
-        return Driver::query()->whereKey($id)->where('is_active', true)->firstOrFail();
+        $driver = Driver::query()->whereKey($id)->lockForUpdate()->first();
+        if (! $driver || ! $driver->is_active) {
+            abort(422, 'Tài xế không tồn tại hoặc không còn hoạt động.');
+        }
+        if ($driver->type !== OwnershipTypeEnum::COMPANY) {
+            abort(422, 'Chỉ tài xế công ty mới được tạm ứng lương; tài xế đối tác do đối tác trả lương.');
+        }
     }
 
     private function assertAdvancePending(DriverAdvance $advance): void
@@ -304,7 +329,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     private function advanceData(DriverAdvance $item): array
     {
-        return ['id' => $item->id, 'advance_no' => $item->advance_no, 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'advance_date' => $item->advance_date?->toDateString(), 'amount' => $item->amount, 'description' => $item->description, 'status' => $item->status?->value, 'payroll_id' => $item->payroll_id, 'payroll_code' => $item->payroll?->code, 'is_active' => $item->is_active];
+        return ['id' => $item->id, 'advance_no' => $item->advance_no, 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'driver_type' => $item->driver?->type?->value, 'driver_is_active' => $item->driver?->is_active, 'advance_date' => $item->advance_date?->toDateString(), 'amount' => $item->amount, 'description' => $item->description, 'status' => $item->status?->value, 'payroll_id' => $item->payroll_id, 'payroll_code' => $item->payroll?->code, 'is_active' => $item->is_active];
     }
 
     private function attendanceData(DriverAttendance $item): array

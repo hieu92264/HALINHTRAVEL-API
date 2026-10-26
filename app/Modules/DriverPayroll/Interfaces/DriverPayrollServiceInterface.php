@@ -13,6 +13,8 @@ interface DriverPayrollServiceInterface
 {
     public function advances(): array;
 
+    public function eligibleAdvanceDrivers(): array;
+
     public function advance(DriverAdvance $advance): array;
 
     public function createAdvance(array $data): array;
