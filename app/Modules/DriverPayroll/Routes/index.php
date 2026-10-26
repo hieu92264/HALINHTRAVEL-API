@@ -12,6 +12,7 @@ Route::prefix('driver-payroll')->group(function () {
         Route::get('/advances/{advance}', [DriverAdvanceController::class, 'show']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::DRIVER_ADVANCES_MANAGE->value])->group(function (): void {
+        Route::get('/advance-eligible-drivers', [DriverAdvanceController::class, 'eligibleDrivers']);
         Route::post('/advances', [DriverAdvanceController::class, 'store']);
         Route::patch('/advances/{advance}', [DriverAdvanceController::class, 'update']);
         Route::delete('/advances/{advance}', [DriverAdvanceController::class, 'destroy']);

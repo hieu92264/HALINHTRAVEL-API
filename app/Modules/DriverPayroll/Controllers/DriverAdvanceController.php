@@ -22,6 +22,11 @@ class DriverAdvanceController extends Controller
         return $this->success($this->service->advances(), 'Lấy danh sách tạm ứng thành công.');
     }
 
+    public function eligibleDrivers(): JsonResponse
+    {
+        return $this->success($this->service->eligibleAdvanceDrivers(), 'Lấy danh sách tài xế đủ điều kiện thành công.');
+    }
+
     public function show(DriverAdvance $advance): JsonResponse
     {
         return $this->success($this->service->advance($advance), 'Lấy tạm ứng thành công.');

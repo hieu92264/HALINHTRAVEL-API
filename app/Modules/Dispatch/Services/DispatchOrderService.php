@@ -83,6 +83,7 @@ class DispatchOrderService implements DispatchOrderServiceInterface
             if ($locked->status !== DispatchOrderStatusEnum::IN_PROGRESS) {
                 abort(409, 'Chỉ có thể báo hoàn tất khi chuyến đang chạy.');
             }
+            $this->assertCompletionWindow($locked);
             if ($locked->actual_start_at === null || $locked->start_odometer === null) {
                 abort(409, 'Lệnh chưa có dữ liệu bắt đầu chuyến.');
             }
@@ -105,6 +106,7 @@ class DispatchOrderService implements DispatchOrderServiceInterface
             if ($locked->status !== DispatchOrderStatusEnum::PENDING_CONFIRMATION) {
                 abort(409, 'Lệnh chưa có báo cáo chờ xác nhận.');
             }
+            $this->assertCompletionWindow($locked);
             if ($locked->actual_end_at === null || $locked->end_odometer === null || $locked->start_odometer === null || $locked->end_odometer < $locked->start_odometer) {
                 abort(422, 'Báo cáo vận hành không hợp lệ.');
             }
@@ -118,6 +120,14 @@ class DispatchOrderService implements DispatchOrderServiceInterface
 
             return $this->present($locked->fresh()->load($this->relations()));
         });
+    }
+
+    private function assertCompletionWindow(DispatchOrder $order): void
+    {
+        $allowedAt = $order->tripSchedule->scheduled_end_at->copy()->subHour();
+        if (now()->lt($allowedAt)) {
+            abort(409, 'Chỉ có thể gửi báo cáo và xác nhận hoàn tất từ '.$allowedAt->format('H:i d/m/Y').'.');
+        }
     }
 
     public function returnCompletion(DispatchOrder $order, string $note): array

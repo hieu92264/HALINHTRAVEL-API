@@ -12,6 +12,7 @@ use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Vehicle;
 use App\Modules\MasterData\Models\VehicleType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DispatchOrderWorkflowTest extends TestCase
@@ -20,6 +21,8 @@ class DispatchOrderWorkflowTest extends TestCase
 
     public function test_driver_reports_and_dispatcher_confirms_a_dispatch_order(): void
     {
+        config(['app.timezone' => 'Asia/Ho_Chi_Minh']);
+        $this->travelTo(Carbon::parse('2026-10-20 10:59:59', 'Asia/Ho_Chi_Minh'));
         $this->seed(AuthDatabaseSeeder::class);
         $dispatcher = User::query()->where('user_name', 'dispatcher')->firstOrFail();
         $driverUser = User::query()->where('user_name', 'driver')->firstOrFail();
@@ -37,7 +40,13 @@ class DispatchOrderWorkflowTest extends TestCase
         $this->actingAs($driverUser, 'api')->postJson("/api/dispatch/my-orders/{$orderId}/start", [])->assertUnprocessable();
         $this->actingAs($driverUser, 'api')->postJson("/api/dispatch/my-orders/{$orderId}/start", ['actual_start_at' => '2026-10-20 08:00:00', 'start_odometer' => 1000, 'note' => 'Đã xuất phát'])->assertOk();
         $this->actingAs($driverUser, 'api')->postJson("/api/dispatch/my-orders/{$orderId}/report-completion", ['actual_end_at' => '2026-10-20 12:00:00', 'end_odometer' => 1100, 'customer_amount' => 1])->assertUnprocessable();
+        $report = ['actual_end_at' => '2026-10-20 12:00:00', 'end_odometer' => 1100, 'actual_distance_km' => 100, 'waiting_hours' => 0];
+        $this->actingAs($driverUser, 'api')->postJson("/api/dispatch/my-orders/{$orderId}/report-completion", $report)->assertConflict();
+        $this->travelTo(Carbon::parse('2026-10-20 11:00:00', 'Asia/Ho_Chi_Minh'));
         $this->actingAs($driverUser, 'api')->postJson("/api/dispatch/my-orders/{$orderId}/report-completion", ['actual_end_at' => '2026-10-20 12:00:00', 'end_odometer' => 1100, 'actual_distance_km' => 100, 'waiting_hours' => 0])->assertOk()->assertJsonPath('metadata.status', 'PENDING_CONFIRMATION');
+        $this->travelTo(Carbon::parse('2026-10-20 10:59:59', 'Asia/Ho_Chi_Minh'));
+        $this->actingAs($dispatcher, 'api')->postJson("/api/dispatch/orders/{$orderId}/confirm-completion", ['customer_amount' => 1500000])->assertConflict();
+        $this->travelTo(Carbon::parse('2026-10-20 11:00:01', 'Asia/Ho_Chi_Minh'));
         $this->actingAs($dispatcher, 'api')->postJson("/api/dispatch/orders/{$orderId}/confirm-completion", ['customer_amount' => 1500000])->assertOk()->assertJsonPath('metadata.status', 'COMPLETED');
 
         $this->assertDatabaseHas('vehicles', ['id' => $vehicle->id, 'current_odometer' => 1100]);
