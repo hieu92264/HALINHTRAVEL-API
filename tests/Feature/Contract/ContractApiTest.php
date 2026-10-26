@@ -4,16 +4,33 @@ namespace Tests\Feature\Contract;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
+use App\Modules\Contract\Models\Contract;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\VehicleType;
 use App\Modules\Rental\Models\Quotation;
 use App\Modules\Rental\Models\RentalRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ContractApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_completion_respects_the_end_date_and_allows_contracts_without_one(): void
+    {
+        config(['app.timezone' => 'Asia/Ho_Chi_Minh']);
+        $this->travelTo(Carbon::parse('2026-10-20 23:59:59', 'Asia/Ho_Chi_Minh'));
+        [$customer] = $this->references();
+        $sales = $this->sales();
+        $contract = Contract::create(['contract_no' => 'HD20260020', 'customer_id' => $customer->id, 'contract_type' => 'principle', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-21', 'total_amount' => 0, 'deposit_required' => 0, 'status' => 'active']);
+        $noEnd = Contract::create(['contract_no' => 'HD20260021', 'customer_id' => $customer->id, 'contract_type' => 'principle', 'effective_from' => '2026-10-20', 'effective_to' => null, 'total_amount' => 0, 'deposit_required' => 0, 'status' => 'active']);
+
+        $this->actingAs($sales, 'api')->postJson("/api/contract/contracts/{$contract->id}/complete")->assertConflict()->assertJsonFragment(['message' => 'Chỉ có thể hoàn thành hợp đồng từ ngày hết hiệu lực 21/10/2026.']);
+        $this->actingAs($sales, 'api')->postJson("/api/contract/contracts/{$noEnd->id}/complete")->assertOk();
+        $this->travelTo(Carbon::parse('2026-10-21 00:00:00', 'Asia/Ho_Chi_Minh'));
+        $this->actingAs($sales, 'api')->postJson("/api/contract/contracts/{$contract->id}/complete")->assertOk()->assertJsonPath('metadata.status', 'completed');
+    }
 
     public function test_sales_can_create_and_activate_a_draft_contract(): void
     {
@@ -31,7 +48,7 @@ class ContractApiTest extends TestCase
         $request = RentalRequest::create(['request_no' => 'YC20260001', 'customer_id' => $customer->id, 'requested_at' => '2026-10-01', 'service_type' => 'tourism', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long', 'start_at' => '2026-10-20 06:00:00', 'end_at' => '2026-10-20 18:00:00', 'status' => 'accepted']);
         $quotation = Quotation::create(['quotation_no' => 'BG20260001', 'rental_request_id' => $request->id, 'customer_id' => $customer->id, 'quotation_date' => '2026-10-01', 'subtotal' => '1200000', 'discount_amount' => '0', 'total_amount' => '1200000', 'status' => 'approved']);
         $quotation->items()->create(['vehicle_type_id' => $vehicleType->id, 'quantity' => 1, 'unit_price' => '1200000', 'amount' => '1200000', 'description' => 'Theo báo giá']);
-        $payload = ['quotation_id' => $quotation->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000'];
+        $payload = ['quotation_id' => $quotation->id, 'contract_type' => 'trip', 'signed_date' => '2026-10-20', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000'];
         $this->actingAs($this->sales(), 'api')->postJson('/api/contract/contracts/from-quotation', $payload)
             ->assertCreated()->assertJsonPath('metadata.quotation_id', $quotation->id)->assertJsonPath('metadata.items.0.driver_wage', '0.00')->assertJsonPath('metadata.items.0.pickup_location', 'Hà Nội');
         $this->assertDatabaseHas('rental_requests', ['id' => $request->id, 'status' => 'converted']);
@@ -116,7 +133,7 @@ class ContractApiTest extends TestCase
 
     private function payload(Customer $customer, VehicleType $vehicleType): array
     {
-        return ['customer_id' => $customer->id, 'contract_type' => 'principle', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000', 'items' => [['vehicle_type_id' => $vehicleType->id, 'service_type' => 'tourism', 'quantity' => 2, 'unit_price' => '1200000', 'driver_wage' => '200000', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long']]];
+        return ['customer_id' => $customer->id, 'contract_type' => 'principle', 'signed_date' => '2026-10-20', 'effective_from' => '2026-10-20', 'effective_to' => '2026-10-20', 'deposit_required' => '100000', 'items' => [['vehicle_type_id' => $vehicleType->id, 'service_type' => 'tourism', 'quantity' => 2, 'unit_price' => '1200000', 'driver_wage' => '200000', 'pickup_location' => 'Hà Nội', 'dropoff_location' => 'Hạ Long']]];
     }
 
     private function sales(): User

@@ -157,6 +157,9 @@ class ContractService implements ContractServiceInterface
                 $this->assertTripCapacity($locked);
                 $this->generateTripSchedules($locked);
             }
+            if ($to === ContractStatusEnum::COMPLETED && $locked->effective_to !== null && now()->startOfDay()->lt($locked->effective_to)) {
+                abort(409, 'Chỉ có thể hoàn thành hợp đồng từ ngày hết hiệu lực '.$locked->effective_to->format('d/m/Y').'.');
+            }
             if ($to === ContractStatusEnum::COMPLETED && $locked->tripSchedules()->whereNotIn('status', ['COMPLETED', 'CANCELLED'])->exists()) {
                 abort(409, 'Không thể hoàn thành khi còn lịch chuyến mở.');
             } $locked->forceFill(['status' => $to])->save();
