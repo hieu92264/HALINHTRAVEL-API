@@ -24,6 +24,7 @@ use App\Shared\Enums\PayrollStatusEnum;
 use App\Shared\Enums\ReceiptSettlementTypeEnum;
 use App\Shared\Enums\RentalServiceTypeEnum;
 use App\Shared\Enums\WorkTypeEnum;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DriverPayrollService implements DriverPayrollServiceInterface
@@ -151,6 +152,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     public function createPayroll(array $data): array
     {
         return DB::transaction(function () use ($data): array {
+            $this->assertValidPeriod($data['year'], $data['month'], $data['from_date'], $data['to_date']);
             if (Payroll::query()->where('month', $data['month'])->where('year', $data['year'])->exists()) {
                 abort(409, 'Kỳ lương tháng/năm này đã tồn tại.');
             } $item = Payroll::create([...$data, 'code' => sprintf('LUONG-%04d-%02d', $data['year'], $data['month']), 'status' => PayrollStatusEnum::DRAFT]);
@@ -161,11 +163,21 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     public function updatePayroll(Payroll $payroll, array $data): array
     {
-        if ($payroll->status !== PayrollStatusEnum::DRAFT) {
-            abort(409, 'Chỉ kỳ lương nháp mới được cập nhật.');
-        } $payroll->fill($data)->save();
+        return DB::transaction(function () use ($payroll, $data): array {
+            $locked = Payroll::query()->lockForUpdate()->findOrFail($payroll->id);
+            if ($locked->status !== PayrollStatusEnum::DRAFT) {
+                abort(409, 'Chỉ kỳ lương nháp mới được cập nhật.');
+            }
+            $year = $data['year'] ?? $locked->year;
+            $month = $data['month'] ?? $locked->month;
+            $this->assertValidPeriod($year, $month, $data['from_date'] ?? $locked->from_date, $data['to_date'] ?? $locked->to_date);
+            if (Payroll::query()->where('year', $year)->where('month', $month)->whereKeyNot($locked->id)->exists()) {
+                abort(409, 'Kỳ lương tháng/năm này đã tồn tại.');
+            }
+            $locked->fill([...$data, 'code' => sprintf('LUONG-%04d-%02d', $year, $month)])->save();
 
-        return $this->payroll($payroll->fresh());
+            return $this->payroll($locked->fresh());
+        });
     }
 
     public function calculate(Payroll $payroll): array
@@ -174,7 +186,9 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             $locked = Payroll::query()->lockForUpdate()->findOrFail($payroll->id);
             if (! in_array($locked->status, [PayrollStatusEnum::DRAFT, PayrollStatusEnum::CALCULATED], true)) {
                 abort(409, 'Kỳ lương không thể tính lại.');
-            } $locked->items()->delete();
+            }
+            $this->assertValidPeriod($locked->year, $locked->month, $locked->from_date, $locked->to_date);
+            $locked->items()->delete();
             $drivers = Driver::query()->where('is_active', true)->where('type', OwnershipTypeEnum::COMPANY)->whereDate('joined_at', '<=', $locked->to_date)->get();
             foreach ($drivers as $driver) {
                 $attendances = DriverAttendance::query()->where('driver_id', $driver->id)->where('status', DriverAttendanceStatusEnum::CONFIRMED)->whereBetween('work_date', [$locked->from_date, $locked->to_date])->get();
@@ -223,7 +237,9 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         if ($payroll->status !== PayrollStatusEnum::CALCULATED) {
             abort(409, 'Kỳ lương phải được tính trước khi duyệt.');
-        } $payroll->forceFill(['status' => PayrollStatusEnum::APPROVED, 'approved_by' => $user->user_name, 'approved_at' => now()])->save();
+        }
+        $this->assertValidPeriod($payroll->year, $payroll->month, $payroll->from_date, $payroll->to_date);
+        $payroll->forceFill(['status' => PayrollStatusEnum::APPROVED, 'approved_by' => $user->user_name, 'approved_at' => now()])->save();
 
         return $this->payroll($payroll->fresh());
     }
@@ -232,9 +248,22 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         if ($payroll->status !== PayrollStatusEnum::APPROVED) {
             abort(409, 'Kỳ lương phải được duyệt trước khi đánh dấu đã trả.');
-        } $payroll->forceFill(['status' => PayrollStatusEnum::PAID, 'paid_at' => now()])->save();
+        }
+        $this->assertValidPeriod($payroll->year, $payroll->month, $payroll->from_date, $payroll->to_date);
+        $payroll->forceFill(['status' => PayrollStatusEnum::PAID, 'paid_at' => now()])->save();
 
         return $this->payroll($payroll->fresh());
+    }
+
+    private function assertValidPeriod(int $year, int $month, mixed $from, mixed $to): void
+    {
+        $start = Carbon::createFromDate($year, $month, 1)->startOfDay();
+        if ($start->gte(now()->startOfMonth())) {
+            abort(422, 'Chỉ được xử lý kỳ lương của tháng đã kết thúc.');
+        }
+        if (Carbon::parse($from)->toDateString() !== $start->toDateString() || Carbon::parse($to)->toDateString() !== $start->copy()->endOfMonth()->toDateString()) {
+            abort(422, 'Khoảng ngày kỳ lương phải trùng với toàn bộ tháng và năm của kỳ.');
+        }
     }
 
     public function lock(Payroll $payroll): array
