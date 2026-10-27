@@ -28,7 +28,7 @@ class FinanceService implements FinanceServiceInterface
 {
     public function receipts(): array
     {
-        return Receipt::query()->with(['customer', 'contract', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('received_at')->get()->map(fn (Receipt $item) => $this->receiptData($item))->all();
+        return Receipt::query()->with(['customer', 'contract', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('received_at')->get()->map(fn(Receipt $item) => $this->receiptData($item))->all();
     }
 
     public function receipt(Receipt $receipt): array
@@ -66,12 +66,12 @@ class FinanceService implements FinanceServiceInterface
 
     public function lockReceipt(Receipt $receipt): array
     {
-        return $this->lock($receipt, fn (Receipt $item) => $this->receipt($item));
+        return $this->lock($receipt, fn(Receipt $item) => $this->receipt($item));
     }
 
     public function driverCashRemittances(): array
     {
-        return DriverCashRemittance::query()->with(['receipt', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('remitted_at')->get()->map(fn (DriverCashRemittance $item) => $this->driverCashRemittanceData($item))->all();
+        return DriverCashRemittance::query()->with(['receipt', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('remitted_at')->get()->map(fn(DriverCashRemittance $item) => $this->driverCashRemittanceData($item))->all();
     }
 
     public function driverCashRemittance(DriverCashRemittance $driverCashRemittance): array
@@ -109,7 +109,7 @@ class FinanceService implements FinanceServiceInterface
 
     public function expenses(): array
     {
-        return Expense::query()->with(['expenseType', 'vehicle', 'dispatchOrder', 'partner', 'driver'])->where('is_active', true)->orderByDesc('expense_date')->get()->map(fn (Expense $item) => $this->expenseData($item))->all();
+        return Expense::query()->with(['expenseType', 'vehicle', 'dispatchOrder', 'partner', 'driver'])->where('is_active', true)->orderByDesc('expense_date')->get()->map(fn(Expense $item) => $this->expenseData($item))->all();
     }
 
     public function expense(Expense $expense): array
@@ -147,12 +147,12 @@ class FinanceService implements FinanceServiceInterface
 
     public function lockExpense(Expense $expense): array
     {
-        return $this->lock($expense, fn (Expense $item) => $this->expense($item));
+        return $this->lock($expense, fn(Expense $item) => $this->expense($item));
     }
 
     public function partnerPayments(): array
     {
-        return PartnerPayment::query()->with(['partner', 'dispatchOrder'])->where('is_active', true)->orderByDesc('paid_at')->get()->map(fn (PartnerPayment $item) => $this->partnerPaymentData($item))->all();
+        return PartnerPayment::query()->with(['partner', 'dispatchOrder'])->where('is_active', true)->orderByDesc('paid_at')->get()->map(fn(PartnerPayment $item) => $this->partnerPaymentData($item))->all();
     }
 
     public function partnerPayment(PartnerPayment $partnerPayment): array
@@ -190,7 +190,7 @@ class FinanceService implements FinanceServiceInterface
 
     public function lockPartnerPayment(PartnerPayment $partnerPayment): array
     {
-        return $this->lock($partnerPayment, fn (PartnerPayment $item) => $this->partnerPayment($item));
+        return $this->lock($partnerPayment, fn(PartnerPayment $item) => $this->partnerPayment($item));
     }
 
     private function validateReceipt(array &$data, ?int $ignoreId = null): void
@@ -230,7 +230,7 @@ class FinanceService implements FinanceServiceInterface
                 abort(422, 'Hợp đồng phải thuộc khách hàng của phiếu thu.');
             }
             if (in_array($data['receipt_type'], ['deposit', 'contract_payment'], true)) {
-                $received = (float) Receipt::query()->where('is_active', true)->where('contract_id', $contract->id)->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))->sum('amount');
+                $received = (float) Receipt::query()->where('is_active', true)->where('contract_id', $contract->id)->when($ignoreId, fn($query) => $query->whereKeyNot($ignoreId))->sum('amount');
                 if ($received + (float) $data['amount'] > (float) $contract->total_amount) {
                     abort(422, 'Tổng thu không được vượt giá trị hợp đồng.');
                 }
@@ -243,7 +243,12 @@ class FinanceService implements FinanceServiceInterface
     private function validateExpense(array &$data): void
     {
         $data['settlement_type'] ??= ExpenseSettlementTypeEnum::STANDARD->value;
-        ExpenseType::query()->whereKey($data['expense_type_id'])->where('is_active', true)->firstOrFail();
+        $expenseType = ExpenseType::query()->whereKey($data['expense_type_id'])->where('is_active', true)->firstOrFail();
+        $scope = ExpenseScopeEnum::from($data['scope']);
+        if ($expenseType->scope?->value !== $scope->value) {
+            abort(422, 'Phạm vi chi phí phải khớp với phạm vi của loại chi phí.');
+        }
+
         $settlement = ExpenseSettlementTypeEnum::from($data['settlement_type']);
         if ($settlement !== ExpenseSettlementTypeEnum::STANDARD) {
             if (($data['scope'] ?? null) !== ExpenseScopeEnum::TRIP->value || empty($data['dispatch_order_id']) || empty($data['driver_id'])) {
@@ -261,7 +266,6 @@ class FinanceService implements FinanceServiceInterface
                 abort(422, 'Chi thuê lái chỉ áp dụng cho lái xe ngoài.');
             }
         }
-        $scope = ExpenseScopeEnum::from($data['scope']);
         if ($scope === ExpenseScopeEnum::VEHICLE) {
             if (empty($data['vehicle_id'])) {
                 abort(422, 'Chi phí xe yêu cầu xe.');
@@ -288,13 +292,15 @@ class FinanceService implements FinanceServiceInterface
     private function validateDriverCashRemittance(array $data, ?int $ignoreId = null): void
     {
         $receipt = Receipt::query()->whereKey($data['receipt_id'])->where('is_active', true)->firstOrFail();
-        if ($receipt->settlement_type !== ReceiptSettlementTypeEnum::DRIVER_DIRECT_COLLECTION
+        if (
+            $receipt->settlement_type !== ReceiptSettlementTypeEnum::DRIVER_DIRECT_COLLECTION
             || (int) $receipt->dispatch_order_id !== (int) $data['dispatch_order_id']
-            || (int) $receipt->driver_id !== (int) $data['driver_id']) {
+            || (int) $receipt->driver_id !== (int) $data['driver_id']
+        ) {
             abort(422, 'Chứng từ nộp tiền phải khớp phiếu khách trả trực tiếp, lệnh điều xe và lái xe.');
         }
 
-        $remitted = (float) DriverCashRemittance::query()->where('is_active', true)->where('receipt_id', $receipt->id)->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))->sum('amount');
+        $remitted = (float) DriverCashRemittance::query()->where('is_active', true)->where('receipt_id', $receipt->id)->when($ignoreId, fn($query) => $query->whereKeyNot($ignoreId))->sum('amount');
         if ($remitted + (float) $data['amount'] > (float) $receipt->amount) {
             abort(422, 'Tổng tiền lái xe nộp không được vượt tiền lái xe đã thu.');
         }
@@ -342,9 +348,9 @@ class FinanceService implements FinanceServiceInterface
     private function nextCode(string $model, string $field, string $prefix): string
     {
         $year = now()->format('Y');
-        $max = $model::query()->lockForUpdate()->where($field, 'like', $prefix.$year.'%')->pluck($field)->map(fn (string $value) => (int) substr($value, strlen($prefix.$year)))->max() ?? 0;
+        $max = $model::query()->lockForUpdate()->where($field, 'like', $prefix . $year . '%')->pluck($field)->map(fn(string $value) => (int) substr($value, strlen($prefix . $year)))->max() ?? 0;
 
-        return $prefix.$year.str_pad((string) ($max + 1), 5, '0', STR_PAD_LEFT);
+        return $prefix . $year . str_pad((string) ($max + 1), 5, '0', STR_PAD_LEFT);
     }
 
     private function receiptData(Receipt $item): array

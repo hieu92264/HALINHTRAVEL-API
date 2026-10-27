@@ -5,7 +5,9 @@ namespace Tests\Feature\Finance;
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
 use App\Modules\Contract\Models\Contract;
+use App\Modules\Finance\Models\Expense;
 use App\Modules\MasterData\Models\Customer;
+use App\Modules\MasterData\Models\ExpenseType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -52,5 +54,59 @@ class FinanceApiTest extends TestCase
             'amount' => '500000.00',
             'payment_method' => 'cash',
         ])->assertUnprocessable();
+    }
+
+    public function test_expense_scope_must_match_its_expense_type(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $expenseType = ExpenseType::create([
+            'code' => 'FUEL',
+            'name' => 'Nhiên liệu',
+            'scope' => 'vehicle',
+        ]);
+
+        $this->actingAs($accountant, 'api')->postJson('/api/finance/expenses', [
+            'expense_type_id' => $expenseType->id,
+            'scope' => 'general',
+            'expense_date' => '2026-10-02',
+            'amount' => '500000.00',
+            'payment_method' => 'cash',
+        ])->assertUnprocessable()
+            ->assertSee('Phạm vi chi phí phải khớp với phạm vi của loại chi phí.');
+    }
+
+    public function test_expense_report_excludes_deactivated_expenses(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $expenseType = ExpenseType::create([
+            'code' => 'OFFICE',
+            'name' => 'Văn phòng phẩm',
+            'scope' => 'general',
+        ]);
+        Expense::create([
+            'expense_no' => 'PC202600001',
+            'expense_type_id' => $expenseType->id,
+            'scope' => 'general',
+            'expense_date' => '2026-10-02',
+            'amount' => '500000.00',
+            'payment_method' => 'cash',
+        ]);
+        $inactiveExpense = Expense::create([
+            'expense_no' => 'PC202600002',
+            'expense_type_id' => $expenseType->id,
+            'scope' => 'general',
+            'expense_date' => '2026-10-03',
+            'amount' => '200000.00',
+            'payment_method' => 'cash',
+        ]);
+        $inactiveExpense->forceFill(['is_active' => false])->save();
+
+        $this->actingAs($accountant, 'api')
+            ->getJson('/api/other/reports/expenses?from_date=2026-10-01&to_date=2026-10-31')
+            ->assertOk()
+            ->assertJsonCount(1, 'metadata.rows')
+            ->assertJsonPath('metadata.totals.expense_amount', '500000.00');
     }
 }
