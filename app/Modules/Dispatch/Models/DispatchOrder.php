@@ -13,6 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Expense> $expenses
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, PartnerPayment> $partnerPayments
+ */
 class DispatchOrder extends Model
 {
     use HasBaseMetadata;

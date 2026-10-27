@@ -109,4 +109,38 @@ class FinanceApiTest extends TestCase
             ->assertJsonCount(1, 'metadata.rows')
             ->assertJsonPath('metadata.totals.expense_amount', '500000.00');
     }
+
+    public function test_profit_loss_excludes_deactivated_expenses(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $director = User::query()->where('user_name', 'director')->firstOrFail();
+        $expenseType = ExpenseType::create([
+            'code' => 'REPORT',
+            'name' => 'Chi phí báo cáo',
+            'scope' => 'general',
+        ]);
+        Expense::create([
+            'expense_no' => 'PC202600003',
+            'expense_type_id' => $expenseType->id,
+            'scope' => 'general',
+            'expense_date' => '2026-10-02',
+            'amount' => '500000.00',
+            'payment_method' => 'cash',
+        ]);
+        $inactiveExpense = Expense::create([
+            'expense_no' => 'PC202600004',
+            'expense_type_id' => $expenseType->id,
+            'scope' => 'general',
+            'expense_date' => '2026-10-03',
+            'amount' => '200000.00',
+            'payment_method' => 'cash',
+        ]);
+        $inactiveExpense->forceFill(['is_active' => false])->save();
+
+        $this->actingAs($director, 'api')
+            ->getJson('/api/other/reports/profit-loss?from_date=2026-10-01&to_date=2026-10-31&basis=accrual')
+            ->assertOk()
+            ->assertJsonPath('metadata.totals.cost', '500000.00')
+            ->assertJsonPath('metadata.totals.profit', '-500000.00');
+    }
 }
