@@ -8,14 +8,16 @@ use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Shared\Enums\DispatchOrderStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Expense> $expenses
- * @property-read \Illuminate\Database\Eloquent\Collection<int, PartnerPayment> $partnerPayments
+ * @property-read Collection<int, Expense> $expenses
+ * @property-read Collection<int, PartnerPayment> $partnerPayments
  */
 class DispatchOrder extends Model
 {
@@ -64,6 +66,11 @@ class DispatchOrder extends Model
             'reported_at' => 'datetime',
             'confirmed_at' => 'datetime',
         ]);
+    }
+
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->whereHas('tripSchedule', fn (Builder $schedule) => $schedule->operational());
     }
 
     public function tripSchedule(): BelongsTo

@@ -43,6 +43,57 @@ class RentalRequestStoreApiTest extends TestCase
         ]);
     }
 
+    public function test_store_rejects_retired_service_types_but_allows_active_service_types(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+
+        foreach (['fixed', 'school'] as $serviceType) {
+            $payload = $this->payload($customer, $vehicleType);
+            $payload['service_type'] = $serviceType;
+            $payload['requested_at'] = now()->subHour()->toDateTimeString();
+            $payload['start_at'] = now()->addDay()->toDateTimeString();
+            $payload['end_at'] = now()->addDays(2)->toDateTimeString();
+
+            $this->actingAs($this->salesUser(), 'api')
+                ->postJson('/api/rental/requests', $payload)
+                ->assertUnprocessable()
+                ->assertJsonStructure(['metadata' => ['service_type']]);
+        }
+
+        $payload = $this->payload($customer, $vehicleType);
+        $payload['service_type'] = 'business';
+        $payload['requested_at'] = now()->subHour()->toDateTimeString();
+        $payload['start_at'] = now()->addDay()->toDateTimeString();
+        $payload['end_at'] = now()->addDays(2)->toDateTimeString();
+
+        $this->actingAs($this->salesUser(), 'api')
+            ->postJson('/api/rental/requests', $payload)
+            ->assertCreated()
+            ->assertJsonPath('metadata.service_type', 'business');
+    }
+
+    public function test_retired_service_type_is_hidden_from_lists_and_direct_access(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+        $rentalRequest = $this->createRentalRequest($customer, $vehicleType);
+        $rentalRequest->update(['service_type' => 'fixed']);
+
+        $sales = $this->salesUser();
+
+        $this->actingAs($sales, 'api')
+            ->getJson('/api/rental/requests')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $rentalRequest->id]);
+
+        $this->actingAs($sales, 'api')
+            ->getJson("/api/rental/requests/{$rentalRequest->id}")
+            ->assertNotFound();
+
+        $this->actingAs($sales, 'api')
+            ->patchJson("/api/rental/requests/{$rentalRequest->id}", ['note' => 'Không được cập nhật'])
+            ->assertNotFound();
+    }
+
     public function test_store_uses_route_locations_and_assigns_the_same_route_to_every_item(): void
     {
         [$customer, $vehicleType] = $this->references();
@@ -351,11 +402,11 @@ class RentalRequestStoreApiTest extends TestCase
             'request_no' => 'YC2026'.str_pad((string) (RentalRequest::query()->count() + 1), 4, '0', STR_PAD_LEFT),
             'customer_id' => $customer->id,
             'source' => 'zalo',
-            'requested_at' => '2026-10-05 09:30:00',
+            'requested_at' => now()->subHour()->toDateTimeString(),
             'service_type' => 'tourism',
             'pickup_location' => $route?->pickup_location ?? 'Hải Phòng',
             'dropoff_location' => $route?->dropoff_location ?? 'Hạ Long',
-            'start_at' => '2026-10-20 06:00:00',
+            'start_at' => now()->addDay()->setTime(6, 0)->toDateTimeString(),
             'status' => $status,
         ]);
         $rentalRequest->items()->create([
@@ -373,12 +424,12 @@ class RentalRequestStoreApiTest extends TestCase
         return [
             'customer_id' => $customer->id,
             'source' => 'zalo',
-            'requested_at' => '2026-10-05 09:30:00',
+            'requested_at' => now()->subHour()->toDateTimeString(),
             'service_type' => 'tourism',
             'pickup_location' => 'Hải Phòng',
             'dropoff_location' => 'Hạ Long',
-            'start_at' => '2026-10-20 06:00:00',
-            'end_at' => null,
+            'start_at' => now()->addDays(7)->toDateTimeString(),
+            'end_at' => now()->addDays(8)->toDateTimeString(),
             'items' => $items ?? [[
                 'vehicle_type_id' => $vehicleType->id,
                 'quantity' => 2,

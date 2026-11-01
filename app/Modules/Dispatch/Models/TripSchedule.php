@@ -10,6 +10,7 @@ use App\Modules\MasterData\Models\VehicleType;
 use App\Shared\Enums\RentalServiceTypeEnum;
 use App\Shared\Enums\TripScheduleStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -44,6 +45,11 @@ class TripSchedule extends Model
             'scheduled_end_at' => 'datetime',
             'status' => TripScheduleStatusEnum::class,
         ]);
+    }
+
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->whereIn('service_type', RentalServiceTypeEnum::operationalValues());
     }
 
     public function contract(): BelongsTo

@@ -5,7 +5,7 @@ namespace App\Modules\Other\Interfaces;
 interface ReportServiceInterface
 {
     /** @param array<string, mixed> $filters */
-    public function fixedTrips(array $filters): array;
+    public function businessTrips(array $filters): array;
 
     /** @param array<string, mixed> $filters */
     public function tourismTrips(array $filters): array;

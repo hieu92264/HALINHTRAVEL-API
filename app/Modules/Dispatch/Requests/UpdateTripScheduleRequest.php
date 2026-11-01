@@ -17,7 +17,7 @@ class UpdateTripScheduleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'service_type' => ['sometimes', Rule::enum(RentalServiceTypeEnum::class)],
+            'service_type' => ['sometimes', Rule::in(RentalServiceTypeEnum::operationalValues())],
             'route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],
             'scheduled_start_at' => ['sometimes', 'date'],
             'scheduled_end_at' => ['sometimes', 'date'],

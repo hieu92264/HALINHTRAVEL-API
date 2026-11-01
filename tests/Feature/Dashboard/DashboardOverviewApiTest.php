@@ -7,6 +7,7 @@ use App\Modules\Auth\Models\User;
 use App\Modules\Contract\Models\Contract;
 use App\Modules\Dashboard\Events\DashboardOverviewChanged;
 use App\Modules\Dashboard\Jobs\BroadcastDashboardOverviewUpdate;
+use App\Modules\Dispatch\Models\TripAssignment;
 use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Driver;
@@ -25,14 +26,14 @@ class DashboardOverviewApiTest extends TestCase
     {
         $this->seed(AuthDatabaseSeeder::class);
         $type = VehicleType::create(['code' => 'XE16', 'name' => 'Xe 16 chỗ', 'seats' => 16]);
-        Vehicle::create([
+        $vehicle = Vehicle::create([
             'license_plate' => '15B-000.01',
             'vehicle_type_id' => $type->id,
             'ownership_type' => 'company',
             'vehicle_status' => 'available',
             'is_active' => true,
         ]);
-        Driver::create([
+        $activeDriver = Driver::create([
             'code' => 'LX0001',
             'type' => 'company',
             'full_name' => 'Tài xế Một',
@@ -41,6 +42,37 @@ class DashboardOverviewApiTest extends TestCase
             'license_expired_at' => '2030-01-01',
             'joined_at' => '2020-01-01',
             'is_active' => true,
+        ]);
+        Driver::create([
+            'code' => 'LX0002',
+            'type' => 'company',
+            'full_name' => 'Tài xế Vào Làm Sau',
+            'license_number' => 'GPLX-0002',
+            'license_class' => 'D',
+            'license_expired_at' => '2030-01-01',
+            'joined_at' => '2030-01-01',
+            'is_active' => true,
+        ]);
+        Driver::create([
+            'code' => 'LX0003',
+            'type' => 'company',
+            'full_name' => 'Tài xế Đã Nghỉ',
+            'license_number' => 'GPLX-0003',
+            'license_class' => 'D',
+            'license_expired_at' => '2030-01-01',
+            'joined_at' => '2020-01-01',
+            'left_at' => '2020-12-31',
+            'is_active' => true,
+        ]);
+        $inactiveDriver = Driver::create([
+            'code' => 'LX0004',
+            'type' => 'company',
+            'full_name' => 'Tài xế Ngừng Hoạt Động',
+            'license_number' => 'GPLX-0004',
+            'license_class' => 'D',
+            'license_expired_at' => '2030-01-01',
+            'joined_at' => '2020-01-01',
+            'is_active' => false,
         ]);
         $customer = Customer::create(['code' => 'KH0001', 'type' => 'individual', 'name' => 'Khách hàng']);
         $contract = Contract::create([
@@ -52,7 +84,7 @@ class DashboardOverviewApiTest extends TestCase
             'deposit_required' => '0',
             'status' => 'active',
         ]);
-        TripSchedule::create([
+        $schedule = TripSchedule::create([
             'schedule_no' => 'LT20260001',
             'contract_id' => $contract->id,
             'service_type' => 'tourism',
@@ -60,6 +92,24 @@ class DashboardOverviewApiTest extends TestCase
             'scheduled_end_at' => '2026-10-21 02:00:00',
             'required_vehicle_type_id' => $type->id,
             'status' => 'PLANNED',
+        ]);
+        TripAssignment::create([
+            'trip_schedule_id' => $schedule->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $activeDriver->id,
+            'assignment_type' => 'PRIMARY',
+            'assigned_at' => '2026-10-20 20:00:00',
+            'assigned_by' => 'dispatcher',
+            'is_current' => true,
+        ]);
+        TripAssignment::create([
+            'trip_schedule_id' => $schedule->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $inactiveDriver->id,
+            'assignment_type' => 'SUBSTITUTE',
+            'assigned_at' => '2026-10-20 20:00:00',
+            'assigned_by' => 'dispatcher',
+            'is_current' => true,
         ]);
 
         $response = $this->actingAs($this->user('dispatcher'), 'api')
@@ -71,7 +121,9 @@ class DashboardOverviewApiTest extends TestCase
             ->assertJsonPath('metadata.operations.counts.planned', 1)
             ->assertJsonPath('metadata.operations.schedules.0.schedule_no', 'LT20260001')
             ->assertJsonPath('metadata.fleet.vehicles.available', 1)
-            ->assertJsonPath('metadata.fleet.drivers.active', 1)
+            ->assertJsonPath('metadata.fleet.drivers.active', 3)
+            ->assertJsonPath('metadata.fleet.drivers.assigned', 1)
+            ->assertJsonPath('metadata.fleet.drivers.available', 2)
             ->assertJsonPath('metadata.finance.available', false);
     }
 

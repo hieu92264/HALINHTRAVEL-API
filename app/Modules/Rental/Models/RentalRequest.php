@@ -7,6 +7,7 @@ use App\Modules\MasterData\Models\Customer;
 use App\Shared\Enums\RentalRequestStatusEnum;
 use App\Shared\Enums\RentalServiceTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -38,6 +39,11 @@ class RentalRequest extends Model
             'end_at' => 'datetime',
             'status' => RentalRequestStatusEnum::class,
         ]);
+    }
+
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->whereIn('service_type', RentalServiceTypeEnum::operationalValues());
     }
 
     public function customer(): BelongsTo

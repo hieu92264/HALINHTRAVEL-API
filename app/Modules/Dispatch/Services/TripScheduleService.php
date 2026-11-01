@@ -16,11 +16,13 @@ class TripScheduleService implements TripScheduleServiceInterface
 {
     public function getList(): array
     {
-        return TripSchedule::query()->where('is_active', true)->with($this->relations())->latest('scheduled_start_at')->get()->map(fn (TripSchedule $schedule) => $this->present($schedule))->all();
+        return TripSchedule::query()->operational()->where('is_active', true)->with($this->relations())->latest('scheduled_start_at')->get()->map(fn (TripSchedule $schedule) => $this->present($schedule))->all();
     }
 
     public function getDetail(TripSchedule $schedule): array
     {
+        abort_unless($schedule->service_type?->isOperational(), 404);
+
         return $this->present($schedule->load($this->relations()));
     }
 
@@ -28,7 +30,7 @@ class TripScheduleService implements TripScheduleServiceInterface
     {
         return DB::transaction(function () use ($data): array {
             $values = $data->values;
-            $contract = Contract::query()->lockForUpdate()->findOrFail($values['contract_id']);
+            $contract = Contract::query()->operational()->lockForUpdate()->findOrFail($values['contract_id']);
             if (! $contract->is_active || $contract->status !== ContractStatusEnum::ACTIVE) {
                 abort(409, 'Chỉ được tạo lịch cho hợp đồng đang hiệu lực.');
             }
@@ -45,6 +47,7 @@ class TripScheduleService implements TripScheduleServiceInterface
     {
         return DB::transaction(function () use ($schedule, $data): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
+            abort_unless($locked->service_type?->isOperational(), 404);
             $this->assertEditable($locked);
             $values = $data->values;
             $start = CarbonImmutable::parse($values['scheduled_start_at'] ?? $locked->scheduled_start_at);
@@ -62,6 +65,7 @@ class TripScheduleService implements TripScheduleServiceInterface
     {
         DB::transaction(function () use ($schedule): void {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
+            abort_unless($locked->service_type?->isOperational(), 404);
             $this->assertEditable($locked);
             $locked->forceFill(['is_active' => false])->save();
         });
@@ -71,6 +75,7 @@ class TripScheduleService implements TripScheduleServiceInterface
     {
         return DB::transaction(function () use ($schedule, $note): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
+            abort_unless($locked->service_type?->isOperational(), 404);
             if (in_array($locked->status, [TripScheduleStatusEnum::IN_PROGRESS, TripScheduleStatusEnum::COMPLETED, TripScheduleStatusEnum::CANCELLED], true)) {
                 abort(409, 'Không thể hủy lịch đã chạy hoặc đã hoàn tất.');
             }

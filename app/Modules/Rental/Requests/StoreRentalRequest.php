@@ -22,7 +22,10 @@ class StoreRentalRequest extends FormRequest
             'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
             'source' => ['nullable', 'string', 'max:30'],
             'requested_at' => ['required', 'date', 'before_or_equal:now', 'before_or_equal:start_at'],
-            'service_type' => ['required', Rule::enum(RentalServiceTypeEnum::class)],
+            'service_type' => [
+                'required',
+                Rule::in(RentalServiceTypeEnum::operationalValues()),
+            ],
             'pickup_location' => ['nullable', 'string', 'max:500'],
             'dropoff_location' => ['nullable', 'string', 'max:500'],
             'start_at' => ['required', 'date', 'after:now'],

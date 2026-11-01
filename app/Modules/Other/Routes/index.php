@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('other')->group(function () {
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::DISPATCH_ORDERS_VIEW->value])->group(function (): void {
-        Route::get('/reports/fixed-trips', [ReportController::class, 'fixedTrips']);
+        Route::get('/reports/business-trips', [ReportController::class, 'businessTrips']);
         Route::get('/reports/tourism-trips', [ReportController::class, 'tourismTrips']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::EXPENSES_VIEW->value])->get('/reports/expenses', [ReportController::class, 'expenses']);

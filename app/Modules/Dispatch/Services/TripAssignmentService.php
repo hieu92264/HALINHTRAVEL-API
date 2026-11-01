@@ -19,6 +19,8 @@ class TripAssignmentService implements TripAssignmentServiceInterface
 {
     public function getList(TripSchedule $schedule): array
     {
+        abort_unless($schedule->service_type?->isOperational(), 404);
+
         return $schedule->assignments()->with($this->relations())->latest('assigned_at')->get()->map(fn (TripAssignment $assignment) => $assignment->toArray())->all();
     }
 
@@ -26,6 +28,7 @@ class TripAssignmentService implements TripAssignmentServiceInterface
     {
         return DB::transaction(function () use ($schedule, $data, $user): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
+            abort_unless($locked->service_type?->isOperational(), 404);
             if ($locked->status !== TripScheduleStatusEnum::PLANNED || $locked->assignments()->where('is_current', true)->exists()) {
                 abort(409, 'Lịch không sẵn sàng để phân công.');
             }
@@ -40,6 +43,7 @@ class TripAssignmentService implements TripAssignmentServiceInterface
     {
         return DB::transaction(function () use ($schedule, $data, $user): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
+            abort_unless($locked->service_type?->isOperational(), 404);
             if ($locked->status !== TripScheduleStatusEnum::ASSIGNED || $this->hasOpenOrder($locked)) {
                 abort(409, 'Chỉ được thay phân công trước khi phát hành lệnh điều xe.');
             }
@@ -58,6 +62,7 @@ class TripAssignmentService implements TripAssignmentServiceInterface
         return DB::transaction(function () use ($assignment): array {
             $locked = TripAssignment::query()->lockForUpdate()->findOrFail($assignment->id);
             $schedule = TripSchedule::query()->lockForUpdate()->findOrFail($locked->trip_schedule_id);
+            abort_unless($schedule->service_type?->isOperational(), 404);
             if (! $locked->is_current || $this->hasOpenOrder($schedule)) {
                 abort(409, 'Không thể gỡ phân công sau khi phát hành lệnh điều xe.');
             }

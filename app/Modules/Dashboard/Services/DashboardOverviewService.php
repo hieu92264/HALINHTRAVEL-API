@@ -137,7 +137,7 @@ class DashboardOverviewService implements DashboardOverviewServiceInterface
                 $items[] = $this->alert('unassigned_trips', 'warning', $unassigned, "{$unassigned} chuyến chưa được phân công xe và tài xế.");
             }
 
-            $overdue = TripSchedule::query()
+            $overdue = TripSchedule::query()->operational()
                 ->where('scheduled_end_at', '<', now())
                 ->whereNotIn('status', [TripScheduleStatusEnum::COMPLETED->value, TripScheduleStatusEnum::CANCELLED->value])
                 ->count();
@@ -190,8 +190,13 @@ class DashboardOverviewService implements DashboardOverviewServiceInterface
             ];
         }
         if ($permissions['drivers']) {
-            $activeDrivers = $this->activeDriversForDay($start, $end);
-            $assignedDrivers = TripAssignment::query()->where('is_current', true)->whereHas('tripSchedule', fn (Builder $query): Builder => $this->overlap($query, $start, $end))->distinct('driver_id')->count('driver_id');
+            $activeDrivers = Driver::query()->where('is_active', true)->count();
+            $assignedDrivers = TripAssignment::query()
+                ->where('is_current', true)
+                ->whereHas('driver', fn (Builder $query): Builder => $query->where('is_active', true))
+                ->whereHas('tripSchedule', fn (Builder $query): Builder => $this->overlap($query->operational(), $start, $end))
+                ->distinct('driver_id')
+                ->count('driver_id');
             $result['drivers'] = [
                 'active' => $activeDrivers,
                 'assigned' => $assignedDrivers,
@@ -229,21 +234,12 @@ class DashboardOverviewService implements DashboardOverviewServiceInterface
 
     private function schedulesForDay(CarbonImmutable $start, CarbonImmutable $end): Builder
     {
-        return $this->overlap(TripSchedule::query(), $start, $end);
+        return $this->overlap(TripSchedule::query()->operational(), $start, $end);
     }
 
     private function overlap(Builder $query, CarbonImmutable $start, CarbonImmutable $end): Builder
     {
         return $query->where('scheduled_start_at', '<', $end)->where('scheduled_end_at', '>', $start);
-    }
-
-    private function activeDriversForDay(CarbonImmutable $start, CarbonImmutable $end): int
-    {
-        return Driver::query()
-            ->where('is_active', true)
-            ->whereDate('joined_at', '<=', $end->toDateString())
-            ->where(fn (Builder $query): Builder => $query->whereNull('left_at')->orWhereDate('left_at', '>', $start->toDateString()))
-            ->count();
     }
 
     /** @return array<string, int|string> */

@@ -12,4 +12,15 @@ enum RentalServiceTypeEnum: string
     case TOURISM = 'tourism';
     case SCHOOL = 'school';
     case BUSINESS = 'business';
+
+    /** @return list<string> */
+    public static function operationalValues(): array
+    {
+        return [self::TOURISM->value, self::BUSINESS->value];
+    }
+
+    public function isOperational(): bool
+    {
+        return in_array($this->value, self::operationalValues(), true);
+    }
 }

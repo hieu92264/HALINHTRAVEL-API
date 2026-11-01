@@ -9,7 +9,9 @@ use App\Modules\Rental\Models\Quotation;
 use App\Modules\Rental\Models\RentalRequest;
 use App\Shared\Enums\ContractStatusEnum;
 use App\Shared\Enums\ContractTypeEnum;
+use App\Shared\Enums\RentalServiceTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -46,6 +48,11 @@ class Contract extends Model
             'deposit_required' => 'decimal:2',
             'status' => ContractStatusEnum::class,
         ]);
+    }
+
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('items', fn (Builder $items) => $items->whereNotIn('service_type', RentalServiceTypeEnum::operationalValues()));
     }
 
     public function customer(): BelongsTo

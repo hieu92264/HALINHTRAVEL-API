@@ -24,7 +24,7 @@ class UpdateRentalRequest extends FormRequest
             'customer_id' => ['sometimes', 'integer', Rule::exists('customers', 'id')->where('is_active', true)],
             'source' => ['sometimes', 'nullable', 'string', 'max:30'],
             'requested_at' => ['sometimes', 'date'],
-            'service_type' => ['sometimes', Rule::enum(RentalServiceTypeEnum::class)],
+            'service_type' => ['sometimes', Rule::in(RentalServiceTypeEnum::operationalValues())],
             'pickup_location' => ['sometimes', 'nullable', 'string', 'max:500'],
             'dropoff_location' => ['sometimes', 'nullable', 'string', 'max:500'],
             'start_at' => ['sometimes', 'nullable', 'date'],

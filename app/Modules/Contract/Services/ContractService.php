@@ -8,6 +8,7 @@ use App\Modules\Contract\DTOs\CreateContractFromQuotationData;
 use App\Modules\Contract\DTOs\UpdateContractData;
 use App\Modules\Contract\Interfaces\ContractServiceInterface;
 use App\Modules\Contract\Models\Contract;
+use App\Modules\Contract\Models\ContractItem;
 use App\Modules\Dispatch\DTOs\AvailabilityItemData;
 use App\Modules\Dispatch\DTOs\CheckAvailabilityData;
 use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
@@ -21,6 +22,7 @@ use App\Shared\Enums\ContractStatusEnum;
 use App\Shared\Enums\ContractTypeEnum;
 use App\Shared\Enums\QuotationStatusEnum;
 use App\Shared\Enums\RentalRequestStatusEnum;
+use App\Shared\Enums\RentalServiceTypeEnum;
 use App\Shared\Enums\TripScheduleStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -31,11 +33,13 @@ class ContractService implements ContractServiceInterface
 
     public function getList(): array
     {
-        return Contract::query()->with(['customer', 'rentalRequest', 'quotation', 'items.vehicleType'])->orderByDesc('id')->get()->map(fn (Contract $contract) => $this->contract($contract))->all();
+        return Contract::query()->operational()->with(['customer', 'rentalRequest', 'quotation', 'items.vehicleType'])->orderByDesc('id')->get()->map(fn (Contract $contract) => $this->contract($contract))->all();
     }
 
     public function getDetail(Contract $contract): array
     {
+        abort_unless($contract->items()->whereNotIn('service_type', RentalServiceTypeEnum::operationalValues())->doesntExist(), 404);
+
         return $this->contract($contract);
     }
 
@@ -70,6 +74,7 @@ class ContractService implements ContractServiceInterface
             if ($quotation->status !== QuotationStatusEnum::APPROVED || $request === null || $request->status !== RentalRequestStatusEnum::ACCEPTED) {
                 abort(422, 'Báo giá phải được chấp nhận và gắn với yêu cầu thuê xe đã được chấp nhận.');
             }
+            abort_unless($request->service_type?->isOperational(), 404);
             $this->assertTripDateCoverage($request, $data->effectiveFrom, $data->effectiveTo);
             $items = $quotation->items->map(fn ($item) => new ContractItemData($item->route_id, $item->vehicle_type_id, $request->service_type, $item->quantity, $item->unit_price, '0', $request->pickup_location, $request->dropoff_location, $item->description))->all();
             $this->validateRelations($quotation->customer_id, $request->id, $quotation->id, $items);
@@ -85,6 +90,7 @@ class ContractService implements ContractServiceInterface
     {
         return DB::transaction(function () use ($contract, $data): array {
             $locked = Contract::query()->with('items')->lockForUpdate()->findOrFail($contract->id);
+            abort_unless($locked->items->every(fn (ContractItem $item): bool => $item->service_type?->isOperational() === true), 404);
             $this->assertDraft($locked);
             if ($locked->contract_type !== ContractTypeEnum::PRINCIPLE) {
                 abort(409, 'Hợp đồng theo chuyến được tạo từ báo giá và không thể chỉnh sửa trực tiếp.');
@@ -115,6 +121,7 @@ class ContractService implements ContractServiceInterface
     {
         DB::transaction(function () use ($contract): void {
             $locked = Contract::query()->lockForUpdate()->findOrFail($contract->id);
+            abort_unless(Contract::query()->operational()->whereKey($locked->id)->exists(), 404);
             $this->assertDraft($locked);
             $this->assertNoOperationalRecords($locked);
             $locked->forceFill(['is_active' => false])->save();
@@ -135,6 +142,7 @@ class ContractService implements ContractServiceInterface
     {
         return DB::transaction(function () use ($contract): array {
             $locked = Contract::query()->lockForUpdate()->findOrFail($contract->id);
+            abort_unless(Contract::query()->operational()->whereKey($locked->id)->exists(), 404);
             if (! in_array($locked->status, [ContractStatusEnum::DRAFT, ContractStatusEnum::ACTIVE], true)) {
                 abort(409, 'Hợp đồng không thể hủy ở trạng thái hiện tại.');
             } $this->assertNoOperationalRecords($locked);
@@ -148,6 +156,7 @@ class ContractService implements ContractServiceInterface
     {
         return DB::transaction(function () use ($contract, $from, $to): array {
             $locked = Contract::query()->with('items')->lockForUpdate()->findOrFail($contract->id);
+            abort_unless(Contract::query()->operational()->whereKey($locked->id)->exists(), 404);
             if ($locked->status !== $from) {
                 abort(409, 'Hợp đồng không thể chuyển trạng thái hiện tại.');
             } if ($to === ContractStatusEnum::ACTIVE && ($locked->items->isEmpty() || $locked->effective_to?->lt($locked->effective_from))) {

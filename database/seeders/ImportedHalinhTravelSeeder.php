@@ -179,7 +179,10 @@ class ImportedHalinhTravelSeeder extends Seeder
         $this->seedTable('routes', ['code']);
         $this->seedTable('route_rates', ['route_id', 'vehicle_type_id', 'effective_from']);
 
-        $this->seedTable('rental_requests', ['request_no'], function (array $row): array {
+        $this->seedTable('rental_requests', ['request_no'], function (array $row): ?array {
+            if (! $this->isOperationalService($row['service_type'] ?? null)) {
+                return null;
+            }
             if (in_array((int) $row['id'], $this->contractRentalRequestIds(), true)) {
                 $row['status'] = 'converted';
             }
@@ -195,7 +198,7 @@ class ImportedHalinhTravelSeeder extends Seeder
         });
         $this->seedTable('quotation_items', ['quotation_id', 'route_id', 'vehicle_type_id', 'description']);
 
-        $this->seedTable('contracts', ['contract_no']);
+        $this->seedTable('contracts', ['contract_no'], fn (array $row): ?array => $this->contractUsesOnlyOperationalServices((int) $row['id']) ? $row : null);
         $this->seedTable('contract_items', ['contract_id', 'route_id', 'vehicle_type_id']);
         $this->seedTable('contract_schedule_rules', ['contract_item_id', 'route_id', 'effective_from', 'effective_to']);
         $this->seedTable('contract_schedule_days', ['schedule_rule_id', 'weekday', 'pickup_time']);
@@ -229,12 +232,15 @@ class ImportedHalinhTravelSeeder extends Seeder
 
     /**
      * @param  list<string>  $uniqueColumns
-     * @param  (callable(array<string, mixed>): array<string, mixed>)|null  $normalizer
+     * @param  (callable(array<string, mixed>): array<string, mixed>|null)|null  $normalizer
      */
     private function seedTable(string $table, array $uniqueColumns, ?callable $normalizer = null): void
     {
         foreach ($this->dump->rows($table) as $sourceRow) {
             $row = $normalizer === null ? $sourceRow : $normalizer($sourceRow);
+            if ($row === null || ! $this->hasMappedForeignKeys($row)) {
+                continue;
+            }
             $row = $this->mapForeignKeys($row);
             $sourceId = (int) $sourceRow['id'];
             unset($row['id']);
@@ -314,6 +320,34 @@ class ImportedHalinhTravelSeeder extends Seeder
         return $row;
     }
 
+    /** @param array<string, mixed> $row */
+    private function hasMappedForeignKeys(array $row): bool
+    {
+        foreach (self::FOREIGN_TABLES as $column => $sourceTable) {
+            if (array_key_exists($column, $row) && $row[$column] !== null
+                && ! isset($this->sourceIds[$sourceTable][(int) $row[$column]])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isOperationalService(mixed $service): bool
+    {
+        return in_array($service, ['tourism', 'business'], true);
+    }
+
+    private function contractUsesOnlyOperationalServices(int $contractId): bool
+    {
+        $items = array_filter(
+            $this->dump->rows('contract_items'),
+            static fn (array $item): bool => (int) $item['contract_id'] === $contractId,
+        );
+
+        return $items !== [] && collect($items)->every(fn (array $item): bool => $this->isOperationalService($item['service_type'] ?? null));
+    }
+
     private function sourceId(string $table, int $sourceId): int
     {
         $targetId = $this->sourceIds[$table][$sourceId] ?? null;
@@ -332,7 +366,8 @@ class ImportedHalinhTravelSeeder extends Seeder
             static fn (array $contract): int => (int) $contract['rental_request_id'],
             array_filter(
                 $this->dump->rows('contracts'),
-                static fn (array $contract): bool => $contract['rental_request_id'] !== null,
+                fn (array $contract): bool => $contract['rental_request_id'] !== null
+                    && $this->contractUsesOnlyOperationalServices((int) $contract['id']),
             ),
         );
     }

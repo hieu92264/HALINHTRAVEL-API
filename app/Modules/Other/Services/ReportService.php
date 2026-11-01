@@ -21,9 +21,9 @@ use Illuminate\Support\Collection;
 
 class ReportService implements ReportServiceInterface
 {
-    public function fixedTrips(array $filters): array
+    public function businessTrips(array $filters): array
     {
-        $orders = $this->tripOrders($filters, ['fixed', 'school'])->get()->map(fn(DispatchOrder $order) => $this->tripRow($order));
+        $orders = $this->tripOrders($filters, ['business'])->get()->map(fn (DispatchOrder $order) => $this->tripRow($order));
 
         return $this->result($filters, $orders->all(), [
             'trips' => $orders->count(),
@@ -36,7 +36,7 @@ class ReportService implements ReportServiceInterface
     public function tourismTrips(array $filters): array
     {
         /** @var EloquentCollection<int, DispatchOrder> $sourceOrders */
-        $sourceOrders = $this->tripOrders($filters, ['tourism', 'business'])->get();
+        $sourceOrders = $this->tripOrders($filters, ['tourism'])->get();
         $orderIds = $sourceOrders->pluck('id');
         /** @var Collection<int, Collection<int, Receipt>> $receipts */
         $receipts = Receipt::query()->where('is_active', true)->whereIn('dispatch_order_id', $orderIds)->get()->groupBy('dispatch_order_id');
@@ -51,10 +51,10 @@ class ReportService implements ReportServiceInterface
             /** @var Collection<int, Receipt> $orderReceipts */
             $orderReceipts = $receipts->get($order->id, collect());
             $row['driver_collected_amount'] = $this->money($orderReceipts
-                ->filter(fn(Receipt $receipt): bool => $receipt->settlement_type?->value === 'driver_direct_collection')
+                ->filter(fn (Receipt $receipt): bool => $receipt->settlement_type?->value === 'driver_direct_collection')
                 ->sum('amount'));
             $row['company_collected_amount'] = $this->money($orderReceipts
-                ->filter(fn(Receipt $receipt): bool => $receipt->settlement_type?->value === 'standard')
+                ->filter(fn (Receipt $receipt): bool => $receipt->settlement_type?->value === 'standard')
                 ->sum('amount'));
             /** @var Collection<int, DriverCashRemittance> $orderRemittances */
             $orderRemittances = $remittances->get($order->id, collect());
@@ -77,19 +77,19 @@ class ReportService implements ReportServiceInterface
         /** @var list<array<string, mixed>> $records */
         $records = [];
 
-        foreach (Receipt::query()->where('is_active', true)->where('settlement_type', 'standard')->whereBetween('received_at', [$from, $to])->get() as $item) {
+        foreach ($this->operationalReceipts()->where('is_active', true)->where('settlement_type', 'standard')->whereBetween('received_at', [$from, $to])->get() as $item) {
             /** @var Receipt $item */
             $records[] = $this->cashRow($item->received_at, 'receipt', 'Thu', $item->receipt_no, $item->amount, $item->payment_method?->value, 1);
         }
-        foreach (DriverCashRemittance::query()->where('is_active', true)->whereBetween('remitted_at', [$from, $to])->get() as $item) {
+        foreach ($this->operationalRemittances()->where('is_active', true)->whereBetween('remitted_at', [$from, $to])->get() as $item) {
             /** @var DriverCashRemittance $item */
             $records[] = $this->cashRow($item->remitted_at, 'driver_remittance', 'Lái xe nộp tiền', $item->remittance_no, $item->amount, $item->payment_method?->value, 1);
         }
-        foreach (Expense::query()->where('is_active', true)->whereBetween('expense_date', [$from, $to])->when($filters['payment_method'] ?? null, fn (Builder $q, string $value) => $q->where('payment_method', $value))->get() as $item) {
+        foreach ($this->operationalExpenses()->where('is_active', true)->whereBetween('expense_date', [$from, $to])->when($filters['payment_method'] ?? null, fn (Builder $q, string $value) => $q->where('payment_method', $value))->get() as $item) {
             /** @var Expense $item */
             $records[] = $this->cashRow($item->expense_date, 'expense', 'Chi phí', $item->expense_no, $item->amount, $item->payment_method?->value, -1);
         }
-        foreach (PartnerPayment::query()->where('is_active', true)->whereBetween('paid_at', [$from, $to])->get() as $item) {
+        foreach ($this->operationalPartnerPayments()->where('is_active', true)->whereBetween('paid_at', [$from, $to])->get() as $item) {
             /** @var PartnerPayment $item */
             $records[] = $this->cashRow($item->paid_at, 'partner_payment', 'Chi đối tác', $item->payment_no, $item->amount, $item->payment_method?->value, -1);
         }
@@ -112,12 +112,12 @@ class ReportService implements ReportServiceInterface
     {
         [$from, $to] = $this->dates($filters);
         /** @var EloquentCollection<int, Expense> $expenses */
-        $expenses = Expense::query()->with(['expenseType:id,name', 'vehicle:id,license_plate', 'partner:id,name', 'driver:id,full_name', 'dispatchOrder:id,order_no'])
+        $expenses = $this->operationalExpenses()->with(['expenseType:id,name', 'vehicle:id,license_plate', 'partner:id,name', 'driver:id,full_name', 'dispatchOrder:id,order_no'])
             ->where('is_active', true)
             ->whereBetween('expense_date', [$from, $to])
-            ->when($filters['expense_type_id'] ?? null, fn(Builder $q, int $id) => $q->where('expense_type_id', $id))
-            ->when($filters['scope'] ?? null, fn(Builder $q, string $scope) => $q->where('scope', $scope))
-            ->when($filters['vehicle_id'] ?? null, fn(Builder $q, int $id) => $q->where('vehicle_id', $id))
+            ->when($filters['expense_type_id'] ?? null, fn (Builder $q, int $id) => $q->where('expense_type_id', $id))
+            ->when($filters['scope'] ?? null, fn (Builder $q, string $scope) => $q->where('scope', $scope))
+            ->when($filters['vehicle_id'] ?? null, fn (Builder $q, int $id) => $q->where('vehicle_id', $id))
             ->when($filters['partner_id'] ?? null, fn (Builder $q, int $id) => $q->where('partner_id', $id))
             ->get();
         $rows = $expenses->map(fn (Expense $item) => ['id' => $item->id, 'expense_no' => $item->expense_no, 'date' => $item->expense_date?->toDateString(), 'expense_type' => $item->expenseType?->name, 'scope' => $item->scope?->value, 'vehicle_plate' => $item->vehicle?->license_plate, 'partner_name' => $item->partner?->name, 'driver_name' => $item->driver?->full_name, 'order_no' => $item->dispatchOrder?->order_no, 'amount' => $item->amount, 'payment_method' => $item->payment_method?->value, 'document_no' => $item->document_no, 'description' => $item->description]);
@@ -132,9 +132,9 @@ class ReportService implements ReportServiceInterface
         $payrolls = Payroll::query()->with(['items.driver', 'items.details.dispatchOrder'])
             ->where('is_active', true)
             ->whereBetween('to_date', [$from, $to])
-            ->when($filters['status'] ?? null, fn(Builder $q, string $status) => $q->where('status', $status))
+            ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))
             ->get();
-        $rows = $payrolls->flatMap(fn (Payroll $payroll) => $payroll->items->filter(fn (PayrollItem $item) => ! isset($filters['driver_id']) || $item->driver_id === (int) $filters['driver_id'])->map(fn (PayrollItem $item) => ['id' => $item->id, 'payroll_id' => $payroll->id, 'payroll_code' => $payroll->code, 'period' => $payroll->from_date?->toDateString() . ' - ' . $payroll->to_date?->toDateString(), 'status' => $payroll->status?->value, 'paid_at' => $payroll->paid_at?->toDateString(), 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'responsibility_allowance' => $item->responsibility_allowance, 'fixed_trip_wage' => $item->fixed_trip_wage, 'tourism_commission' => $item->tourism_commission, 'driver_reimbursement' => $item->driver_reimbursement, 'direct_customer_collection' => $item->direct_customer_collection, 'driver_remittance_amount' => $item->driver_remittance_amount, 'gross_salary' => $item->gross_salary, 'net_salary' => $item->net_salary, 'advance_amount' => $item->advance_amount, 'deduction_amount' => $item->deduction_amount, 'details' => $item->details->map(fn (PayrollItemDetail $detail) => ['order_no' => $detail->dispatchOrder?->order_no, 'amount' => $detail->amount, 'calculation_type' => $detail->calculation_type?->value])->all()]));
+        $rows = $payrolls->flatMap(fn (Payroll $payroll) => $payroll->items->filter(fn (PayrollItem $item) => ! isset($filters['driver_id']) || $item->driver_id === (int) $filters['driver_id'])->map(fn (PayrollItem $item) => ['id' => $item->id, 'payroll_id' => $payroll->id, 'payroll_code' => $payroll->code, 'period' => $payroll->from_date?->toDateString().' - '.$payroll->to_date?->toDateString(), 'status' => $payroll->status?->value, 'paid_at' => $payroll->paid_at?->toDateString(), 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'responsibility_allowance' => $item->responsibility_allowance, 'fixed_trip_wage' => $item->fixed_trip_wage, 'tourism_commission' => $item->tourism_commission, 'driver_reimbursement' => $item->driver_reimbursement, 'direct_customer_collection' => $item->direct_customer_collection, 'driver_remittance_amount' => $item->driver_remittance_amount, 'gross_salary' => $item->gross_salary, 'net_salary' => $item->net_salary, 'advance_amount' => $item->advance_amount, 'deduction_amount' => $item->deduction_amount, 'details' => $item->details->map(fn (PayrollItemDetail $detail) => ['order_no' => $detail->dispatchOrder?->order_no, 'amount' => $detail->amount, 'calculation_type' => $detail->calculation_type?->value])->all()]));
 
         return $this->result($filters, $rows->values()->all(), ['gross_salary' => $this->money($rows->sum('gross_salary')), 'net_salary' => $this->money($rows->sum('net_salary')), 'advance_amount' => $this->money($rows->sum('advance_amount'))]);
     }
@@ -149,44 +149,44 @@ class ReportService implements ReportServiceInterface
             $start = $cursor->startOfMonth();
             $end = $cursor->endOfMonth();
             $revenue = $basis === 'cash'
-                ? Receipt::query()->where('is_active', true)->whereBetween('received_at', [$start, $end])->sum('amount')
-                : DispatchOrder::query()->where('is_active', true)->where('status', DispatchOrderStatusEnum::COMPLETED->value)->whereBetween('completed_at', [$start, $end])->sum('customer_amount');
-            $expenses = Expense::query()->where('is_active', true)->whereBetween('expense_date', [$start, $end])->sum('amount');
-            $partnerPayments = PartnerPayment::query()->where('is_active', true)->whereBetween('paid_at', [$start, $end])->sum('amount');
-            $payroll = Payroll::query()->where('is_active', true)->when($basis === 'cash', fn(Builder $q) => $q->whereBetween('paid_at', [$start, $end]), fn(Builder $q) => $q->whereBetween('to_date', [$start, $end]))->with('items')->get()->sum(fn(Payroll $item) => $item->items->sum($basis === 'cash' ? 'net_salary' : 'gross_salary'));
+                ? $this->operationalReceipts()->where('is_active', true)->whereBetween('received_at', [$start, $end])->sum('amount')
+                : DispatchOrder::query()->operational()->where('is_active', true)->where('status', DispatchOrderStatusEnum::COMPLETED->value)->whereBetween('completed_at', [$start, $end])->sum('customer_amount');
+            $expenses = $this->operationalExpenses()->where('is_active', true)->whereBetween('expense_date', [$start, $end])->sum('amount');
+            $partnerPayments = $this->operationalPartnerPayments()->where('is_active', true)->whereBetween('paid_at', [$start, $end])->sum('amount');
+            $payroll = Payroll::query()->where('is_active', true)->when($basis === 'cash', fn (Builder $q) => $q->whereBetween('paid_at', [$start, $end]), fn (Builder $q) => $q->whereBetween('to_date', [$start, $end]))->with('items')->get()->sum(fn (Payroll $item) => $item->items->sum($basis === 'cash' ? 'net_salary' : 'gross_salary'));
             $cost = $expenses + $partnerPayments + $payroll;
             $months->push(['month' => $cursor->format('Y-m'), 'revenue' => $this->money($revenue), 'expenses' => $this->money($expenses), 'partner_payments' => $this->money($partnerPayments), 'payroll' => $this->money($payroll), 'profit' => $this->money($revenue - $cost)]);
         }
 
-        return $this->result([...$filters, 'basis' => $basis], $months->all(), ['revenue' => $this->money($months->sum('revenue')), 'cost' => $this->money($months->sum(fn($row) => (float) $row['expenses'] + (float) $row['partner_payments'] + (float) $row['payroll'])), 'profit' => $this->money($months->sum('profit'))], $months->all());
+        return $this->result([...$filters, 'basis' => $basis], $months->all(), ['revenue' => $this->money($months->sum('revenue')), 'cost' => $this->money($months->sum(fn ($row) => (float) $row['expenses'] + (float) $row['partner_payments'] + (float) $row['payroll'])), 'profit' => $this->money($months->sum('profit'))], $months->all());
     }
 
     public function vehicleProfit(array $filters): array
     {
         [$from, $to] = $this->dates($filters);
         /** @var EloquentCollection<int, DispatchOrder> $orders */
-        $orders = DispatchOrder::query()->with(['tripAssignment.vehicle.vehicleType', 'driverAttendance'])
+        $orders = DispatchOrder::query()->operational()->with(['tripAssignment.vehicle.vehicleType', 'driverAttendance'])
             ->where('is_active', true)->where('status', DispatchOrderStatusEnum::COMPLETED->value)
             ->whereBetween('completed_at', [$from, $to])->get();
         $vehicleIds = $orders->pluck('tripAssignment.vehicle_id')->filter()->unique();
-        $orderVehicleIds = $orders->mapWithKeys(fn(DispatchOrder $order) => [$order->id => $order->tripAssignment?->vehicle_id]);
+        $orderVehicleIds = $orders->mapWithKeys(fn (DispatchOrder $order) => [$order->id => $order->tripAssignment?->vehicle_id]);
         /** @var EloquentCollection<int, Expense> $expenses */
-        $expenses = Expense::query()->with('expenseType')->where('is_active', true)->whereBetween('expense_date', [$from, $to])
+        $expenses = $this->operationalExpenses()->with('expenseType')->where('is_active', true)->whereBetween('expense_date', [$from, $to])
             ->where('settlement_type', '!=', ExpenseSettlementTypeEnum::EXTERNAL_DRIVER_PAYMENT->value)->get();
-        $general = $expenses->filter(fn(Expense $expense) => $expense->scope?->value === 'general')->sum('amount');
+        $general = $expenses->filter(fn (Expense $expense) => $expense->scope?->value === 'general')->sum('amount');
         $allocation = $vehicleIds->count() ? (float) $general / $vehicleIds->count() : 0;
         /** @var Collection<int, EloquentCollection<int, DispatchOrder>> $ordersByVehicle */
         $ordersByVehicle = $orders->groupBy(fn (DispatchOrder $order) => $order->tripAssignment?->vehicle_id);
         $rows = $ordersByVehicle->map(function (EloquentCollection $vehicleOrders, int|string $vehicleId) use ($expenses, $orderVehicleIds, $allocation): array {
             $vehicle = $vehicleOrders->first()->tripAssignment?->vehicle;
-            $vehicleExpenses = $expenses->filter(fn(Expense $expense) => (int) $expense->vehicle_id === (int) $vehicleId || (int) $orderVehicleIds->get($expense->dispatch_order_id) === (int) $vehicleId);
-            $byCategory = $vehicleExpenses->groupBy(fn(Expense $expense) => $expense->expenseType?->profit_category?->value ?? 'other');
+            $vehicleExpenses = $expenses->filter(fn (Expense $expense) => (int) $expense->vehicle_id === (int) $vehicleId || (int) $orderVehicleIds->get($expense->dispatch_order_id) === (int) $vehicleId);
+            $byCategory = $vehicleExpenses->groupBy(fn (Expense $expense) => $expense->expenseType?->profit_category?->value ?? 'other');
             $revenue = (float) $vehicleOrders->sum('customer_amount');
             $fuel = (float) $byCategory->get('fuel', collect())->sum('amount');
             $repair = (float) $byCategory->get('repair', collect())->sum('amount');
             $insurance = (float) $byCategory->get('insurance_registration', collect())->sum('amount');
             $other = (float) $byCategory->get('other', collect())->sum('amount');
-            $driverWage = (float) $vehicleOrders->sum(fn(DispatchOrder $order) => $order->driverAttendance?->calculated_wage ?? 0);
+            $driverWage = (float) $vehicleOrders->sum(fn (DispatchOrder $order) => $order->driverAttendance?->calculated_wage ?? 0);
             $externalVehicle = (float) $vehicleOrders->sum('partner_vehicle_cost');
             $externalDriver = (float) $vehicleOrders->sum('external_driver_cost');
             $cost = $fuel + $repair + $insurance + $other + $driverWage + $allocation + $externalVehicle + $externalDriver;
@@ -241,15 +241,37 @@ class ReportService implements ReportServiceInterface
     {
         [$from, $to] = $this->dates($filters);
 
-        return DispatchOrder::query()->with(['tripSchedule.route:id,name', 'tripSchedule.contract.customer:id,name', 'tripAssignment.vehicle:id,license_plate,vehicle_type_id', 'tripAssignment.vehicle.vehicleType:id,name', 'tripAssignment.driver:id,full_name', 'tripAssignment.partner:id,name', 'expenses', 'partnerPayments', 'driverAttendance'])
+        return DispatchOrder::query()->operational()->with(['tripSchedule.route:id,name', 'tripSchedule.contract.customer:id,name', 'tripAssignment.vehicle:id,license_plate,vehicle_type_id', 'tripAssignment.vehicle.vehicleType:id,name', 'tripAssignment.driver:id,full_name', 'tripAssignment.partner:id,name', 'expenses', 'partnerPayments', 'driverAttendance'])
             ->where('is_active', true)->where('status', DispatchOrderStatusEnum::COMPLETED->value)->whereBetween('completed_at', [$from, $to])
             ->whereHas('tripSchedule', function (Builder $query) use ($types, $filters): void {
                 $query->whereIn('service_type', $types)
-                    ->when($filters['route_id'] ?? null, fn(Builder $q, int $id) => $q->where('route_id', $id))
-                    ->when($filters['customer_id'] ?? null, fn(Builder $q, int $id) => $q->whereHas('contract', fn(Builder $c) => $c->where('customer_id', $id)));
-            })->when($filters['vehicle_id'] ?? null, fn(Builder $q, int $id) => $q->whereHas('tripAssignment', fn(Builder $a) => $a->where('vehicle_id', $id)))
-            ->when($filters['driver_id'] ?? null, fn(Builder $q, int $id) => $q->whereHas('tripAssignment', fn(Builder $a) => $a->where('driver_id', $id)))
-            ->when($filters['partner_id'] ?? null, fn(Builder $q, int $id) => $q->whereHas('tripAssignment', fn(Builder $a) => $a->where('partner_id', $id)));
+                    ->when($filters['route_id'] ?? null, fn (Builder $q, int $id) => $q->where('route_id', $id))
+                    ->when($filters['customer_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas('contract', fn (Builder $c) => $c->where('customer_id', $id)));
+            })->when($filters['vehicle_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas('tripAssignment', fn (Builder $a) => $a->where('vehicle_id', $id)))
+            ->when($filters['driver_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas('tripAssignment', fn (Builder $a) => $a->where('driver_id', $id)))
+            ->when($filters['partner_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas('tripAssignment', fn (Builder $a) => $a->where('partner_id', $id)));
+    }
+
+    private function operationalReceipts(): Builder
+    {
+        return Receipt::query()
+            ->where(fn (Builder $query) => $query->whereNull('contract_id')->orWhereHas('contract', fn (Builder $contract) => $contract->operational()))
+            ->where(fn (Builder $query) => $query->whereNull('dispatch_order_id')->orWhereHas('dispatchOrder', fn (Builder $order) => $order->operational()));
+    }
+
+    private function operationalRemittances(): Builder
+    {
+        return DriverCashRemittance::query()->whereHas('dispatchOrder', fn (Builder $order) => $order->operational());
+    }
+
+    private function operationalExpenses(): Builder
+    {
+        return Expense::query()->where(fn (Builder $query) => $query->whereNull('dispatch_order_id')->orWhereHas('dispatchOrder', fn (Builder $order) => $order->operational()));
+    }
+
+    private function operationalPartnerPayments(): Builder
+    {
+        return PartnerPayment::query()->where(fn (Builder $query) => $query->whereNull('dispatch_order_id')->orWhereHas('dispatchOrder', fn (Builder $order) => $order->operational()));
     }
 
     private function tripRow(DispatchOrder $order): array

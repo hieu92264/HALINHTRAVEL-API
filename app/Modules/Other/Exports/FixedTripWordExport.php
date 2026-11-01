@@ -34,7 +34,7 @@ class FixedTripWordExport
         $this->addTripTable($section, $rows);
         $this->addFooter($section);
 
-        $temporary = tempnam(storage_path('app'), 'fixed-trips-');
+        $temporary = tempnam(storage_path('app'), 'business-trips-');
         if ($temporary === false) {
             abort(500, 'Không thể tạo tệp Word báo cáo.');
         }

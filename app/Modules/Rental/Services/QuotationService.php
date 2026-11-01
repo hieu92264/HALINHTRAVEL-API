@@ -30,12 +30,14 @@ class QuotationService implements QuotationServiceInterface
 
     public function getList(): array
     {
-        return Quotation::query()->with(['customer', 'items.vehicleType'])->orderByDesc('id')->get()
+        return Quotation::query()->whereHas('rentalRequest', fn ($query) => $query->operational())->with(['customer', 'items.vehicleType'])->orderByDesc('id')->get()
             ->map(fn (Quotation $quotation): array => $this->quotation($quotation))->all();
     }
 
     public function getDetail(Quotation $quotation): array
     {
+        abort_unless($quotation->rentalRequest()->operational()->exists(), 404);
+
         return $this->quotation($quotation);
     }
 
@@ -343,7 +345,7 @@ class QuotationService implements QuotationServiceInterface
             abort(422, 'Báo giá phải gắn với yêu cầu thuê xe.');
         }
 
-        $rentalRequest = RentalRequest::query()->with('items')->lockForUpdate()->findOrFail($requestId);
+        $rentalRequest = RentalRequest::query()->operational()->with('items')->lockForUpdate()->findOrFail($requestId);
         if ($rentalRequest->customer_id !== $customerId || ! $rentalRequest->is_active || ! in_array($rentalRequest->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
             abort(422, 'Yêu cầu thuê xe không hợp lệ để lập báo giá.');
         }

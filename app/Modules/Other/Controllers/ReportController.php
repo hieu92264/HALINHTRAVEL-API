@@ -37,9 +37,9 @@ class ReportController extends Controller
         private readonly DriverPayrollDetailWordExport $driverPayrollDetailWord,
     ) {}
 
-    public function fixedTrips(ReportRequest $request): JsonResponse|BinaryFileResponse
+    public function businessTrips(ReportRequest $request): JsonResponse|BinaryFileResponse
     {
-        $data = $this->reports->fixedTrips($request->filters());
+        $data = $this->reports->businessTrips($request->filters());
         $format = $request->validated('format');
         abort_if($format === 'xlsx', 422, 'Báo cáo xe chạy công nhân chỉ hỗ trợ xuất Word.');
         if ($format !== 'docx') {

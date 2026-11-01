@@ -28,7 +28,7 @@ class UpdateContractRequest extends FormRequest
             'deposit_required' => ['sometimes', 'decimal:0,2', 'min:0'], 'payment_terms' => ['sometimes', 'nullable', 'string'], 'terms' => ['sometimes', 'nullable', 'string'],
             'items' => ['sometimes', 'array', 'min:1'], 'items.*.route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],
             'items.*.vehicle_type_id' => ['required_with:items', 'integer', Rule::exists('vehicle_types', 'id')->where('is_active', true)],
-            'items.*.service_type' => ['required_with:items', Rule::enum(RentalServiceTypeEnum::class)], 'items.*.quantity' => ['required_with:items', 'integer', 'min:1'],
+            'items.*.service_type' => ['required_with:items', Rule::in(RentalServiceTypeEnum::operationalValues())], 'items.*.quantity' => ['required_with:items', 'integer', 'min:1'],
             'items.*.unit_price' => ['required_with:items', 'decimal:0,2', 'min:0'], 'items.*.driver_wage' => ['sometimes', 'decimal:0,2', 'min:0'],
             'items.*.pickup_location' => ['nullable', 'string', 'max:500'], 'items.*.dropoff_location' => ['nullable', 'string', 'max:500'], 'items.*.note' => ['nullable', 'string'],
         ];

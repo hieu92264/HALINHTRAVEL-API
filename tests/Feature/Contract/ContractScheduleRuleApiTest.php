@@ -137,7 +137,7 @@ class ContractScheduleRuleApiTest extends TestCase
             'schedule_no' => 'LT202610050099',
             'contract_id' => $contract->id,
             'contract_item_id' => $item->id,
-            'service_type' => 'fixed',
+            'service_type' => 'business',
             'route_id' => $route->id,
             'scheduled_start_at' => '2026-10-05 08:00:00',
             'scheduled_end_at' => '2026-10-05 17:00:00',
@@ -234,7 +234,7 @@ class ContractScheduleRuleApiTest extends TestCase
         return $contract->items()->create([
             'route_id' => $routeId,
             'vehicle_type_id' => $vehicleTypeId,
-            'service_type' => 'fixed',
+            'service_type' => 'business',
             'quantity' => 1,
             'unit_price' => '1000000',
             'driver_wage' => '0',

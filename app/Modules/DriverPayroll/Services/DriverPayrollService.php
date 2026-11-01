@@ -86,11 +86,13 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     public function attendances(): array
     {
-        return DriverAttendance::query()->with(['driver', 'dispatchOrder'])->where('is_active', true)->orderByDesc('work_date')->get()->map(fn (DriverAttendance $item) => $this->attendanceData($item))->all();
+        return DriverAttendance::query()->whereHas('dispatchOrder', fn ($query) => $query->operational())->with(['driver', 'dispatchOrder'])->where('is_active', true)->orderByDesc('work_date')->get()->map(fn (DriverAttendance $item) => $this->attendanceData($item))->all();
     }
 
     public function attendance(DriverAttendance $attendance): array
     {
+        abort_unless($attendance->dispatchOrder()->operational()->exists(), 404);
+
         return $this->attendanceData($attendance->load(['driver', 'dispatchOrder']));
     }
 
@@ -98,6 +100,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
     {
         return DB::transaction(function () use ($order, $data): array {
             $loaded = $order->load(['tripAssignment.driver', 'tripAssignment.vehicle.vehicleType', 'tripSchedule.contractItem']);
+            abort_unless($loaded->tripSchedule?->service_type?->isOperational(), 404);
             if ($loaded->status !== DispatchOrderStatusEnum::COMPLETED) {
                 abort(409, 'Chỉ lệnh đã hoàn thành mới tạo được công chuyến.');
             }
@@ -107,7 +110,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             $service = $loaded->tripSchedule?->service_type;
             $driver = $loaded->tripAssignment->driver;
             $units = (string) ($data['work_units'] ?? 1);
-            if (in_array($service, [RentalServiceTypeEnum::FIXED, RentalServiceTypeEnum::SCHOOL], true)) {
+            if ($service === RentalServiceTypeEnum::BUSINESS) {
                 $type = WorkTypeEnum::FIXED_TRIP;
                 $base = '1';
                 $rate = (string) ($loaded->tripSchedule?->contractItem?->driver_wage ?? 0);

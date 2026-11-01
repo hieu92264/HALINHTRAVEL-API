@@ -30,7 +30,10 @@ class StoreContractRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],
             'items.*.vehicle_type_id' => ['required', 'integer', Rule::exists('vehicle_types', 'id')->where('is_active', true)],
-            'items.*.service_type' => ['required', Rule::enum(RentalServiceTypeEnum::class)],
+            'items.*.service_type' => [
+                'required',
+                Rule::in(RentalServiceTypeEnum::operationalValues()),
+            ],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_price' => ['required', 'decimal:0,2', 'min:0'],
             'items.*.driver_wage' => ['sometimes', 'decimal:0,2', 'min:0'],

@@ -19,7 +19,7 @@ class StoreTripScheduleRequest extends FormRequest
         return [
             'contract_id' => ['required', 'integer', Rule::exists('contracts', 'id')],
             'contract_item_id' => ['nullable', 'integer', Rule::exists('contract_items', 'id')],
-            'service_type' => ['required', Rule::enum(RentalServiceTypeEnum::class)],
+            'service_type' => ['required', Rule::in(RentalServiceTypeEnum::operationalValues())],
             'route_id' => ['nullable', 'integer', Rule::exists('routes', 'id')->where('is_active', true)],
             'scheduled_start_at' => ['required', 'date'],
             'scheduled_end_at' => ['required', 'date', 'after:scheduled_start_at'],

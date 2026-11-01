@@ -42,6 +42,65 @@ class ContractApiTest extends TestCase
         $this->actingAs($this->sales(), 'api')->patchJson("/api/contract/contracts/{$id}", ['terms' => 'x'])->assertConflict();
     }
 
+    public function test_direct_contract_creation_rejects_retired_service_types_but_allows_active_ones(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+
+        foreach (['fixed', 'school'] as $serviceType) {
+            $payload = $this->payload($customer, $vehicleType);
+            $payload['items'][0]['service_type'] = $serviceType;
+
+            $this->actingAs($this->sales(), 'api')
+                ->postJson('/api/contract/contracts', $payload)
+                ->assertUnprocessable()
+                ->assertJsonStructure(['metadata' => ['items.0.service_type']]);
+        }
+
+        $payload = $this->payload($customer, $vehicleType);
+        $payload['items'][0]['service_type'] = 'business';
+
+        $this->actingAs($this->sales(), 'api')
+            ->postJson('/api/contract/contracts', $payload)
+            ->assertCreated()
+            ->assertJsonPath('metadata.items.0.service_type', 'business');
+    }
+
+    public function test_contract_with_retired_service_item_is_hidden_from_lists_and_direct_access(): void
+    {
+        [$customer, $vehicleType] = $this->references();
+        $contract = Contract::create([
+            'contract_no' => 'HD20260099',
+            'customer_id' => $customer->id,
+            'contract_type' => 'principle',
+            'effective_from' => '2026-10-20',
+            'total_amount' => '1200000',
+            'deposit_required' => '0',
+            'status' => 'draft',
+        ]);
+        $contract->items()->create([
+            'vehicle_type_id' => $vehicleType->id,
+            'service_type' => 'fixed',
+            'quantity' => 1,
+            'unit_price' => '1200000',
+            'driver_wage' => '0',
+        ]);
+
+        $sales = $this->sales();
+
+        $this->actingAs($sales, 'api')
+            ->getJson('/api/contract/contracts')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $contract->id]);
+
+        $this->actingAs($sales, 'api')
+            ->getJson("/api/contract/contracts/{$contract->id}")
+            ->assertNotFound();
+
+        $this->actingAs($sales, 'api')
+            ->patchJson("/api/contract/contracts/{$contract->id}", ['terms' => 'Không được cập nhật'])
+            ->assertNotFound();
+    }
+
     public function test_creating_from_an_approved_quotation_copies_data_and_converts_request(): void
     {
         [$customer, $vehicleType] = $this->references();

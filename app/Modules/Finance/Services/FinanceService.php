@@ -21,6 +21,7 @@ use App\Shared\Enums\ExpenseSettlementTypeEnum;
 use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\PayrollStatusEnum;
 use App\Shared\Enums\ReceiptSettlementTypeEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -28,11 +29,13 @@ class FinanceService implements FinanceServiceInterface
 {
     public function receipts(): array
     {
-        return Receipt::query()->with(['customer', 'contract', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('received_at')->get()->map(fn(Receipt $item) => $this->receiptData($item))->all();
+        return $this->operationalReceipts()->with(['customer', 'contract', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('received_at')->get()->map(fn (Receipt $item) => $this->receiptData($item))->all();
     }
 
     public function receipt(Receipt $receipt): array
     {
+        abort_unless($this->operationalReceipts()->whereKey($receipt->id)->exists(), 404);
+
         return $this->receiptData($receipt->load(['customer', 'contract', 'dispatchOrder', 'driver']));
     }
 
@@ -66,16 +69,18 @@ class FinanceService implements FinanceServiceInterface
 
     public function lockReceipt(Receipt $receipt): array
     {
-        return $this->lock($receipt, fn(Receipt $item) => $this->receipt($item));
+        return $this->lock($receipt, fn (Receipt $item) => $this->receipt($item));
     }
 
     public function driverCashRemittances(): array
     {
-        return DriverCashRemittance::query()->with(['receipt', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('remitted_at')->get()->map(fn(DriverCashRemittance $item) => $this->driverCashRemittanceData($item))->all();
+        return $this->operationalRemittances()->with(['receipt', 'dispatchOrder', 'driver'])->where('is_active', true)->orderByDesc('remitted_at')->get()->map(fn (DriverCashRemittance $item) => $this->driverCashRemittanceData($item))->all();
     }
 
     public function driverCashRemittance(DriverCashRemittance $driverCashRemittance): array
     {
+        abort_unless($this->operationalRemittances()->whereKey($driverCashRemittance->id)->exists(), 404);
+
         return $this->driverCashRemittanceData($driverCashRemittance->load(['receipt', 'dispatchOrder', 'driver']));
     }
 
@@ -109,11 +114,13 @@ class FinanceService implements FinanceServiceInterface
 
     public function expenses(): array
     {
-        return Expense::query()->with(['expenseType', 'vehicle', 'dispatchOrder', 'partner', 'driver'])->where('is_active', true)->orderByDesc('expense_date')->get()->map(fn(Expense $item) => $this->expenseData($item))->all();
+        return $this->operationalExpenses()->with(['expenseType', 'vehicle', 'dispatchOrder', 'partner', 'driver'])->where('is_active', true)->orderByDesc('expense_date')->get()->map(fn (Expense $item) => $this->expenseData($item))->all();
     }
 
     public function expense(Expense $expense): array
     {
+        abort_unless($this->operationalExpenses()->whereKey($expense->id)->exists(), 404);
+
         return $this->expenseData($expense->load(['expenseType', 'vehicle', 'dispatchOrder', 'partner', 'driver']));
     }
 
@@ -147,16 +154,18 @@ class FinanceService implements FinanceServiceInterface
 
     public function lockExpense(Expense $expense): array
     {
-        return $this->lock($expense, fn(Expense $item) => $this->expense($item));
+        return $this->lock($expense, fn (Expense $item) => $this->expense($item));
     }
 
     public function partnerPayments(): array
     {
-        return PartnerPayment::query()->with(['partner', 'dispatchOrder'])->where('is_active', true)->orderByDesc('paid_at')->get()->map(fn(PartnerPayment $item) => $this->partnerPaymentData($item))->all();
+        return $this->operationalPartnerPayments()->with(['partner', 'dispatchOrder'])->where('is_active', true)->orderByDesc('paid_at')->get()->map(fn (PartnerPayment $item) => $this->partnerPaymentData($item))->all();
     }
 
     public function partnerPayment(PartnerPayment $partnerPayment): array
     {
+        abort_unless($this->operationalPartnerPayments()->whereKey($partnerPayment->id)->exists(), 404);
+
         return $this->partnerPaymentData($partnerPayment->load(['partner', 'dispatchOrder']));
     }
 
@@ -190,7 +199,7 @@ class FinanceService implements FinanceServiceInterface
 
     public function lockPartnerPayment(PartnerPayment $partnerPayment): array
     {
-        return $this->lock($partnerPayment, fn(PartnerPayment $item) => $this->partnerPayment($item));
+        return $this->lock($partnerPayment, fn (PartnerPayment $item) => $this->partnerPayment($item));
     }
 
     private function validateReceipt(array &$data, ?int $ignoreId = null): void
@@ -202,7 +211,7 @@ class FinanceService implements FinanceServiceInterface
             if (empty($data['dispatch_order_id']) || empty($data['driver_id'])) {
                 abort(422, 'Thu khách trả trực tiếp yêu cầu lệnh điều xe và lái xe.');
             }
-            $order = DispatchOrder::query()->with('tripSchedule.contract')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
+            $order = DispatchOrder::query()->operational()->with('tripSchedule.contract')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
             if ($order->status !== DispatchOrderStatusEnum::COMPLETED) {
                 abort(422, 'Chỉ lệnh điều xe đã hoàn tất mới được ghi nhận khách trả trực tiếp.');
             }
@@ -215,7 +224,7 @@ class FinanceService implements FinanceServiceInterface
         } else {
             $data['driver_id'] = null;
             if (! empty($data['dispatch_order_id'])) {
-                $order = DispatchOrder::query()->with('tripSchedule.contract')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
+                $order = DispatchOrder::query()->operational()->with('tripSchedule.contract')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
                 if ($order->status !== DispatchOrderStatusEnum::COMPLETED || (int) $order->tripSchedule?->contract?->customer_id !== (int) $customer->id) {
                     abort(422, 'Lệnh điều xe phải hoàn tất và thuộc đúng khách hàng phiếu thu.');
                 }
@@ -225,12 +234,12 @@ class FinanceService implements FinanceServiceInterface
             }
         }
         if (! empty($data['contract_id'])) {
-            $contract = Contract::query()->whereKey($data['contract_id'])->where('is_active', true)->firstOrFail();
+            $contract = Contract::query()->operational()->whereKey($data['contract_id'])->where('is_active', true)->firstOrFail();
             if ($contract->customer_id !== $customer->id) {
                 abort(422, 'Hợp đồng phải thuộc khách hàng của phiếu thu.');
             }
             if (in_array($data['receipt_type'], ['deposit', 'contract_payment'], true)) {
-                $received = (float) Receipt::query()->where('is_active', true)->where('contract_id', $contract->id)->when($ignoreId, fn($query) => $query->whereKeyNot($ignoreId))->sum('amount');
+                $received = (float) Receipt::query()->where('is_active', true)->where('contract_id', $contract->id)->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))->sum('amount');
                 if ($received + (float) $data['amount'] > (float) $contract->total_amount) {
                     abort(422, 'Tổng thu không được vượt giá trị hợp đồng.');
                 }
@@ -254,7 +263,7 @@ class FinanceService implements FinanceServiceInterface
             if (($data['scope'] ?? null) !== ExpenseScopeEnum::TRIP->value || empty($data['dispatch_order_id']) || empty($data['driver_id'])) {
                 abort(422, 'Quyết toán lái xe yêu cầu phạm vi chuyến xe, lệnh điều xe và lái xe.');
             }
-            $order = DispatchOrder::query()->with('tripAssignment.driver')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
+            $order = DispatchOrder::query()->operational()->with('tripAssignment.driver')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
             if ($order->status !== DispatchOrderStatusEnum::COMPLETED || (int) $order->tripAssignment?->driver_id !== (int) $data['driver_id']) {
                 abort(422, 'Lái xe phải là người được phân công trên lệnh đã hoàn tất.');
             }
@@ -276,7 +285,7 @@ class FinanceService implements FinanceServiceInterface
             if (empty($data['dispatch_order_id'])) {
                 abort(422, 'Chi phí chuyến yêu cầu lệnh điều xe.');
             }
-            DispatchOrder::query()->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
+            DispatchOrder::query()->operational()->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
             $data['vehicle_id'] = null;
         } else {
             $data['vehicle_id'] = null;
@@ -300,7 +309,7 @@ class FinanceService implements FinanceServiceInterface
             abort(422, 'Chứng từ nộp tiền phải khớp phiếu khách trả trực tiếp, lệnh điều xe và lái xe.');
         }
 
-        $remitted = (float) DriverCashRemittance::query()->where('is_active', true)->where('receipt_id', $receipt->id)->when($ignoreId, fn($query) => $query->whereKeyNot($ignoreId))->sum('amount');
+        $remitted = (float) DriverCashRemittance::query()->where('is_active', true)->where('receipt_id', $receipt->id)->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))->sum('amount');
         if ($remitted + (float) $data['amount'] > (float) $receipt->amount) {
             abort(422, 'Tổng tiền lái xe nộp không được vượt tiền lái xe đã thu.');
         }
@@ -316,7 +325,7 @@ class FinanceService implements FinanceServiceInterface
     {
         Partner::query()->whereKey($data['partner_id'])->where('is_active', true)->firstOrFail();
         if (! empty($data['dispatch_order_id'])) {
-            $order = DispatchOrder::query()->with('tripAssignment.vehicle')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
+            $order = DispatchOrder::query()->operational()->with('tripAssignment.vehicle')->whereKey($data['dispatch_order_id'])->where('is_active', true)->firstOrFail();
             $partnerId = $order->tripAssignment?->partner_id ?? $order->tripAssignment?->vehicle?->partner_id;
             if ((int) $partnerId !== (int) $data['partner_id']) {
                 abort(409, 'Đối tác không khớp phân công của lệnh điều xe.');
@@ -345,12 +354,34 @@ class FinanceService implements FinanceServiceInterface
         });
     }
 
+    private function operationalReceipts(): Builder
+    {
+        return Receipt::query()
+            ->where(fn ($query) => $query->whereNull('contract_id')->orWhereHas('contract', fn ($contract) => $contract->operational()))
+            ->where(fn ($query) => $query->whereNull('dispatch_order_id')->orWhereHas('dispatchOrder', fn ($order) => $order->operational()));
+    }
+
+    private function operationalRemittances(): Builder
+    {
+        return DriverCashRemittance::query()->whereHas('dispatchOrder', fn ($order) => $order->operational());
+    }
+
+    private function operationalExpenses(): Builder
+    {
+        return Expense::query()->where(fn ($query) => $query->whereNull('dispatch_order_id')->orWhereHas('dispatchOrder', fn ($order) => $order->operational()));
+    }
+
+    private function operationalPartnerPayments(): Builder
+    {
+        return PartnerPayment::query()->where(fn ($query) => $query->whereNull('dispatch_order_id')->orWhereHas('dispatchOrder', fn ($order) => $order->operational()));
+    }
+
     private function nextCode(string $model, string $field, string $prefix): string
     {
         $year = now()->format('Y');
-        $max = $model::query()->lockForUpdate()->where($field, 'like', $prefix . $year . '%')->pluck($field)->map(fn(string $value) => (int) substr($value, strlen($prefix . $year)))->max() ?? 0;
+        $max = $model::query()->lockForUpdate()->where($field, 'like', $prefix.$year.'%')->pluck($field)->map(fn (string $value) => (int) substr($value, strlen($prefix.$year)))->max() ?? 0;
 
-        return $prefix . $year . str_pad((string) ($max + 1), 5, '0', STR_PAD_LEFT);
+        return $prefix.$year.str_pad((string) ($max + 1), 5, '0', STR_PAD_LEFT);
     }
 
     private function receiptData(Receipt $item): array

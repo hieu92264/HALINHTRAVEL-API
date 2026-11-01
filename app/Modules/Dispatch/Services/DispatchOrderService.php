@@ -18,11 +18,13 @@ class DispatchOrderService implements DispatchOrderServiceInterface
 {
     public function getList(): array
     {
-        return DispatchOrder::query()->with($this->relations())->latest('issued_at')->get()->map(fn (DispatchOrder $order) => $this->present($order))->all();
+        return DispatchOrder::query()->operational()->with($this->relations())->latest('issued_at')->get()->map(fn (DispatchOrder $order) => $this->present($order))->all();
     }
 
     public function getDetail(DispatchOrder $order): array
     {
+        $this->assertOperational($order);
+
         return $this->present($order->load($this->relations()));
     }
 
@@ -30,6 +32,7 @@ class DispatchOrderService implements DispatchOrderServiceInterface
     {
         return DB::transaction(function () use ($schedule, $user): array {
             $locked = TripSchedule::query()->lockForUpdate()->findOrFail($schedule->id);
+            abort_unless($locked->service_type?->isOperational(), 404);
             if ($locked->status !== TripScheduleStatusEnum::ASSIGNED) {
                 abort(409, 'Chỉ được phát hành lệnh cho lịch đã phân công.');
             }
@@ -164,11 +167,12 @@ class DispatchOrderService implements DispatchOrderServiceInterface
             abort(403, 'Tài khoản chưa liên kết với tài xế.');
         }
 
-        return DispatchOrder::query()->whereHas('tripAssignment', fn ($query) => $query->where('driver_id', $driver->id))->with($this->relations())->latest('issued_at')->get()->map(fn (DispatchOrder $order) => $this->driverPresent($order))->all();
+        return DispatchOrder::query()->operational()->whereHas('tripAssignment', fn ($query) => $query->where('driver_id', $driver->id))->with($this->relations())->latest('issued_at')->get()->map(fn (DispatchOrder $order) => $this->driverPresent($order))->all();
     }
 
     public function getMyOrder(DispatchOrder $order, User $user): array
     {
+        $this->assertOperational($order);
         $this->assertDriverOwnership($order->load('tripAssignment.driver'), $user);
 
         return $this->driverPresent($order->load($this->relations()));
@@ -189,7 +193,16 @@ class DispatchOrderService implements DispatchOrderServiceInterface
 
     private function locked(DispatchOrder $order): DispatchOrder
     {
-        return DispatchOrder::query()->with(['tripSchedule', 'tripAssignment.driver', 'tripAssignment.vehicle'])->lockForUpdate()->findOrFail($order->id);
+        $locked = DispatchOrder::query()->with(['tripSchedule', 'tripAssignment.driver', 'tripAssignment.vehicle'])->lockForUpdate()->findOrFail($order->id);
+        $this->assertOperational($locked);
+
+        return $locked;
+    }
+
+    private function assertOperational(DispatchOrder $order): void
+    {
+        $order->loadMissing('tripSchedule');
+        abort_unless($order->tripSchedule?->service_type?->isOperational(), 404);
     }
 
     private function assertDriverOwnership(DispatchOrder $order, User $user, bool $requireCurrentAssignment = false): void

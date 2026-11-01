@@ -20,7 +20,7 @@ class RentalRequestService implements RentalRequestServiceInterface
 {
     public function getList(): array
     {
-        return RentalRequest::query()
+        return RentalRequest::query()->operational()
             ->with(['items'])
             ->where('is_active', true)
             ->orderBy('id')
@@ -31,6 +31,7 @@ class RentalRequestService implements RentalRequestServiceInterface
 
     public function rentalRequest(RentalRequest $rentalRequest): array
     {
+        abort_unless($rentalRequest->service_type?->isOperational(), 404);
         $rentalRequest->loadMissing([
             'items:id,rental_request_id,vehicle_type_id,route_id,quantity,note',
             'items.vehicleType:id,name',
@@ -165,6 +166,8 @@ class RentalRequestService implements RentalRequestServiceInterface
                 ->lockForUpdate()
                 ->findOrFail($rentalRequest->id);
 
+            abort_unless($lockedRequest->service_type?->isOperational(), 404);
+
             if ($lockedRequest->status !== RentalRequestStatusEnum::NEW) {
                 abort(409, 'Chỉ yêu cầu thuê xe mới tiếp nhận mới được cập nhật.');
             }
@@ -222,6 +225,7 @@ class RentalRequestService implements RentalRequestServiceInterface
     public function delete(int $id): array
     {
         $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+        abort_unless($rentalRequest->service_type?->isOperational(), 404);
         if ($rentalRequest->status !== RentalRequestStatusEnum::NEW) {
             abort(409, 'Chỉ yêu cầu thuê xe ở trạng thái mới được ngừng hoạt động.');
         }
@@ -234,6 +238,7 @@ class RentalRequestService implements RentalRequestServiceInterface
     public function markQuoted(int $id): array
     {
         $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+        abort_unless($rentalRequest->service_type?->isOperational(), 404);
         if ($rentalRequest->status === RentalRequestStatusEnum::QUOTED) {
             return $this->rentalRequest($rentalRequest);
         }
@@ -258,6 +263,7 @@ class RentalRequestService implements RentalRequestServiceInterface
     {
         return DB::transaction(function () use ($id): array {
             $rentalRequest = RentalRequest::query()->lockForUpdate()->findOrFail($id);
+            abort_unless($rentalRequest->service_type?->isOperational(), 404);
             if (! in_array($rentalRequest->status, [RentalRequestStatusEnum::NEW, RentalRequestStatusEnum::QUOTED], true)) {
                 abort(409, 'Yêu cầu thuê xe không thể bị từ chối ở trạng thái hiện tại.');
             }

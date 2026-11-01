@@ -25,6 +25,8 @@ class ContractScheduleRuleService implements ContractScheduleRuleServiceInterfac
 {
     public function getList(Contract $contract): array
     {
+        abort_unless(Contract::query()->operational()->whereKey($contract->id)->exists(), 404);
+
         return $contract->scheduleRules()
             ->withCount('tripSchedules')
             ->with($this->detailRelations())
@@ -37,6 +39,8 @@ class ContractScheduleRuleService implements ContractScheduleRuleServiceInterfac
 
     public function getDetail(ContractScheduleRule $scheduleRule): array
     {
+        abort_unless(Contract::query()->operational()->whereHas('items.scheduleRules', fn ($query) => $query->whereKey($scheduleRule->id))->exists(), 404);
+
         return $this->rule($scheduleRule);
     }
 
@@ -254,6 +258,7 @@ class ContractScheduleRuleService implements ContractScheduleRuleServiceInterfac
 
     private function assertActiveContract(Contract $contract): void
     {
+        abort_unless(Contract::query()->operational()->whereKey($contract->id)->exists(), 404);
         if ($contract->status !== ContractStatusEnum::ACTIVE || ! $contract->is_active) {
             abort(409, 'Chỉ hợp đồng đang active mới được quản lý quy tắc lịch.');
         }
@@ -300,6 +305,7 @@ class ContractScheduleRuleService implements ContractScheduleRuleServiceInterfac
         if ($item === null) {
             abort(422, 'Hạng mục hợp đồng không thuộc hợp đồng đã chọn.');
         }
+        abort_unless($item->service_type?->isOperational(), 404);
 
         if ($routeId !== null) {
             $route = Route::query()->whereKey($routeId)->where('is_active', true)->firstOrFail();
