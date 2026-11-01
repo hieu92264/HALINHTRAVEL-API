@@ -160,12 +160,12 @@ class AuthDatabaseSeeder extends Seeder
     private function roleAccounts(): array
     {
         return [
-            ['user_name' => 'admin', 'email' => 'admin@halinhtravel.test', 'role' => RoleEnum::ADMIN],
-            ['user_name' => 'director', 'email' => 'director@halinhtravel.test', 'role' => RoleEnum::DIRECTOR],
-            ['user_name' => 'sales', 'email' => 'sales@halinhtravel.test', 'role' => RoleEnum::SALES],
-            ['user_name' => 'dispatcher', 'email' => 'dispatcher@halinhtravel.test', 'role' => RoleEnum::DISPATCHER],
-            ['user_name' => 'accountant', 'email' => 'accountant@halinhtravel.test', 'role' => RoleEnum::ACCOUNTANT],
-            ['user_name' => 'driver', 'email' => 'driver@halinhtravel.test', 'role' => RoleEnum::DRIVER],
+            ['user_name' => 'admin', 'email' => 'admin@halinhtravel.vn', 'role' => RoleEnum::ADMIN],
+            ['user_name' => 'director', 'email' => 'director@halinhtravel.vn', 'role' => RoleEnum::DIRECTOR],
+            ['user_name' => 'sales', 'email' => 'sales@halinhtravel.vn', 'role' => RoleEnum::SALES],
+            ['user_name' => 'dispatcher', 'email' => 'dispatcher@halinhtravel.vn', 'role' => RoleEnum::DISPATCHER],
+            ['user_name' => 'accountant', 'email' => 'accountant@halinhtravel.vn', 'role' => RoleEnum::ACCOUNTANT],
+            ['user_name' => 'driver', 'email' => 'driver@halinhtravel.vn', 'role' => RoleEnum::DRIVER],
         ];
     }
 }

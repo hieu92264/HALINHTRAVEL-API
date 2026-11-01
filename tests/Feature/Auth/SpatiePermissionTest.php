@@ -93,7 +93,7 @@ class SpatiePermissionTest extends TestCase
         foreach (RoleEnum::cases() as $role) {
             $user = User::query()->where('user_name', $role->value)->firstOrFail();
 
-            $this->assertSame($role->value.'@halinhtravel.test', $user->email);
+            $this->assertSame($role->value.'@halinhtravel.vn', $user->email);
             $this->assertTrue($user->hasRole($role->value));
             $this->assertTrue(Hash::check('password', $user->password));
         }
