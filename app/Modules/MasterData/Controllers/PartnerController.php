@@ -7,11 +7,11 @@ use App\Modules\MasterData\Interfaces\PartnerServiceInterface;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Requests\CreatePartnerRequest;
 use App\Modules\MasterData\Requests\UpdatePartnerRequest;
+use App\Shared\Enums\PartnerTypeEnum;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use App\Shared\Enums\PartnerTypeEnum;
 use Symfony\Component\HttpFoundation\Response;
 
 class PartnerController extends Controller

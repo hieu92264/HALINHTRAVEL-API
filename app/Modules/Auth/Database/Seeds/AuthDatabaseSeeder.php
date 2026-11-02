@@ -38,8 +38,8 @@ class AuthDatabaseSeeder extends Seeder
         $director->syncPermissions(array_merge(
             $this->viewPermissions(),
             $this->permissionValues([
-                PermissionEnum::QUOTATIONS_MANAGE,
-                PermissionEnum::CONTRACTS_MANAGE,
+                PermissionEnum::WORKER_VEHICLES_MANAGE,
+                PermissionEnum::TOURIST_VEHICLES_MANAGE,
                 PermissionEnum::RECEIPTS_MANAGE,
                 PermissionEnum::EXPENSES_MANAGE,
                 PermissionEnum::PARTNER_PAYMENTS_MANAGE,
@@ -52,25 +52,19 @@ class AuthDatabaseSeeder extends Seeder
         $sales->syncPermissions(array_merge(
             $this->resourcePermissions([
                 'CUSTOMERS',
-                'RENTAL_REQUESTS',
-                'QUOTATIONS',
-                'CONTRACTS',
             ]),
-            $this->permissionValues([PermissionEnum::RENTAL_CAPACITY_VIEW]),
         ));
 
         $dispatcher = RoleModel::findOrCreate(RoleEnum::DISPATCHER->value, 'api');
         $dispatcher->syncPermissions(array_merge(
             $this->resourcePermissions([
-                'VEHICLES',
                 'DRIVERS',
                 'ROUTES',
-                'ROUTE_RATES',
-                'TRIP_SCHEDULES',
-                'TRIP_ASSIGNMENTS',
-                'DISPATCH_ORDERS',
+                'WORKER_VEHICLES',
+                'TOURIST_VEHICLES',
+                'WORKER_VEHICLE_RATES',
             ]),
-            $this->permissionValues([PermissionEnum::RENTAL_CAPACITY_VIEW]),
+            $this->permissionValues([PermissionEnum::WORKER_VEHICLE_SCHEDULES_MANAGE]),
         ));
 
         $accountant = RoleModel::findOrCreate(RoleEnum::ACCOUNTANT->value, 'api');
@@ -86,7 +80,8 @@ class AuthDatabaseSeeder extends Seeder
             $this->permissionValues([
                 PermissionEnum::CUSTOMERS_VIEW,
                 PermissionEnum::PARTNERS_VIEW,
-                PermissionEnum::CONTRACTS_VIEW,
+                PermissionEnum::WORKER_VEHICLES_VIEW,
+                PermissionEnum::TOURIST_VEHICLES_VIEW,
             ]),
         ));
 
@@ -94,10 +89,7 @@ class AuthDatabaseSeeder extends Seeder
         if (! $driver->is_active) {
             $driver->forceFill(['is_active' => true])->save();
         }
-        $driver->syncPermissions($this->permissionValues([
-            PermissionEnum::MY_DISPATCH_ORDERS_VIEW,
-            PermissionEnum::MY_DISPATCH_ORDERS_MANAGE,
-        ]));
+        $driver->syncPermissions([]);
 
         $this->seedRoleAccounts();
     }
@@ -160,12 +152,12 @@ class AuthDatabaseSeeder extends Seeder
     private function roleAccounts(): array
     {
         return [
-            ['user_name' => 'admin', 'email' => 'admin@halinhtravel.test', 'role' => RoleEnum::ADMIN],
-            ['user_name' => 'director', 'email' => 'director@halinhtravel.test', 'role' => RoleEnum::DIRECTOR],
-            ['user_name' => 'sales', 'email' => 'sales@halinhtravel.test', 'role' => RoleEnum::SALES],
-            ['user_name' => 'dispatcher', 'email' => 'dispatcher@halinhtravel.test', 'role' => RoleEnum::DISPATCHER],
-            ['user_name' => 'accountant', 'email' => 'accountant@halinhtravel.test', 'role' => RoleEnum::ACCOUNTANT],
-            ['user_name' => 'driver', 'email' => 'driver@halinhtravel.test', 'role' => RoleEnum::DRIVER],
+            ['user_name' => 'admin', 'email' => 'admin@halinhtravel.vn', 'role' => RoleEnum::ADMIN],
+            ['user_name' => 'director', 'email' => 'director@halinhtravel.vn', 'role' => RoleEnum::DIRECTOR],
+            ['user_name' => 'sales', 'email' => 'sales@halinhtravel.vn', 'role' => RoleEnum::SALES],
+            ['user_name' => 'dispatcher', 'email' => 'dispatcher@halinhtravel.vn', 'role' => RoleEnum::DISPATCHER],
+            ['user_name' => 'accountant', 'email' => 'accountant@halinhtravel.vn', 'role' => RoleEnum::ACCOUNTANT],
+            ['user_name' => 'driver', 'email' => 'driver@halinhtravel.vn', 'role' => RoleEnum::DRIVER],
         ];
     }
 }

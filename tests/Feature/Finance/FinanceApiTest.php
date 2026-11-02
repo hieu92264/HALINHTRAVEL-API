@@ -4,8 +4,9 @@ namespace Tests\Feature\Finance;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
-use App\Modules\Contract\Models\Contract;
 use App\Modules\MasterData\Models\Customer;
+use App\Modules\MasterData\Models\ExpenseType;
+use App\Modules\MasterData\Models\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,44 +14,41 @@ class FinanceApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_accountant_can_create_lock_and_cannot_change_receipt(): void
+    public function test_accountant_manages_independent_receipts_and_partner_payments(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
-        $customer = Customer::create(['code' => 'KH0001', 'type' => 'individual', 'name' => 'Khách hàng', 'cccd' => '001234567890']);
-        $contract = Contract::create(['contract_no' => 'HD0001', 'customer_id' => $customer->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-01', 'total_amount' => '1000000', 'deposit_required' => '0', 'status' => 'active']);
-        $user = User::query()->where('user_name', 'accountant')->firstOrFail();
-        $payload = ['customer_id' => $customer->id, 'contract_id' => $contract->id, 'receipt_type' => 'deposit', 'received_at' => '2026-10-02 08:00:00', 'amount' => '500000.00', 'payment_method' => 'cash'];
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $customer = Customer::create(['code' => 'KH-FIN', 'type' => 'individual', 'name' => 'Khách tài chính']);
+        $partner = Partner::create(['code' => 'DT-FIN', 'type' => 'other', 'name' => 'Đối tác tài chính']);
 
-        $response = $this->actingAs($user, 'api')->postJson('/api/finance/receipts', $payload)->assertCreated()->assertJsonPath('metadata.contract_total', '1000000.00');
-        $id = $response->json('metadata.id');
+        $receiptId = $this->actingAs($accountant, 'api')->postJson('/api/finance/receipts', ['customer_id' => $customer->id, 'receipt_type' => 'deposit', 'received_at' => '2026-10-02', 'amount' => '500000', 'payment_method' => 'cash', 'payer_name' => 'Khách tài chính'])->assertCreated()->json('metadata.id');
+        $this->postJson("/api/finance/receipts/{$receiptId}/lock")->assertOk();
+        $this->patchJson("/api/finance/receipts/{$receiptId}", ['amount' => '600000'])->assertConflict();
 
-        $this->actingAs($user, 'api')->postJson("/api/finance/receipts/{$id}/lock")->assertOk()->assertJsonPath('metadata.is_locked', true);
-        $this->actingAs($user, 'api')->patchJson("/api/finance/receipts/{$id}", ['payer_name' => 'Không được phép'])->assertConflict();
+        $this->postJson('/api/finance/partner-payments', ['partner_id' => $partner->id, 'paid_at' => '2026-10-02', 'amount' => '300000', 'payment_method' => 'bank_transfer'])->assertCreated();
     }
 
-    public function test_receipt_cannot_exceed_contract_value(): void
+    public function test_hired_driver_expense_requires_the_hired_driver_name(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
-        $customer = Customer::create(['code' => 'KH0002', 'type' => 'individual', 'name' => 'Khách 2', 'cccd' => '001234567891']);
-        $contract = Contract::create(['contract_no' => 'HD0002', 'customer_id' => $customer->id, 'contract_type' => 'trip', 'effective_from' => '2026-10-01', 'total_amount' => '1000000', 'deposit_required' => '0', 'status' => 'active']);
-        $user = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $type = ExpenseType::create(['code' => 'HIRED_DRIVER_TEST', 'name' => 'Chi trả thuê lái', 'scope' => 'general']);
 
-        $this->actingAs($user, 'api')->postJson('/api/finance/receipts', ['customer_id' => $customer->id, 'contract_id' => $contract->id, 'receipt_type' => 'contract_payment', 'received_at' => '2026-10-02 08:00:00', 'amount' => '1000000.01', 'payment_method' => 'bank_transfer'])->assertUnprocessable();
+        $this->actingAs($accountant, 'api')->postJson('/api/finance/expenses', ['expense_type_id' => $type->id, 'expense_date' => '2026-10-02', 'amount' => '500000'])->assertUnprocessable();
+        $this->postJson('/api/finance/expenses', ['expense_type_id' => $type->id, 'expense_date' => '2026-10-02', 'amount' => '500000', 'hired_driver_name' => 'Lái thuê A'])->assertCreated();
     }
 
-    public function test_direct_driver_collection_requires_dispatch_order_and_driver(): void
+    public function test_debt_report_endpoints_return_their_rows_directly_in_metadata(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
-        $customer = Customer::create(['code' => 'KH0003', 'type' => 'individual', 'name' => 'Khách 3', 'cccd' => '001234567892']);
-        $user = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
 
-        $this->actingAs($user, 'api')->postJson('/api/finance/receipts', [
-            'customer_id' => $customer->id,
-            'receipt_type' => 'other',
-            'settlement_type' => 'driver_direct_collection',
-            'received_at' => '2026-10-02 08:00:00',
-            'amount' => '500000.00',
-            'payment_method' => 'cash',
-        ])->assertUnprocessable();
+        foreach (['customer-debts', 'partner-debts', 'external-driver-debts'] as $report) {
+            $response = $this->actingAs($accountant, 'api')->getJson("/api/other/reports/{$report}?from_date=2026-11-01&to_date=2026-11-02");
+
+            $response->assertOk();
+            $this->assertIsArray($response->json('metadata'));
+            $response->assertJsonCount(0, 'metadata');
+        }
     }
 }

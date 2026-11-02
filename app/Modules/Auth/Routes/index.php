@@ -15,6 +15,7 @@ Route::prefix('auth')->group(function () {
             Route::post('/refresh', 'refresh');
             Route::get('/me', 'me');
             Route::post('/logout', 'logout');
+            Route::put('/password', 'changePassword');
         });
     });
 

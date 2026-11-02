@@ -5,6 +5,7 @@ namespace App\Modules\Auth\Services;
 use App\Modules\Auth\Interfaces\AuthServiceInterface;
 use App\Modules\Auth\Models\User;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Support\Facades\Hash;
 use LogicException;
 use Tymon\JWTAuth\JWTGuard;
 
@@ -84,6 +85,21 @@ class AuthService implements AuthServiceInterface
 
     public function logout(): void
     {
+        $this->guard()->logout();
+    }
+
+    public function changePassword(array $data): void
+    {
+        $user = $this->guard()->user();
+
+        if (! $user instanceof User) {
+            throw new AuthenticationException;
+        }
+        if (! Hash::check($data['current_password'], $user->password)) {
+            abort(422, 'Mật khẩu hiện tại không chính xác.');
+        }
+
+        $user->forceFill(['password' => $data['new_password']])->save();
         $this->guard()->logout();
     }
 

@@ -2,7 +2,6 @@
 
 namespace App\Modules\Finance\Models;
 
-use App\Modules\Dispatch\Models\DispatchOrder;
 use App\Modules\MasterData\Models\Partner;
 use App\Shared\Enums\PaymentMethodEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
@@ -16,7 +15,6 @@ class PartnerPayment extends Model
     protected $fillable = [
         'payment_no',
         'partner_id',
-        'dispatch_order_id',
         'paid_at',
         'amount',
         'payment_method',
@@ -37,10 +35,5 @@ class PartnerPayment extends Model
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
-    }
-
-    public function dispatchOrder(): BelongsTo
-    {
-        return $this->belongsTo(DispatchOrder::class);
     }
 }

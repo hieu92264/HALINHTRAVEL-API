@@ -2,9 +2,9 @@
 
 namespace App\Modules\MasterData\Requests;
 
+use App\Modules\Auth\Models\User;
 use App\Modules\MasterData\DTOs\UpdateDriverData;
 use App\Modules\MasterData\Models\Driver;
-use App\Modules\Auth\Models\User;
 use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\PartnerTypeEnum;
 use App\Shared\Enums\RoleEnum;
@@ -72,6 +72,7 @@ class UpdateDriverRequest extends FormRequest
             'license_expired_at' => ['sometimes', 'nullable', 'date'],
             'base_salary' => ['sometimes', 'decimal:0,2', 'min:0'],
             'responsibility_allowance' => ['sometimes', 'decimal:0,2', 'min:0'],
+            'tourism_commission_rate' => ['sometimes', 'decimal:0,4', 'min:0', 'max:1'],
             'joined_at' => ['sometimes', 'nullable', 'date'],
             'left_at' => ['sometimes', 'nullable', 'date'],
             'is_active' => ['sometimes', 'boolean'],
@@ -152,6 +153,7 @@ class UpdateDriverRequest extends FormRequest
             'license_expired_at' => 'ngày hết hạn bằng lái',
             'base_salary' => 'lương cơ bản',
             'responsibility_allowance' => 'phụ cấp trách nhiệm',
+            'tourism_commission_rate' => 'tỷ lệ lương du lịch',
             'joined_at' => 'ngày vào làm',
             'left_at' => 'ngày nghỉ việc',
             'is_active' => 'trạng thái hoạt động',
@@ -175,6 +177,7 @@ class UpdateDriverRequest extends FormRequest
             licenseExpiredAt: $data['license_expired_at'] ?? null,
             baseSalary: array_key_exists('base_salary', $data) ? (string) $data['base_salary'] : null,
             responsibilityAllowance: array_key_exists('responsibility_allowance', $data) ? (string) $data['responsibility_allowance'] : null,
+            tourismCommissionRate: array_key_exists('tourism_commission_rate', $data) ? (string) $data['tourism_commission_rate'] : null,
             joinedAt: $data['joined_at'] ?? null,
             leftAt: $data['left_at'] ?? null,
             isActive: array_key_exists('is_active', $data) ? (bool) $data['is_active'] : null,

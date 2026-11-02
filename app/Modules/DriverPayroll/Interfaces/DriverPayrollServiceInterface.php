@@ -3,7 +3,6 @@
 namespace App\Modules\DriverPayroll\Interfaces;
 
 use App\Modules\Auth\Models\User;
-use App\Modules\Dispatch\Models\DispatchOrder;
 use App\Modules\DriverPayroll\Models\DriverAdvance;
 use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\DriverPayroll\Models\Payroll;
@@ -28,8 +27,6 @@ interface DriverPayrollServiceInterface
     public function attendances(): array;
 
     public function attendance(DriverAttendance $attendance): array;
-
-    public function createAttendance(DispatchOrder $order, array $data): array;
 
     public function updateAttendance(DriverAttendance $attendance, array $data): array;
 

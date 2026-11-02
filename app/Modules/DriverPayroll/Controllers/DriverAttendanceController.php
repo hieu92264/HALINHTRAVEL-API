@@ -3,13 +3,11 @@
 namespace App\Modules\DriverPayroll\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Dispatch\Models\DispatchOrder;
 use App\Modules\DriverPayroll\Interfaces\DriverPayrollServiceInterface;
 use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\DriverPayroll\Requests\AttendanceRequest;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\Response;
 
 class DriverAttendanceController extends Controller
 {
@@ -25,11 +23,6 @@ class DriverAttendanceController extends Controller
     public function show(DriverAttendance $attendance): JsonResponse
     {
         return $this->success($this->service->attendance($attendance), 'Lấy công chuyến thành công.');
-    }
-
-    public function storeForOrder(AttendanceRequest $request, DispatchOrder $dispatchOrder): JsonResponse
-    {
-        return $this->success($this->service->createAttendance($dispatchOrder, $request->validated()), 'Tạo công chuyến thành công.', Response::HTTP_CREATED);
     }
 
     public function update(AttendanceRequest $request, DriverAttendance $attendance): JsonResponse

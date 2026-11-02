@@ -4,10 +4,12 @@ namespace App\Modules\DriverPayroll\Models;
 
 use App\Modules\MasterData\Models\Driver;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/** @property-read Collection<int, PayrollItemDetail> $details */
 class PayrollItem extends Model
 {
     use HasBaseMetadata;
@@ -23,9 +25,6 @@ class PayrollItem extends Model
         'other_allowance',
         'advance_amount',
         'deduction_amount',
-        'direct_customer_collection',
-        'driver_reimbursement',
-        'driver_remittance_amount',
         'gross_salary',
         'net_salary',
         'note',
@@ -42,9 +41,6 @@ class PayrollItem extends Model
             'other_allowance' => 'decimal:2',
             'advance_amount' => 'decimal:2',
             'deduction_amount' => 'decimal:2',
-            'direct_customer_collection' => 'decimal:2',
-            'driver_reimbursement' => 'decimal:2',
-            'driver_remittance_amount' => 'decimal:2',
             'gross_salary' => 'decimal:2',
             'net_salary' => 'decimal:2',
         ]);

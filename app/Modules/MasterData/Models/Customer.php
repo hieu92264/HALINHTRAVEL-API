@@ -2,7 +2,6 @@
 
 namespace App\Modules\MasterData\Models;
 
-use App\Modules\Contract\Models\Contract;
 use App\Modules\Finance\Models\Receipt;
 use App\Shared\Enums\CustomerEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
@@ -37,11 +36,6 @@ class Customer extends Model
     public function routes(): HasMany
     {
         return $this->hasMany(Route::class);
-    }
-
-    public function contracts(): HasMany
-    {
-        return $this->hasMany(Contract::class);
     }
 
     public function receipts(): HasMany

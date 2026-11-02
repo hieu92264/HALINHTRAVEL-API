@@ -20,7 +20,7 @@ class CustomerDatabaseSeeder extends Seeder
      */
     private function customers(): array
     {
-        return [
+        return array_slice([
             ['code' => 'KH0001', 'type' => CustomerEnum::INDIVIDUAL, 'name' => 'Nguyễn Văn An', 'phone' => '0901000001', 'email' => 'nguyen.van.an@example.test', 'cccd' => '001201000001', 'address' => 'Quận Ba Đình, Hà Nội', 'contact_name' => 'Nguyễn Văn An', 'opening_balance' => '0.00', 'is_active' => true],
             ['code' => 'KH0002', 'type' => CustomerEnum::INDIVIDUAL, 'name' => 'Trần Thị Bình', 'phone' => '0901000002', 'email' => 'tran.thi.binh@example.test', 'cccd' => '001202000002', 'address' => 'Quận Hoàn Kiếm, Hà Nội', 'contact_name' => 'Trần Thị Bình', 'opening_balance' => '0.00', 'is_active' => true],
             ['code' => 'KH0003', 'type' => CustomerEnum::INDIVIDUAL, 'name' => 'Lê Hoàng Cường', 'phone' => '0901000003', 'email' => 'le.hoang.cuong@example.test', 'cccd' => '001203000003', 'address' => 'Quận Cầu Giấy, Hà Nội', 'contact_name' => 'Lê Hoàng Cường', 'opening_balance' => '0.00', 'is_active' => true],
@@ -41,6 +41,6 @@ class CustomerDatabaseSeeder extends Seeder
             ['code' => 'KH0018', 'type' => CustomerEnum::COMPANY, 'name' => 'Công ty Cổ phần Nội thất An Gia', 'phone' => '02873000018', 'email' => 'contact@angiadecor.example.test', 'tax_code' => '0310000018', 'address' => 'Quận Bình Thạnh, TP. Hồ Chí Minh', 'contact_name' => 'Đỗ Hoàng Nam', 'opening_balance' => '0.00', 'is_active' => true],
             ['code' => 'KH0019', 'type' => CustomerEnum::COMPANY, 'name' => 'Công ty TNHH Dịch vụ Biển Xanh', 'phone' => '02587300019', 'email' => 'contact@bienxanh.example.test', 'tax_code' => '4200000019', 'address' => 'Thành phố Nha Trang, Khánh Hòa', 'contact_name' => 'Ngô Thanh Hà', 'opening_balance' => '0.00', 'is_active' => true],
             ['code' => 'KH0020', 'type' => CustomerEnum::COMPANY, 'name' => 'Công ty Cổ phần Logistics Miền Trung', 'phone' => '02357300020', 'email' => 'contact@logisticsmientrung.example.test', 'tax_code' => '3300000020', 'address' => 'Thành phố Huế', 'contact_name' => 'Bùi Anh Tuấn', 'opening_balance' => '0.00', 'is_active' => true],
-        ];
+        ], 0, 5);
     }
 }

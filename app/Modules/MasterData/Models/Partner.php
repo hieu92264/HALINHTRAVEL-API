@@ -2,7 +2,6 @@
 
 namespace App\Modules\MasterData\Models;
 
-use App\Modules\Dispatch\Models\TripAssignment;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Shared\Enums\PartnerTypeEnum;
@@ -36,19 +35,9 @@ class Partner extends Model
         ]);
     }
 
-    public function vehicles(): HasMany
-    {
-        return $this->hasMany(Vehicle::class);
-    }
-
     public function drivers(): HasMany
     {
         return $this->hasMany(Driver::class);
-    }
-
-    public function tripAssignments(): HasMany
-    {
-        return $this->hasMany(TripAssignment::class);
     }
 
     public function expenses(): HasMany

@@ -20,11 +20,10 @@ return new class extends Migration
 
             $table->string('receipt_no', 50)->unique()->comment('Ví dụ: PT20260001');
             $table->foreignId('customer_id')->constrained('customers')->restrictOnDelete();
-            $table->foreignId('contract_id')->nullable()->constrained('contracts')->restrictOnDelete();
 
             // Chi tiết phiếu thu
             $table->enum('receipt_type', ReceiptTypeEnum::values())
-                ->comment('deposit / contract_payment / other');
+                ->comment('payment / other');
             $table->dateTime('received_at');
             $table->decimal('amount', 18, 2);
             $table->enum('payment_method', PaymentMethodEnum::values())

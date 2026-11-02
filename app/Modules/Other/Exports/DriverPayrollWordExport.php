@@ -63,10 +63,10 @@ class DriverPayrollWordExport
      */
     private function addPayrollTable($section, array $rows): void
     {
-        $widths = [520, 2260, 1450, 1390, 1500, 1450, 1480, 1350, 1340, 1680, 1300];
+        $widths = [650, 2800, 1900, 1900, 1900, 1900, 1800, 1900, 1100];
         $headers = [
             'STT', 'Họ và tên', 'Lương trách nhiệm', 'Lương lái công nhân', 'Lương lái du lịch',
-            'Tổng cộng', 'Lái xe chi', 'Lái xe thu', 'Lái xe nộp', 'Còn lĩnh', 'Ký nhận',
+            'Tổng cộng', 'Tạm ứng', 'Còn lĩnh', 'Ký nhận',
         ];
         $table = $section->addTable([
             'borderSize' => 4,
@@ -84,8 +84,7 @@ class DriverPayrollWordExport
         }
 
         $fields = [
-            'responsibility_allowance', 'fixed_trip_wage', 'tourism_commission', 'gross_salary',
-            'driver_reimbursement', 'direct_customer_collection', 'driver_remittance_amount', 'net_salary',
+            'responsibility_allowance', 'fixed_trip_wage', 'tourism_commission', 'gross_salary', 'advance_amount', 'net_salary',
         ];
         $totals = array_fill_keys($fields, 0.0);
         foreach (array_values($rows) as $index => $row) {
@@ -100,7 +99,7 @@ class DriverPayrollWordExport
             ];
             $table->addRow();
             foreach ($values as $column => $value) {
-                $alignment = $column === 0 ? Jc::CENTER : ($column === 1 ? Jc::LEFT : (in_array($column, range(2, 9), true) ? Jc::RIGHT : Jc::CENTER));
+                $alignment = $column === 0 ? Jc::CENTER : ($column === 1 ? Jc::LEFT : (in_array($column, range(2, 7), true) ? Jc::RIGHT : Jc::CENTER));
                 $table->addCell($widths[$column], ['valign' => VerticalJc::CENTER])
                     ->addText((string) $value, [], ['alignment' => $alignment]);
             }
@@ -113,7 +112,7 @@ class DriverPayrollWordExport
             $table->addCell($widths[2], ['valign' => VerticalJc::CENTER])
                 ->addText($this->money($totals[$field]), ['bold' => true], ['alignment' => Jc::RIGHT]);
         }
-        $table->addCell($widths[10]);
+        $table->addCell($widths[8]);
     }
 
     /** @param Section $section */

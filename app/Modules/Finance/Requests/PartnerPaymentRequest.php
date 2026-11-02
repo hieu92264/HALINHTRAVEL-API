@@ -17,6 +17,6 @@ class PartnerPaymentRequest extends FormRequest
     {
         $required = $this->isMethod('post') ? 'required' : 'sometimes';
 
-        return ['partner_id' => [$required, 'integer', 'exists:partners,id'], 'dispatch_order_id' => ['sometimes', 'nullable', 'integer', 'exists:dispatch_orders,id'], 'paid_at' => [$required, 'date'], 'amount' => [$required, 'decimal:0,2', 'min:0'], 'payment_method' => [$required, Rule::enum(PaymentMethodEnum::class)], 'description' => ['sometimes', 'nullable', 'string', 'max:500']];
+        return ['partner_id' => [$required, 'integer', 'exists:partners,id'], 'paid_at' => [$required, 'date'], 'amount' => [$required, 'decimal:0,2', 'min:0'], 'payment_method' => [$required, Rule::enum(PaymentMethodEnum::class)], 'description' => ['sometimes', 'nullable', 'string', 'max:500']];
     }
 }
