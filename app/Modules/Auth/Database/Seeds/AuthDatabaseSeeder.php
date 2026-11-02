@@ -63,6 +63,7 @@ class AuthDatabaseSeeder extends Seeder
                 'WORKER_VEHICLES',
                 'TOURIST_VEHICLES',
                 'WORKER_VEHICLE_RATES',
+                'VEHICLES',
             ]),
             $this->permissionValues([PermissionEnum::WORKER_VEHICLE_SCHEDULES_MANAGE]),
         ));
@@ -82,6 +83,7 @@ class AuthDatabaseSeeder extends Seeder
                 PermissionEnum::PARTNERS_VIEW,
                 PermissionEnum::WORKER_VEHICLES_VIEW,
                 PermissionEnum::TOURIST_VEHICLES_VIEW,
+                PermissionEnum::VEHICLES_VIEW,
             ]),
         ));
 

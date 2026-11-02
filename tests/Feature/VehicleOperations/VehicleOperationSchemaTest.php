@@ -9,6 +9,7 @@ use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Models\Route;
+use App\Modules\MasterData\Models\Vehicle;
 use App\Modules\Other\Services\OperationalReportService;
 use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
@@ -50,6 +51,30 @@ class VehicleOperationSchemaTest extends TestCase
         $service->createRun('worker', ['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca sáng', 'run_date' => '2026-02-01', 'pickup_time' => '09:00', 'return_time' => '11:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-000.02', 'is_hired_driver' => false]);
     }
 
+    public function test_selected_vehicle_is_snapshotted_for_new_run(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-VEHICLE-SNAPSHOT', 'type' => 'company', 'name' => 'Khách hàng test']);
+        $route = Route::query()->create(['code' => 'T-VEHICLE-SNAPSHOT', 'customer_id' => $customer->id, 'name' => 'Tuyến test', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-SNAPSHOT', 'license_plate' => '15B-888.88', 'seat_count' => 29, 'ownership_type' => 'company']);
+
+        $run = app(VehicleOperationService::class)->createRun('worker', [
+            'vehicle_id' => $vehicle->id,
+            'customer_id' => $customer->id,
+            'route_id' => $route->id,
+            'shift_name' => 'Ca sáng',
+            'run_date' => '2026-02-01',
+            'pickup_time' => '08:00',
+            'return_time' => '12:00',
+            'pickup_location' => 'A',
+            'dropoff_location' => 'B',
+            'is_hired_driver' => false,
+        ]);
+
+        $this->assertSame($vehicle->id, $run['vehicle_id']);
+        $this->assertSame('15B-888.88', $run['license_plate']);
+        $this->assertTrue($run['is_company_vehicle']);
+    }
+
     public function test_dispatcher_can_create_and_update_worker_rate_through_the_public_api(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
@@ -80,7 +105,7 @@ class VehicleOperationSchemaTest extends TestCase
 
         $this->assertDatabaseCount('worker_vehicles', 5);
         $this->assertDatabaseCount('tourist_vehicles', 5);
-        $this->assertFalse(Schema::hasTable('vehicles'));
+        $this->assertTrue(Schema::hasTable('vehicles'));
         $this->assertFalse(Schema::hasTable('dispatch_orders'));
     }
 

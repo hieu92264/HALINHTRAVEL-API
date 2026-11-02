@@ -13,6 +13,7 @@ use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Database\Seeds\CustomerDatabaseSeeder;
 use App\Modules\MasterData\Database\Seeds\DriverDatabaseSeeder;
 use App\Modules\MasterData\Database\Seeds\PartnerDatabaseSeeder;
+use App\Modules\MasterData\Database\Seeds\VehicleDatabaseSeeder;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\ExpenseType;
@@ -29,7 +30,7 @@ class RefreshBusinessDataSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([CustomerDatabaseSeeder::class, PartnerDatabaseSeeder::class, DriverDatabaseSeeder::class]);
+        $this->call([CustomerDatabaseSeeder::class, PartnerDatabaseSeeder::class, DriverDatabaseSeeder::class, VehicleDatabaseSeeder::class]);
 
         $fuel = ExpenseType::firstOrCreate(['code' => 'FUEL'], ['name' => 'Xăng dầu', 'scope' => 'general', 'profit_category' => 'fuel']);
         $hireExpense = ExpenseType::firstOrCreate(['code' => 'HIRED_DRIVER'], ['name' => 'Chi trả thuê lái', 'scope' => 'general', 'profit_category' => 'other']);

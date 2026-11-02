@@ -27,7 +27,7 @@ class RefreshBusinessDataSeederTest extends TestCase
         $this->assertSame(5, DB::table('customers')->count());
         $this->assertLessThanOrEqual(5, DB::table('drivers')->count());
         $this->assertLessThanOrEqual(5, DB::table('partners')->count());
-        $this->assertFalse(Schema::hasTable('vehicles'));
+        $this->assertTrue(Schema::hasTable('vehicles'));
         $this->assertFalse(Schema::hasTable('dispatch_orders'));
         $this->assertFalse(Schema::hasTable('contracts'));
         $this->assertDatabaseHas('worker_vehicles', ['status' => 'in_progress']);
