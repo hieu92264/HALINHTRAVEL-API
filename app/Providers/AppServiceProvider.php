@@ -6,24 +6,9 @@ use App\Modules\Auth\Interfaces\AccessManagementServiceInterface;
 use App\Modules\Auth\Interfaces\AuthServiceInterface;
 use App\Modules\Auth\Services\AccessManagementService;
 use App\Modules\Auth\Services\AuthService;
-use App\Modules\Contract\Interfaces\ContractScheduleRuleServiceInterface;
-use App\Modules\Contract\Interfaces\ContractServiceInterface;
-use App\Modules\Contract\Services\ContractScheduleRuleService;
-use App\Modules\Contract\Services\ContractService;
 use App\Modules\Dashboard\Interfaces\DashboardOverviewServiceInterface;
 use App\Modules\Dashboard\Observers\DashboardModelObserver;
 use App\Modules\Dashboard\Services\DashboardOverviewService;
-use App\Modules\Dispatch\Interfaces\AvailabilityServiceInterface;
-use App\Modules\Dispatch\Interfaces\DispatchOrderServiceInterface;
-use App\Modules\Dispatch\Interfaces\TripAssignmentServiceInterface;
-use App\Modules\Dispatch\Interfaces\TripScheduleServiceInterface;
-use App\Modules\Dispatch\Models\DispatchOrder;
-use App\Modules\Dispatch\Models\TripAssignment;
-use App\Modules\Dispatch\Models\TripSchedule;
-use App\Modules\Dispatch\Services\AvailabilityService;
-use App\Modules\Dispatch\Services\DispatchOrderService;
-use App\Modules\Dispatch\Services\TripAssignmentService;
-use App\Modules\Dispatch\Services\TripScheduleService;
 use App\Modules\DriverPayroll\Interfaces\DriverPayrollServiceInterface;
 use App\Modules\DriverPayroll\Services\DriverPayrollService;
 use App\Modules\Finance\Interfaces\FinanceServiceInterface;
@@ -35,28 +20,17 @@ use App\Modules\MasterData\Interfaces\CustomerServiceInterface;
 use App\Modules\MasterData\Interfaces\DriverServiceInterface;
 use App\Modules\MasterData\Interfaces\ExpenseTypeServiceInterface;
 use App\Modules\MasterData\Interfaces\PartnerServiceInterface;
-use App\Modules\MasterData\Interfaces\RouteRateServiceInterface;
 use App\Modules\MasterData\Interfaces\RouteServiceInterface;
-use App\Modules\MasterData\Interfaces\VehicleServiceInterface;
-use App\Modules\MasterData\Interfaces\VehicleTypeServiceInterface;
 use App\Modules\MasterData\Models\Driver;
-use App\Modules\MasterData\Models\Vehicle;
 use App\Modules\MasterData\Services\CustomerService;
 use App\Modules\MasterData\Services\DriverService;
 use App\Modules\MasterData\Services\ExpenseTypeService;
 use App\Modules\MasterData\Services\PartnerService;
-use App\Modules\MasterData\Services\RouteRateService;
 use App\Modules\MasterData\Services\RouteService;
-use App\Modules\MasterData\Services\VehicleService;
-use App\Modules\MasterData\Services\VehicleTypeService;
 use App\Modules\Other\Interfaces\DebtReportServiceInterface;
 use App\Modules\Other\Interfaces\ReportServiceInterface;
 use App\Modules\Other\Services\DebtReportService;
 use App\Modules\Other\Services\ReportService;
-use App\Modules\Rental\Interfaces\QuotationServiceInterface;
-use App\Modules\Rental\Interfaces\RentalRequestServiceInterface;
-use App\Modules\Rental\Services\QuotationService;
-use App\Modules\Rental\Services\RentalRequestService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -78,24 +52,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ExpenseTypeServiceInterface::class, ExpenseTypeService::class);
         $this->app->singleton(PartnerServiceInterface::class, PartnerService::class);
         $this->app->singleton(RouteServiceInterface::class, RouteService::class);
-        $this->app->singleton(RouteRateServiceInterface::class, RouteRateService::class);
-        $this->app->singleton(VehicleTypeServiceInterface::class, VehicleTypeService::class);
-        $this->app->singleton(VehicleServiceInterface::class, VehicleService::class);
-        $this->app->singleton(AvailabilityServiceInterface::class, AvailabilityService::class);
-        $this->app->singleton(TripScheduleServiceInterface::class, TripScheduleService::class);
-        $this->app->singleton(TripAssignmentServiceInterface::class, TripAssignmentService::class);
-        $this->app->singleton(DispatchOrderServiceInterface::class, DispatchOrderService::class);
         $this->app->singleton(DashboardOverviewServiceInterface::class, DashboardOverviewService::class);
         $this->app->singleton(FinanceServiceInterface::class, FinanceService::class);
         $this->app->singleton(DriverPayrollServiceInterface::class, DriverPayrollService::class);
         $this->app->singleton(DebtReportServiceInterface::class, DebtReportService::class);
         $this->app->singleton(ReportServiceInterface::class, ReportService::class);
 
-        // rental
-        $this->app->singleton(RentalRequestServiceInterface::class, RentalRequestService::class);
-        $this->app->singleton(QuotationServiceInterface::class, QuotationService::class);
-        $this->app->singleton(ContractServiceInterface::class, ContractService::class);
-        $this->app->singleton(ContractScheduleRuleServiceInterface::class, ContractScheduleRuleService::class);
     }
 
     /**
@@ -111,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
         Broadcast::routes(['prefix' => 'api', 'middleware' => ['api', 'auth:api']]);
         require base_path('routes/channels.php');
-        foreach ([TripSchedule::class, TripAssignment::class, DispatchOrder::class, Vehicle::class, Driver::class, Receipt::class, Expense::class, PartnerPayment::class] as $model) {
+        foreach ([Driver::class, Receipt::class, Expense::class, PartnerPayment::class] as $model) {
             $model::observe(DashboardModelObserver::class);
         }
 
@@ -119,9 +81,6 @@ class AppServiceProvider extends ServiceProvider
             $login = Str::lower((string) $request->input('user_name'));
 
             return Limit::perMinute(5)->by($login.'|'.$request->ip());
-        });
-        RateLimiter::for('quotation-response', static function (Request $request): Limit {
-            return Limit::perMinute(10)->by($request->ip().'|'.$request->route('token'));
         });
     }
 }

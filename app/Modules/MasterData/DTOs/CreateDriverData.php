@@ -19,6 +19,7 @@ readonly class CreateDriverData
         public ?string $licenseExpiredAt,
         public string $baseSalary,
         public string $responsibilityAllowance,
+        public string $tourismCommissionRate,
         public ?string $joinedAt,
         public ?string $leftAt,
     ) {}
@@ -39,6 +40,7 @@ readonly class CreateDriverData
             'license_expired_at' => $this->licenseExpiredAt,
             'base_salary' => $this->baseSalary,
             'responsibility_allowance' => $this->responsibilityAllowance,
+            'tourism_commission_rate' => $this->tourismCommissionRate,
             'joined_at' => $this->joinedAt,
             'left_at' => $this->leftAt,
         ];

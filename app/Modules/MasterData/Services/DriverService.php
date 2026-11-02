@@ -41,6 +41,7 @@ class DriverService implements DriverServiceInterface
             'license_expired_at' => $driver->license_expired_at?->toDateString(),
             'base_salary' => $driver->base_salary,
             'responsibility_allowance' => $driver->responsibility_allowance,
+            'tourism_commission_rate' => $driver->tourism_commission_rate,
             'joined_at' => $driver->joined_at?->toDateString(),
             'left_at' => $driver->left_at?->toDateString(),
             'is_active' => $driver->is_active,

@@ -22,8 +22,6 @@ return new class extends Migration
             $table->enum('scope', ExpenseTypeEnum::values())
                 ->comment('vehicle / trip / general');
 
-            $table->foreignId('vehicle_id')->nullable()->constrained('vehicles')->nullOnDelete(); // BIGINT UNSIGNED FK NULL[cite: 23]
-            $table->foreignId('dispatch_order_id')->nullable()->constrained('dispatch_orders')->nullOnDelete(); // BIGINT UNSIGNED FK NULL[cite: 23]
             $table->foreignId('partner_id')->nullable()->constrained('partners')->nullOnDelete()->comment('Gara / cây xăng...'); // BIGINT UNSIGNED FK NULL[cite: 23]
             $table->foreignId('driver_id')->nullable()->constrained('drivers')->nullOnDelete()->comment('Người chi / ứng chi');
 

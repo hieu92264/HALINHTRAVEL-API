@@ -5,10 +5,8 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('dashboard', static function (User $user): bool {
     return $user->hasAnyPermission([
-        'trip-schedules.view',
-        'trip-assignments.view',
-        'dispatch-orders.view',
-        'vehicles.view',
+        'worker-vehicles.view',
+        'tourist-vehicles.view',
         'drivers.view',
         'receipts.view',
         'expenses.view',

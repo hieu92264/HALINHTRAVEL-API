@@ -30,6 +30,7 @@ class Driver extends Model
         'license_expired_at',
         'base_salary',
         'responsibility_allowance',
+        'tourism_commission_rate',
         'joined_at',
         'left_at',
     ];
@@ -42,6 +43,7 @@ class Driver extends Model
             'license_expired_at' => 'date',
             'base_salary' => 'decimal:2',
             'responsibility_allowance' => 'decimal:2',
+            'tourism_commission_rate' => 'decimal:4',
             'joined_at' => 'date',
             'left_at' => 'date',
         ]);

@@ -19,10 +19,10 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreignId('driver_id')->constrained('drivers')->restrictOnDelete();
-            // UNIQUE đảm bảo mỗi lệnh điều xe chỉ sinh ra 1 bản ghi chấm công
-            $table->foreignId('dispatch_order_id')->unique()
-                ->constrained('dispatch_orders')
-                ->restrictOnDelete();
+            $table->foreignId('worker_vehicle_id')->nullable()->constrained('worker_vehicles')->nullOnDelete();
+            $table->foreignId('tourist_vehicle_id')->nullable()->constrained('tourist_vehicles')->nullOnDelete();
+            $table->unique(['worker_vehicle_id', 'driver_id'], 'worker_vehicle_driver_attendance_unique');
+            $table->unique(['tourist_vehicle_id', 'driver_id'], 'tourist_vehicle_driver_attendance_unique');
 
             // Phân loại & Thời gian
             $table->date('work_date');

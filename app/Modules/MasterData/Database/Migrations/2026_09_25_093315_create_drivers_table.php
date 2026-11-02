@@ -38,6 +38,7 @@ return new class extends Migration
 
             // Lương & Phụ cấp
             $table->decimal('base_salary', 18, 2)->default(0)->comment('Nếu áp dụng'); // DECIMAL(18,2) DEFAULT 0[cite: 6]
+            $table->decimal('tourism_commission_rate', 8, 4)->default(0)->comment('Tỷ lệ lương du lịch mặc định');
             $table->decimal('responsibility_allowance', 18, 2)->default(0)->comment('Phụ cấp trách nhiệm');
 
             // Trạng thái & Ngày tháng công việc

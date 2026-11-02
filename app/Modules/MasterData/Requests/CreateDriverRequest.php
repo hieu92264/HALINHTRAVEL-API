@@ -2,9 +2,9 @@
 
 namespace App\Modules\MasterData\Requests;
 
+use App\Modules\Auth\Models\User;
 use App\Modules\MasterData\DTOs\CreateDriverData;
 use App\Modules\MasterData\Models\Driver;
-use App\Modules\Auth\Models\User;
 use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\PartnerTypeEnum;
 use App\Shared\Enums\RoleEnum;
@@ -48,6 +48,7 @@ class CreateDriverRequest extends FormRequest
             'license_expired_at' => ['nullable', 'date', 'after_or_equal:license_issued_at'],
             'base_salary' => ['sometimes', 'decimal:0,2', 'min:0'],
             'responsibility_allowance' => ['sometimes', 'decimal:0,2', 'min:0'],
+            'tourism_commission_rate' => ['sometimes', 'decimal:0,4', 'min:0', 'max:1'],
             'joined_at' => ['nullable', 'date'],
             'left_at' => ['nullable', 'date', 'after_or_equal:joined_at'],
         ];
@@ -98,6 +99,7 @@ class CreateDriverRequest extends FormRequest
             'license_expired_at' => 'ngày hết hạn bằng lái',
             'base_salary' => 'lương cơ bản',
             'responsibility_allowance' => 'phụ cấp trách nhiệm',
+            'tourism_commission_rate' => 'tỷ lệ lương du lịch',
             'joined_at' => 'ngày vào làm',
             'left_at' => 'ngày nghỉ việc',
         ];
@@ -120,6 +122,7 @@ class CreateDriverRequest extends FormRequest
             licenseExpiredAt: $data['license_expired_at'] ?? null,
             baseSalary: (string) ($data['base_salary'] ?? '0'),
             responsibilityAllowance: (string) ($data['responsibility_allowance'] ?? '0'),
+            tourismCommissionRate: (string) ($data['tourism_commission_rate'] ?? '0'),
             joinedAt: $data['joined_at'] ?? null,
             leftAt: $data['left_at'] ?? null,
         );

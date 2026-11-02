@@ -19,7 +19,8 @@ return new class extends Migration
 
             $table->foreignId('payroll_item_id')->constrained('payroll_items')->cascadeOnDelete();
             $table->foreignId('driver_attendance_id')->nullable()->constrained('driver_attendances')->nullOnDelete();
-            $table->foreignId('dispatch_order_id')->nullable()->constrained('dispatch_orders')->nullOnDelete();
+            $table->foreignId('worker_vehicle_id')->nullable()->constrained('worker_vehicles')->nullOnDelete();
+            $table->foreignId('tourist_vehicle_id')->nullable()->constrained('tourist_vehicles')->nullOnDelete();
 
             // Chi tiết tính toán
             $table->enum('calculation_type', PayrollCalculationTypeEnum::values())

@@ -13,7 +13,6 @@ return new class extends Migration
         Schema::table('receipts', function (Blueprint $table): void {
             $table->enum('settlement_type', ReceiptSettlementTypeEnum::values())
                 ->default(ReceiptSettlementTypeEnum::STANDARD->value);
-            $table->foreignId('dispatch_order_id')->nullable()->constrained('dispatch_orders')->nullOnDelete();
             $table->foreignId('driver_id')->nullable()->constrained('drivers')->nullOnDelete();
             $table->index(['settlement_type', 'received_at'], 'receipts_settlement_received_index');
         });
@@ -35,7 +34,6 @@ return new class extends Migration
         Schema::table('receipts', function (Blueprint $table): void {
             $table->dropIndex('receipts_settlement_received_index');
             $table->dropConstrainedForeignId('driver_id');
-            $table->dropConstrainedForeignId('dispatch_order_id');
             $table->dropColumn('settlement_type');
         });
     }

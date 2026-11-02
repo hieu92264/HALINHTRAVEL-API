@@ -19,9 +19,6 @@ return new class extends Migration
 
             $table->string('payment_no', 50)->unique()->comment('Ví dụ: CTDT20260001');
             $table->foreignId('partner_id')->constrained('partners')->restrictOnDelete();
-            $table->foreignId('dispatch_order_id')->nullable()->constrained('dispatch_orders')
-                ->restrictOnDelete()
-                ->comment('Có thể thanh toán theo chuyến');
 
             // Chi tiết thanh toán
             $table->dateTime('paid_at'); // DATETIME[cite: 17]
