@@ -19,9 +19,14 @@ class VehicleOperationController extends Controller
 
     public function __construct(private readonly VehicleOperationService $service) {}
 
-    public function workerIndex(): JsonResponse
+    public function workerIndex(Request $request): JsonResponse
     {
-        return $this->success($this->service->runs('worker'));
+        return $this->success($this->service->runs('worker', $request->only(['from_date', 'to_date', 'status', 'customer_id', 'route_id', 'driver_id', 'license_plate'])));
+    }
+
+    public function workerShow(WorkerVehicle $workerVehicle): JsonResponse
+    {
+        return $this->success($this->service->workerRun($workerVehicle));
     }
 
     public function workerStore(Request $request): JsonResponse
@@ -39,6 +44,16 @@ class VehicleOperationController extends Controller
         $this->service->deleteRun($workerVehicle);
 
         return $this->success(null, 'Đã hủy xe chạy.');
+    }
+
+    public function workerStart(Request $request, WorkerVehicle $workerVehicle): JsonResponse
+    {
+        return $this->success($this->service->startWorkerRun($workerVehicle, $request->validate(['actual_started_at' => ['nullable', 'date']])['actual_started_at'] ?? null));
+    }
+
+    public function workerComplete(Request $request, WorkerVehicle $workerVehicle): JsonResponse
+    {
+        return $this->success($this->service->completeWorkerRun($workerVehicle, $request->validate(['actual_completed_at' => ['nullable', 'date']])['actual_completed_at'] ?? null), 'Đã hoàn thành xe chạy công nhân.');
     }
 
     public function touristIndex(): JsonResponse
@@ -91,6 +106,13 @@ class VehicleOperationController extends Controller
     public function ruleUpdate(Request $request, WorkerVehicleScheduleRule $workerVehicleScheduleRule): JsonResponse
     {
         return $this->success($this->service->saveRule([...$workerVehicleScheduleRule->getAttributes(), ...$request->all()], $workerVehicleScheduleRule));
+    }
+
+    public function ruleDestroy(WorkerVehicleScheduleRule $workerVehicleScheduleRule): JsonResponse
+    {
+        $this->service->deactivateRule($workerVehicleScheduleRule);
+
+        return $this->success(null, 'Đã ngừng quy tắc lịch.');
     }
 
     public function generate(Request $request, WorkerVehicleScheduleRule $workerVehicleScheduleRule): JsonResponse

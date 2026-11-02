@@ -3,7 +3,6 @@
 namespace App\Modules\DriverPayroll\Services;
 
 use App\Modules\Auth\Models\User;
-use App\Modules\Dispatch\Models\DispatchOrder;
 use App\Modules\DriverPayroll\Interfaces\DriverPayrollServiceInterface;
 use App\Modules\DriverPayroll\Models\DriverAdvance;
 use App\Modules\DriverPayroll\Models\DriverAttendance;
@@ -14,7 +13,7 @@ use App\Modules\Finance\Models\DriverCashRemittance;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Models\Driver;
-use App\Shared\Enums\DispatchOrderStatusEnum;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Shared\Enums\DriverAdvanceStatusEnum;
 use App\Shared\Enums\DriverAttendanceStatusEnum;
 use App\Shared\Enums\ExpenseSettlementTypeEnum;
@@ -22,7 +21,6 @@ use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\PayrollCalculationTypeEnum;
 use App\Shared\Enums\PayrollStatusEnum;
 use App\Shared\Enums\ReceiptSettlementTypeEnum;
-use App\Shared\Enums\RentalServiceTypeEnum;
 use App\Shared\Enums\WorkTypeEnum;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -86,50 +84,19 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     public function attendances(): array
     {
-        return DriverAttendance::query()->whereHas('dispatchOrder', fn ($query) => $query->operational())->with(['driver', 'dispatchOrder'])->where('is_active', true)->orderByDesc('work_date')->get()->map(fn (DriverAttendance $item) => $this->attendanceData($item))->all();
+        return DriverAttendance::query()->with(['driver', 'workerVehicle'])->where('is_active', true)->orderByDesc('work_date')->get()->map(fn (DriverAttendance $item) => $this->attendanceData($item))->all();
     }
 
     public function attendance(DriverAttendance $attendance): array
     {
-        abort_unless($attendance->dispatchOrder()->operational()->exists(), 404);
-
-        return $this->attendanceData($attendance->load(['driver', 'dispatchOrder']));
+        return $this->attendanceData($attendance->load(['driver', 'workerVehicle']));
     }
 
-    public function createAttendance(DispatchOrder $order, array $data): array
+    public function createAttendance(WorkerVehicle $run, array $data): array
     {
-        return DB::transaction(function () use ($order, $data): array {
-            $loaded = $order->load(['tripAssignment.driver', 'tripAssignment.vehicle.vehicleType', 'tripSchedule.contractItem']);
-            abort_unless($loaded->tripSchedule?->service_type?->isOperational(), 404);
-            if ($loaded->status !== DispatchOrderStatusEnum::COMPLETED) {
-                abort(409, 'Chỉ lệnh đã hoàn thành mới tạo được công chuyến.');
-            }
-            if ($loaded->tripAssignment?->driver === null || DriverAttendance::query()->where('dispatch_order_id', $loaded->id)->exists()) {
-                abort(409, 'Lệnh điều xe đã có công chuyến hoặc thiếu tài xế.');
-            }
-            $service = $loaded->tripSchedule?->service_type;
-            $driver = $loaded->tripAssignment->driver;
-            $units = (string) ($data['work_units'] ?? 1);
-            if ($service === RentalServiceTypeEnum::BUSINESS) {
-                $type = WorkTypeEnum::FIXED_TRIP;
-                $base = '1';
-                $rate = (string) ($loaded->tripSchedule?->contractItem?->driver_wage ?? 0);
-                $wage = (float) $units * (float) $rate;
-            } elseif ($service === RentalServiceTypeEnum::TOURISM) {
-                $type = WorkTypeEnum::TOURISM_TRIP;
-                $base = (string) ($loaded->customer_amount ?? 0);
-                $rate = (string) (($loaded->tripAssignment?->vehicle?->vehicleType?->tour_driver_commission_rate ?? 0) / 100);
-                $wage = (float) $base * (float) $rate;
-            } else {
-                if (! array_key_exists('rate', $data)) {
-                    abort(422, 'Chuyến công tác yêu cầu đơn giá công.');
-                }
-                $type = WorkTypeEnum::OTHER;
-                $base = $units;
-                $rate = (string) $data['rate'];
-                $wage = (float) $base * (float) $rate;
-            }
-            $item = DriverAttendance::create(['driver_id' => $driver->id, 'dispatch_order_id' => $loaded->id, 'work_date' => ($loaded->actual_end_at ?? $loaded->completed_at ?? now())->toDateString(), 'work_type' => $type, 'work_units' => $units, 'base_amount' => $base, 'rate' => $rate, 'calculated_wage' => number_format($wage, 2, '.', ''), 'status' => DriverAttendanceStatusEnum::PENDING]);
+        return DB::transaction(function () use ($run): array {
+            abort_unless($run->status === 'completed' && $run->driver_id && ! $run->is_hired_driver, 409);
+            $item = DriverAttendance::firstOrCreate(['worker_vehicle_id' => $run->id, 'driver_id' => $run->driver_id], ['work_date' => ($run->actual_completed_at ?? $run->completed_at ?? now())->toDateString(), 'work_type' => WorkTypeEnum::FIXED_TRIP, 'work_units' => 1, 'base_amount' => $run->driver_wage, 'rate' => 1, 'calculated_wage' => $run->driver_wage, 'status' => DriverAttendanceStatusEnum::PENDING]);
 
             return $this->attendance($item);
         });
@@ -337,7 +304,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
 
     private function attendanceData(DriverAttendance $item): array
     {
-        return ['id' => $item->id, 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'dispatch_order_id' => $item->dispatch_order_id, 'dispatch_order_no' => $item->dispatchOrder?->order_no, 'work_date' => $item->work_date?->toDateString(), 'work_type' => $item->work_type?->value, 'work_units' => $item->work_units, 'base_amount' => $item->base_amount, 'rate' => $item->rate, 'calculated_wage' => $item->calculated_wage, 'status' => $item->status?->value];
+        return ['id' => $item->id, 'driver_id' => $item->driver_id, 'driver_name' => $item->driver?->full_name, 'worker_vehicle_id' => $item->worker_vehicle_id, 'worker_run_no' => $item->workerVehicle?->run_no, 'work_date' => $item->work_date?->toDateString(), 'work_type' => $item->work_type?->value, 'work_units' => $item->work_units, 'base_amount' => $item->base_amount, 'rate' => $item->rate, 'calculated_wage' => $item->calculated_wage, 'status' => $item->status?->value];
     }
 
     private function payrollData(Payroll $item): array

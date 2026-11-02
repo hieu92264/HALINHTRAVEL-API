@@ -2,8 +2,8 @@
 
 namespace App\Modules\DriverPayroll\Models;
 
-use App\Modules\Dispatch\Models\DispatchOrder;
 use App\Modules\MasterData\Models\Driver;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Shared\Enums\DriverAttendanceStatusEnum;
 use App\Shared\Enums\WorkTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
@@ -17,7 +17,8 @@ class DriverAttendance extends Model
 
     protected $fillable = [
         'driver_id',
-        'dispatch_order_id',
+        'worker_vehicle_id',
+        'tourist_vehicle_id',
         'work_date',
         'work_type',
         'work_units',
@@ -45,9 +46,9 @@ class DriverAttendance extends Model
         return $this->belongsTo(Driver::class);
     }
 
-    public function dispatchOrder(): BelongsTo
+    public function workerVehicle(): BelongsTo
     {
-        return $this->belongsTo(DispatchOrder::class);
+        return $this->belongsTo(WorkerVehicle::class);
     }
 
     public function payrollItemDetails(): HasMany

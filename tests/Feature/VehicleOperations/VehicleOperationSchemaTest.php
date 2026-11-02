@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\VehicleOperations;
 
+use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\MasterData\Models\Customer;
+use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Route;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Modules\VehicleOperations\Services\VehicleOperationService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -49,5 +52,21 @@ class VehicleOperationSchemaTest extends TestCase
         $this->assertDatabaseCount('tourist_vehicles', 1);
         $this->assertFalse(Schema::hasTable('vehicles'));
         $this->assertFalse(Schema::hasTable('dispatch_orders'));
+    }
+
+    public function test_completing_worker_run_creates_at_most_one_pending_attendance(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-ATTENDANCE', 'type' => 'company', 'name' => 'Khách hàng test']);
+        $route = Route::query()->create(['code' => 'T-ATTENDANCE', 'customer_id' => $customer->id, 'name' => 'Tuyến test', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
+        $driver = Driver::query()->create(['code' => 'LX-ATTENDANCE', 'type' => 'company', 'full_name' => 'Lái xe test', 'license_number' => 'B2-ATTENDANCE', 'license_class' => 'B2']);
+        $service = app(VehicleOperationService::class);
+        $run = $service->createRun('worker', ['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca sáng', 'run_date' => '2026-02-02', 'pickup_time' => '08:00', 'return_time' => '12:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-000.03', 'driver_id' => $driver->id, 'is_hired_driver' => false, 'driver_wage' => 250000]);
+        $model = WorkerVehicle::query()->findOrFail($run['id']);
+
+        $service->completeWorkerRun($model);
+        $service->completeWorkerRun($model);
+
+        $this->assertDatabaseCount('driver_attendances', 1);
+        $this->assertSame('pending', DriverAttendance::query()->sole()->status->value);
     }
 }

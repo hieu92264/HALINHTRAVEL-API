@@ -23,7 +23,6 @@ Route::prefix('driver-payroll')->group(function () {
         Route::get('/attendances/{attendance}', [DriverAttendanceController::class, 'show']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::DRIVER_ATTENDANCES_MANAGE->value])->group(function (): void {
-        Route::post('/orders/{dispatchOrder}/attendance', [DriverAttendanceController::class, 'storeForOrder']);
         Route::patch('/attendances/{attendance}', [DriverAttendanceController::class, 'update']);
         Route::post('/attendances/{attendance}/confirm', [DriverAttendanceController::class, 'confirm']);
     });

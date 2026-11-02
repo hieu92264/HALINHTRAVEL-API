@@ -2,11 +2,15 @@
 
 namespace App\Modules\VehicleOperations\Services;
 
+use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\MasterData\Models\Driver;
 use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicleRate;
 use App\Modules\VehicleOperations\Models\WorkerVehicleScheduleRule;
+use App\Shared\Enums\DriverAttendanceStatusEnum;
+use App\Shared\Enums\OwnershipTypeEnum;
+use App\Shared\Enums\WorkTypeEnum;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -17,9 +21,58 @@ use Illuminate\Validation\ValidationException;
 class VehicleOperationService
 {
     /** @return list<array<string, mixed>> */
-    public function runs(string $kind): array
+    public function runs(string $kind, array $filters = []): array
     {
-        return $this->modelClass($kind)::query()->with($kind === 'worker' ? ['customer:id,name', 'route:id,name', 'partner:id,name', 'driver:id,full_name'] : ['customer:id,name', 'partner:id,name', 'driver:id,full_name'])->latest('run_date')->latest('pickup_time')->get()->map(fn (Model $run) => $this->run($run))->all();
+        $query = $this->modelClass($kind)::query()->with($kind === 'worker' ? ['customer:id,name', 'route:id,name', 'partner:id,name', 'driver:id,full_name'] : ['customer:id,name', 'partner:id,name', 'driver:id,full_name']);
+        foreach (['status', 'customer_id', 'route_id', 'driver_id', 'license_plate'] as $field) {
+            if (filled($filters[$field] ?? null)) {
+                $query->where($field, $filters[$field]);
+            }
+        }
+        if (filled($filters['from_date'] ?? null)) {
+            $query->whereDate('run_date', '>=', $filters['from_date']);
+        }
+        if (filled($filters['to_date'] ?? null)) {
+            $query->whereDate('run_date', '<=', $filters['to_date']);
+        }
+
+        return $query->latest('run_date')->latest('pickup_time')->get()->map(fn (Model $run) => $this->run($run))->all();
+    }
+
+    /** @return array<string, mixed> */
+    public function workerRun(WorkerVehicle $run): array
+    {
+        return $this->run($run);
+    }
+
+    /** @return array<string, mixed> */
+    public function startWorkerRun(WorkerVehicle $run, ?string $startedAt = null): array
+    {
+        if ($run->status !== 'planned') {
+            abort(409, 'Chỉ xe chạy theo kế hoạch mới được bắt đầu.');
+        }
+        $run->forceFill(['status' => 'in_progress', 'actual_started_at' => $startedAt ?? now()])->save();
+
+        return $this->run($run->fresh());
+    }
+
+    /** @return array<string, mixed> */
+    public function completeWorkerRun(WorkerVehicle $run, ?string $completedAt = null): array
+    {
+        return DB::transaction(function () use ($run, $completedAt): array {
+            $locked = WorkerVehicle::query()->lockForUpdate()->findOrFail($run->id);
+            if ($locked->status === 'cancelled') {
+                abort(409, 'Không thể hoàn thành chuyến đã hủy.');
+            }
+            $at = $completedAt ?? now()->toDateTimeString();
+            $locked->forceFill(['status' => 'completed', 'completed_at' => $at, 'actual_completed_at' => $at, 'actual_started_at' => $locked->actual_started_at ?? $locked->run_date->toDateString().' '.$locked->pickup_time])->save();
+            $driver = $locked->driver_id ? Driver::query()->find($locked->driver_id) : null;
+            if ($locked->is_company_vehicle && ! $locked->is_hired_driver && $driver?->type === OwnershipTypeEnum::COMPANY) {
+                DriverAttendance::query()->firstOrCreate(['worker_vehicle_id' => $locked->id, 'driver_id' => $driver->id], ['work_date' => $locked->actual_completed_at->toDateString(), 'work_type' => WorkTypeEnum::FIXED_TRIP, 'work_units' => 1, 'base_amount' => $locked->driver_wage, 'rate' => 1, 'calculated_wage' => $locked->driver_wage, 'status' => DriverAttendanceStatusEnum::PENDING]);
+            }
+
+            return $this->run($locked->fresh());
+        });
     }
 
     /** @return array<string, mixed> */
@@ -98,11 +151,17 @@ class VehicleOperationService
             $rule->fill($data)->save();
             $rule->days()->delete();
             $rule->days()->createMany($days);
-            if ($rule->is_active) {
-                $this->generateRuns($rule, now()->toDateString(), now()->addDays(90)->toDateString());
-            }
+            $this->syncPlannedRuns($rule);
 
             return $this->rule($rule->fresh()->load(['days', 'runs', 'customer:id,name', 'route:id,name', 'partner:id,name', 'driver:id,full_name']));
+        });
+    }
+
+    public function deactivateRule(WorkerVehicleScheduleRule $rule): void
+    {
+        DB::transaction(function () use ($rule): void {
+            $rule->forceFill(['is_active' => false])->save();
+            $this->syncPlannedRuns($rule->fresh());
         });
     }
 
@@ -120,7 +179,8 @@ class VehicleOperationService
                 if ($date->lt($rule->effective_from) || ($rule->effective_to && $date->gt($rule->effective_to))) {
                     continue;
                 }
-                if (WorkerVehicle::query()->where('schedule_rule_id', $rule->id)->whereDate('run_date', $date)->where('pickup_time', $day->pickup_time)->exists()) {
+                $existing = WorkerVehicle::query()->where('schedule_rule_id', $rule->id)->whereDate('run_date', $date)->where('pickup_time', $day->pickup_time)->first();
+                if ($existing && $existing->status !== 'planned') {
                     $skipped[] = $date->toDateString();
 
                     continue;
@@ -131,10 +191,16 @@ class VehicleOperationService
 
                     continue;
                 }
-                $data = ['run_no' => $this->nextRunNo('worker'), 'schedule_rule_id' => $rule->id, 'customer_id' => $rule->customer_id, 'route_id' => $rule->route_id, 'shift_name' => $rule->shift_name, 'run_date' => $date->toDateString(), 'return_date' => $date->toDateString(), 'pickup_time' => $day->pickup_time, 'return_time' => $day->return_time, 'pickup_location' => $rule->pickup_location, 'dropoff_location' => $rule->dropoff_location, 'is_company_vehicle' => $rule->is_company_vehicle, 'partner_id' => $rule->partner_id, 'license_plate' => $rule->license_plate, 'driver_id' => $rule->driver_id, 'is_hired_driver' => $rule->is_hired_driver, 'hired_driver_name' => $rule->hired_driver_name, 'hired_driver_cost' => $rule->hired_driver_cost, 'freight_amount' => $rate->freight_amount, 'driver_wage' => $rate->driver_wage, 'status' => 'planned'];
+                $data = ['customer_id' => $rule->customer_id, 'route_id' => $rule->route_id, 'shift_name' => $rule->shift_name, 'run_date' => $date->toDateString(), 'return_date' => $date->toDateString(), 'pickup_time' => $day->pickup_time, 'return_time' => $day->return_time, 'pickup_location' => $rule->pickup_location, 'dropoff_location' => $rule->dropoff_location, 'is_company_vehicle' => $rule->is_company_vehicle, 'partner_id' => $rule->partner_id, 'license_plate' => $rule->license_plate, 'driver_id' => $rule->driver_id, 'is_hired_driver' => $rule->is_hired_driver, 'hired_driver_name' => $rule->hired_driver_name, 'hired_driver_cost' => $rule->hired_driver_cost, 'freight_amount' => $rate->freight_amount, 'driver_wage' => $rate->driver_wage, 'status' => 'planned'];
                 try {
-                    $this->assertNoConflict('worker', $data);
-                    $created[] = $this->run(WorkerVehicle::create($data));
+                    $this->assertNoConflict('worker', $data, $existing?->id);
+                    if ($existing) {
+                        $existing->fill($data)->save();
+                        $skipped[] = $date->toDateString();
+                    } else {
+                        $data += ['run_no' => $this->nextRunNo('worker'), 'schedule_rule_id' => $rule->id];
+                        $created[] = $this->run(WorkerVehicle::create($data));
+                    }
                 } catch (ValidationException) {
                     $skipped[] = $date->toDateString();
                 }
@@ -144,12 +210,28 @@ class VehicleOperationService
         return compact('created', 'skipped');
     }
 
+    /** Sync only planned runs; completed/in-progress history is immutable. */
+    public function syncPlannedRuns(WorkerVehicleScheduleRule $rule): array
+    {
+        $from = now()->startOfDay();
+        $to = now()->addDays(90)->startOfDay();
+        $rule->loadMissing('days');
+        foreach ($rule->runs()->where('status', 'planned')->whereBetween('run_date', [$from->toDateString(), $to->toDateString()])->get() as $run) {
+            $matches = $rule->is_active && $run->run_date->gte($rule->effective_from) && (! $rule->effective_to || $run->run_date->lte($rule->effective_to)) && $rule->days->contains(fn ($day) => $day->weekday === $run->run_date->dayOfWeekIso && $day->pickup_time === $run->pickup_time);
+            if (! $matches) {
+                $run->forceFill(['status' => 'cancelled'])->save();
+            }
+        }
+
+        return $rule->is_active ? $this->generateRuns($rule, $from->toDateString(), $to->toDateString()) : ['created' => [], 'skipped' => []];
+    }
+
     /** @return array<string, mixed> */
     private function run(Model $run): array
     {
         $run->loadMissing($run instanceof WorkerVehicle ? ['customer:id,name', 'route:id,name', 'partner:id,name', 'driver:id,full_name'] : ['customer:id,name', 'partner:id,name', 'driver:id,full_name']);
 
-        return [...$run->only(['id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'journey', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage_rate', 'driver_wage', 'driver_collected_amount', 'company_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'status', 'completed_at', 'note', 'is_active']), 'customer_name' => $run->customer?->name, 'route_name' => $run instanceof WorkerVehicle ? $run->route?->name : null, 'partner_name' => $run->partner?->name, 'driver_name' => $run->driver?->full_name];
+        return [...$run->only(['id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'journey', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage_rate', 'driver_wage', 'driver_collected_amount', 'company_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note', 'is_active']), 'customer_name' => $run->customer?->name, 'route_name' => $run instanceof WorkerVehicle ? $run->route?->name : null, 'partner_name' => $run->partner?->name, 'driver_name' => $run->driver?->full_name, 'attendance' => $run instanceof WorkerVehicle ? DriverAttendance::query()->where('worker_vehicle_id', $run->id)->first()?->only(['id', 'status', 'calculated_wage']) : null];
     }
 
     /** @return array<string, mixed> */

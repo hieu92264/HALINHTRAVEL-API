@@ -14,11 +14,11 @@ class WorkerVehicle extends Model
 {
     use HasBaseMetadata;
 
-    protected $fillable = ['run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage', 'status', 'completed_at', 'note'];
+    protected $fillable = ['run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note'];
 
     protected function casts(): array
     {
-        return array_merge($this->baseMetadataCasts(), ['run_date' => 'date', 'return_date' => 'date', 'is_company_vehicle' => 'boolean', 'is_hired_driver' => 'boolean', 'completed_at' => 'datetime']);
+        return array_merge($this->baseMetadataCasts(), ['run_date' => 'date', 'return_date' => 'date', 'is_company_vehicle' => 'boolean', 'is_hired_driver' => 'boolean', 'completed_at' => 'datetime', 'actual_started_at' => 'datetime', 'actual_completed_at' => 'datetime']);
     }
 
     public function scheduleRule(): BelongsTo
