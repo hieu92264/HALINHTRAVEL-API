@@ -132,6 +132,10 @@ class VehicleOperationService
     public function updateRun(string $kind, Model $run, array $input): array
     {
         $data = $this->validatedRun($kind, [...$run->getAttributes(), ...$input], false);
+        // A generated worker run must remain attached to its source rule when edited individually.
+        if ($kind === 'worker' && $run instanceof WorkerVehicle) {
+            $data['schedule_rule_id'] = $run->schedule_rule_id;
+        }
 
         return DB::transaction(function () use ($kind, $run, $data, $input): array {
             $this->assertNoConflict($kind, $data, $run->id);
@@ -271,7 +275,7 @@ class VehicleOperationService
             ? DriverAttendance::query()->where('worker_vehicle_id', $run->id)->first()
             : DriverAttendance::query()->where('tourist_vehicle_id', $run->id)->first();
 
-        return [...$run->only(['id', 'vehicle_id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'journey', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage_rate', 'driver_wage', 'driver_wage_is_overridden', 'driver_collected_amount', 'company_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note', 'is_active']), 'vehicle_model' => $run->vehicle?->vehicle_model, 'seat_count' => $run->vehicle?->seat_count, 'customer_name' => $run->customer?->name, 'route_name' => $run instanceof WorkerVehicle ? $run->route?->name : null, 'partner_name' => $run->partner?->name, 'driver_name' => $run->driver?->full_name, 'attendance' => $attendance?->only(['id', 'status', 'calculated_wage'])];
+        return [...$run->only(['id', 'vehicle_id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'journey', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage_rate', 'driver_wage', 'driver_wage_is_overridden', 'driver_collected_amount', 'company_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note', 'is_active']), 'run_date' => $run->run_date?->toDateString(), 'return_date' => $run->return_date?->toDateString(), 'pickup_time' => $this->timeValue($run->pickup_time), 'return_time' => $this->timeValue($run->return_time), 'vehicle_model' => $run->vehicle?->vehicle_model, 'seat_count' => $run->vehicle?->seat_count, 'customer_name' => $run->customer?->name, 'route_name' => $run instanceof WorkerVehicle ? $run->route?->name : null, 'partner_name' => $run->partner?->name, 'driver_name' => $run->driver?->full_name, 'attendance' => $attendance?->only(['id', 'status', 'calculated_wage'])];
     }
 
     /** @return array<string, mixed> */
@@ -279,7 +283,7 @@ class VehicleOperationService
     {
         $rate->loadMissing(['route:id,name', 'vehicle:id,license_plate,seat_count,vehicle_model']);
 
-        return [...$rate->only(['id', 'vehicle_id', 'route_id', 'license_plate', 'freight_amount', 'driver_wage', 'effective_from', 'effective_to', 'is_active']), 'vehicle_model' => $rate->vehicle?->vehicle_model, 'seat_count' => $rate->vehicle?->seat_count, 'route_name' => $rate->route?->name];
+        return [...$rate->only(['id', 'vehicle_id', 'route_id', 'license_plate', 'freight_amount', 'driver_wage', 'is_active']), 'effective_from' => $rate->effective_from?->toDateString(), 'effective_to' => $rate->effective_to?->toDateString(), 'vehicle_model' => $rate->vehicle?->vehicle_model, 'seat_count' => $rate->vehicle?->seat_count, 'route_name' => $rate->route?->name];
     }
 
     /** @return array<string, mixed> */
@@ -287,7 +291,7 @@ class VehicleOperationService
     {
         $rule->loadMissing('vehicle:id,license_plate,seat_count,vehicle_model');
 
-        return [...$rule->only(['id', 'vehicle_id', 'customer_id', 'route_id', 'shift_name', 'effective_from', 'effective_to', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'note', 'is_active']), 'vehicle_model' => $rule->vehicle?->vehicle_model, 'seat_count' => $rule->vehicle?->seat_count, 'days' => $rule->days->map->only(['weekday', 'pickup_time', 'return_time'])->values(), 'runs_count' => $rule->runs->count(), 'customer_name' => $rule->customer?->name, 'route_name' => $rule->route?->name, 'partner_name' => $rule->partner?->name, 'driver_name' => $rule->driver?->full_name];
+        return [...$rule->only(['id', 'vehicle_id', 'customer_id', 'route_id', 'shift_name', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'note', 'is_active']), 'effective_from' => $rule->effective_from?->toDateString(), 'effective_to' => $rule->effective_to?->toDateString(), 'vehicle_model' => $rule->vehicle?->vehicle_model, 'seat_count' => $rule->vehicle?->seat_count, 'days' => $rule->days->map(fn ($day) => ['weekday' => $day->weekday, 'pickup_time' => $this->timeValue($day->pickup_time), 'return_time' => $this->timeValue($day->return_time)])->values(), 'runs_count' => $rule->runs->count(), 'customer_name' => $rule->customer?->name, 'route_name' => $rule->route?->name, 'partner_name' => $rule->partner?->name, 'driver_name' => $rule->driver?->full_name];
     }
 
     private function modelClass(string $kind): string
@@ -406,6 +410,7 @@ class VehicleOperationService
 
     private function validatedRun(string $kind, array $input, bool $create): array
     {
+        $input = $this->normalizeTimeInput($input, ['pickup_time', 'return_time']);
         $rules = ['vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')], 'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')], 'run_date' => ['required', 'date'], 'return_date' => ['nullable', 'date', 'after_or_equal:run_date'], 'pickup_time' => ['required', 'date_format:H:i'], 'return_time' => ['nullable', 'date_format:H:i'], 'pickup_location' => ['required', 'string', 'max:500'], 'dropoff_location' => ['required', 'string', 'max:500'], 'is_company_vehicle' => ['nullable', 'boolean', 'required_without:vehicle_id'], 'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id')], 'license_plate' => ['nullable', 'string', 'max:50', 'required_without:vehicle_id'], 'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')], 'is_hired_driver' => ['required', 'boolean'], 'hired_driver_name' => ['nullable', 'string', 'max:255'], 'hired_driver_cost' => ['nullable', 'numeric', 'min:0'], 'partner_vehicle_cost' => ['nullable', 'numeric', 'min:0'], 'freight_amount' => ['nullable', 'numeric', 'min:0'], 'driver_wage' => ['nullable', 'numeric', 'min:0'], 'status' => ['nullable', Rule::in(['planned', 'in_progress', 'completed', 'cancelled'])], 'completed_at' => ['nullable', 'date'], 'note' => ['nullable', 'string']];
         if ($kind === 'worker') {
             $rules += ['route_id' => ['required', 'integer', Rule::exists('routes', 'id')], 'shift_name' => ['required', 'string', 'max:100'], 'schedule_rule_id' => ['nullable', 'integer', Rule::exists('worker_vehicle_schedule_rules', 'id')]];
@@ -423,11 +428,18 @@ class VehicleOperationService
             throw ValidationException::withMessages(['partner_vehicle_cost' => 'Xe đối tác phải có tiền thuê xe.']);
         }
 
+        // The database keeps a non-null numeric cost even when this trip does not hire a driver.
+        if (! $data['is_hired_driver']) {
+            $data['hired_driver_name'] = null;
+            $data['hired_driver_cost'] = 0;
+        }
+
         return $data + ['return_date' => null, 'return_time' => null, 'partner_id' => null, 'driver_id' => null, 'hired_driver_name' => null, 'status' => 'planned', 'hired_driver_cost' => 0, 'partner_vehicle_cost' => 0, 'freight_amount' => 0, 'driver_wage' => 0, 'driver_wage_rate' => 0, 'driver_wage_is_overridden' => false];
     }
 
     private function validatedRule(array $input): array
     {
+        $input = $this->normalizeTimeInput($input, ['days.*.pickup_time', 'days.*.return_time']);
         $rules = ['vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')], 'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')], 'route_id' => ['required', 'integer', Rule::exists('routes', 'id')], 'shift_name' => ['required', 'string', 'max:100'], 'effective_from' => ['required', 'date'], 'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'], 'pickup_location' => ['required', 'string', 'max:500'], 'dropoff_location' => ['required', 'string', 'max:500'], 'is_company_vehicle' => ['nullable', 'boolean', 'required_without:vehicle_id'], 'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id')], 'license_plate' => ['nullable', 'string', 'max:50', 'required_without:vehicle_id'], 'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')], 'is_hired_driver' => ['required', 'boolean'], 'hired_driver_name' => ['nullable', 'string', 'max:255'], 'hired_driver_cost' => ['nullable', 'numeric', 'min:0'], 'note' => ['nullable', 'string'], 'is_active' => ['nullable', 'boolean'], 'days' => ['required', 'array', 'min:1'], 'days.*.weekday' => ['required', 'integer', 'between:1,7'], 'days.*.pickup_time' => ['required', 'date_format:H:i'], 'days.*.return_time' => ['nullable', 'date_format:H:i']];
         $data = Validator::make($input, $rules)->validate();
         $this->applyVehicleSnapshot($data, false);
@@ -437,7 +449,51 @@ class VehicleOperationService
             throw ValidationException::withMessages(['hired_driver_name' => 'Thuê lái phải có tên và chi phí thuê.']);
         }
 
+        // The database keeps a non-null numeric cost even when this schedule does not hire a driver.
+        if (! $data['is_hired_driver']) {
+            $data['hired_driver_name'] = null;
+            $data['hired_driver_cost'] = 0;
+        }
+
         return $data + ['is_active' => true, 'hired_driver_cost' => 0];
+    }
+
+    /** Convert database TIME values (HH:mm:ss) to the public/API form value (HH:mm). */
+    private function timeValue(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return substr((string) $value, 0, 5);
+    }
+
+    /** Accept legacy TIME values while keeping the API validation contract at HH:mm. */
+    private function normalizeTimeInput(array $input, array $fields): array
+    {
+        foreach ($fields as $field) {
+            if (str_starts_with($field, 'days.*.')) {
+                $key = substr($field, 7);
+                $days = $input['days'] ?? [];
+                if ($days instanceof \Illuminate\Support\Collection) {
+                    $days = $days->all();
+                }
+                foreach ($days as $index => $day) {
+                    if (array_key_exists($key, $day)) {
+                        $days[$index][$key] = $this->timeValue($day[$key]);
+                    }
+                }
+                $input['days'] = $days;
+
+                continue;
+            }
+
+            if (array_key_exists($field, $input)) {
+                $input[$field] = $this->timeValue($input[$field]);
+            }
+        }
+
+        return $input;
     }
 
     /** Derive immutable run snapshots from an active vehicle, never from client input. */

@@ -75,6 +75,24 @@ class VehicleOperationSchemaTest extends TestCase
         $this->assertTrue($run['is_company_vehicle']);
     }
 
+    public function test_editing_a_generated_run_accepts_legacy_seconds_and_preserves_its_schedule_rule(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-RUN-EDIT', 'type' => 'company', 'name' => 'Khách hàng test']);
+        $route = Route::query()->create(['code' => 'T-RUN-EDIT', 'customer_id' => $customer->id, 'name' => 'Tuyến test', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
+        $rule = WorkerVehicleScheduleRule::query()->create(['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca sáng', 'effective_from' => '2026-01-01', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-999.01', 'is_hired_driver' => false]);
+        $run = WorkerVehicle::query()->create(['run_no' => 'CN-EDIT-001', 'schedule_rule_id' => $rule->id, 'customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca sáng', 'run_date' => '2026-11-09', 'pickup_time' => '06:30:00', 'return_time' => '17:30:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-999.01', 'is_hired_driver' => false, 'hired_driver_cost' => 0, 'partner_vehicle_cost' => 0, 'freight_amount' => 0, 'driver_wage' => 0, 'status' => 'planned']);
+        $service = app(VehicleOperationService::class);
+
+        $payload = $service->workerRun($run);
+        $this->assertSame('06:30', $payload['pickup_time']);
+        $this->assertSame('17:30', $payload['return_time']);
+        $updated = $service->updateRun('worker', $run, [...$payload, 'schedule_rule_id' => null, 'hired_driver_cost' => null, 'note' => 'Đã cập nhật ghi chú']);
+
+        $this->assertSame('Đã cập nhật ghi chú', $updated['note']);
+        $this->assertSame($rule->id, $updated['schedule_rule_id']);
+        $this->assertDatabaseHas('worker_vehicles', ['id' => $run->id, 'schedule_rule_id' => $rule->id, 'hired_driver_cost' => 0, 'note' => 'Đã cập nhật ghi chú']);
+    }
+
     public function test_dispatcher_can_create_and_update_worker_rate_through_the_public_api(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
@@ -171,6 +189,8 @@ class VehicleOperationSchemaTest extends TestCase
         $service->saveRate(['route_id' => $route->id, 'license_plate' => '15B-100.90', 'freight_amount' => 1800000, 'driver_wage' => 250000, 'effective_from' => $from->toDateString()]);
         $rule = $service->saveRule(['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca tất cả các ngày', 'effective_from' => $from->toDateString(), 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-100.90', 'driver_id' => $driver->id, 'is_hired_driver' => false, 'days' => array_map(fn (int $weekday): array => ['weekday' => $weekday, 'pickup_time' => '06:00', 'return_time' => '17:00'], range(1, 7))]);
         $model = WorkerVehicleScheduleRule::query()->findOrFail($rule['id']);
+        $service->saveRule([...$rule, 'hired_driver_cost' => null, 'note' => 'Cập nhật lịch không thuê lái'], $model);
+        $this->assertDatabaseHas('worker_vehicle_schedule_rules', ['id' => $model->id, 'hired_driver_cost' => 0, 'note' => 'Cập nhật lịch không thuê lái']);
         $count = WorkerVehicle::query()->where('schedule_rule_id', $model->id)->count();
 
         $this->assertGreaterThanOrEqual(90, $count);
