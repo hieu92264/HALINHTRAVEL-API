@@ -52,8 +52,8 @@ class VehicleOperationSchemaTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertDatabaseCount('worker_vehicles', 2);
-        $this->assertDatabaseCount('tourist_vehicles', 3);
+        $this->assertDatabaseCount('worker_vehicles', 5);
+        $this->assertDatabaseCount('tourist_vehicles', 5);
         $this->assertFalse(Schema::hasTable('vehicles'));
         $this->assertFalse(Schema::hasTable('dispatch_orders'));
     }
