@@ -5,11 +5,12 @@ namespace App\Modules\DriverPayroll\Models;
 use App\Modules\Auth\Models\User;
 use App\Shared\Enums\PayrollStatusEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** @property-read \Illuminate\Database\Eloquent\Collection<int, PayrollItem> $items */
+/** @property-read Collection<int, PayrollItem> $items */
 class Payroll extends Model
 {
     use HasBaseMetadata;

@@ -55,35 +55,51 @@ class SpatiePermissionTest extends TestCase
         $this->assertTrue($admin->hasPermissionTo($permission));
     }
 
-    public function test_driver_has_no_global_trip_permissions(): void
+    public function test_driver_has_no_global_vehicle_operation_permissions(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
 
         $user = User::factory()->create();
         $user->assignRole(RoleEnum::DRIVER->value);
 
-        $this->assertFalse($user->can(PermissionEnum::TRIP_SCHEDULES_VIEW->value));
-        $this->assertFalse($user->can(PermissionEnum::TRIP_SCHEDULES_MANAGE->value));
+        $this->assertFalse($user->can(PermissionEnum::WORKER_VEHICLES_VIEW->value));
+        $this->assertFalse($user->can(PermissionEnum::TOURIST_VEHICLES_VIEW->value));
     }
 
-    public function test_auth_seeder_restores_driver_workspace_permissions(): void
+    public function test_auth_seeder_restores_the_current_permission_catalog_and_empty_driver_role(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
 
         $driver = RoleModel::findByName(RoleEnum::DRIVER->value, 'api');
-        $managePermission = PermissionModel::findByName(PermissionEnum::MY_DISPATCH_ORDERS_MANAGE->value, 'api');
+        $workerView = PermissionModel::findByName(PermissionEnum::WORKER_VEHICLES_VIEW->value, 'api');
 
-        $driver->syncPermissions([PermissionEnum::MY_DISPATCH_ORDERS_VIEW->value]);
-        $managePermission->forceFill(['is_active' => false])->save();
+        $driver->syncPermissions([PermissionEnum::WORKER_VEHICLES_VIEW->value]);
+        $workerView->forceFill(['is_active' => false])->save();
 
         $this->seed(AuthDatabaseSeeder::class);
 
         $driver->refresh();
-        $managePermission->refresh();
+        $workerView->refresh();
 
-        $this->assertTrue($managePermission->is_active);
-        $this->assertTrue($driver->hasPermissionTo(PermissionEnum::MY_DISPATCH_ORDERS_VIEW->value));
-        $this->assertTrue($driver->hasPermissionTo(PermissionEnum::MY_DISPATCH_ORDERS_MANAGE->value));
+        $this->assertTrue($workerView->is_active);
+        $this->assertFalse($driver->hasPermissionTo(PermissionEnum::WORKER_VEHICLES_VIEW->value));
+    }
+
+    public function test_default_roles_receive_vehicle_operation_permissions(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+
+        $admin = RoleModel::findByName(RoleEnum::ADMIN->value, 'api');
+        $dispatcher = RoleModel::findByName(RoleEnum::DISPATCHER->value, 'api');
+        $accountant = RoleModel::findByName(RoleEnum::ACCOUNTANT->value, 'api');
+
+        $this->assertTrue($admin->hasPermissionTo(PermissionEnum::WORKER_VEHICLES_MANAGE->value));
+        $this->assertTrue($admin->hasPermissionTo(PermissionEnum::TOURIST_VEHICLES_MANAGE->value));
+        $this->assertTrue($dispatcher->hasPermissionTo(PermissionEnum::WORKER_VEHICLE_SCHEDULES_MANAGE->value));
+        $this->assertTrue($dispatcher->hasPermissionTo(PermissionEnum::TOURIST_VEHICLES_MANAGE->value));
+        $this->assertTrue($accountant->hasPermissionTo(PermissionEnum::WORKER_VEHICLES_VIEW->value));
+        $this->assertTrue($accountant->hasPermissionTo(PermissionEnum::TOURIST_VEHICLES_VIEW->value));
+        $this->assertFalse($accountant->hasPermissionTo(PermissionEnum::WORKER_VEHICLES_MANAGE->value));
     }
 
     public function test_seeder_creates_an_account_for_every_role(): void
@@ -131,5 +147,26 @@ class SpatiePermissionTest extends TestCase
             'password' => 'password',
         ])->assertOk()
             ->assertJsonPath('metadata.token_type', 'bearer');
+    }
+
+    public function test_authenticated_user_can_change_password_only_with_current_password(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $token = app(AuthServiceInterface::class)->login(['user_name' => 'admin', 'password' => 'password'])['access_token'];
+
+        $this->withToken($token)->putJson('/api/auth/password', [
+            'current_password' => 'wrong-password',
+            'new_password' => 'new-secure-password',
+            'new_password_confirmation' => 'new-secure-password',
+        ])->assertUnprocessable();
+
+        $this->withToken($token)->putJson('/api/auth/password', [
+            'current_password' => 'password',
+            'new_password' => 'new-secure-password',
+            'new_password_confirmation' => 'new-secure-password',
+        ])->assertOk();
+
+        $admin = User::query()->where('user_name', 'admin')->sole();
+        $this->assertTrue(Hash::check('new-secure-password', $admin->password));
     }
 }

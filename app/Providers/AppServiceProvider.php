@@ -28,9 +28,11 @@ use App\Modules\MasterData\Services\ExpenseTypeService;
 use App\Modules\MasterData\Services\PartnerService;
 use App\Modules\MasterData\Services\RouteService;
 use App\Modules\Other\Interfaces\DebtReportServiceInterface;
-use App\Modules\Other\Interfaces\ReportServiceInterface;
+use App\Modules\Other\Interfaces\OperationalReportServiceInterface;
 use App\Modules\Other\Services\DebtReportService;
-use App\Modules\Other\Services\ReportService;
+use App\Modules\Other\Services\OperationalReportService;
+use App\Modules\VehicleOperations\Models\TouristVehicle;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -56,7 +58,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(FinanceServiceInterface::class, FinanceService::class);
         $this->app->singleton(DriverPayrollServiceInterface::class, DriverPayrollService::class);
         $this->app->singleton(DebtReportServiceInterface::class, DebtReportService::class);
-        $this->app->singleton(ReportServiceInterface::class, ReportService::class);
+        $this->app->singleton(OperationalReportServiceInterface::class, OperationalReportService::class);
 
     }
 
@@ -73,7 +75,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
         Broadcast::routes(['prefix' => 'api', 'middleware' => ['api', 'auth:api']]);
         require base_path('routes/channels.php');
-        foreach ([Driver::class, Receipt::class, Expense::class, PartnerPayment::class] as $model) {
+        foreach ([Driver::class, WorkerVehicle::class, TouristVehicle::class, Receipt::class, Expense::class, PartnerPayment::class] as $model) {
             $model::observe(DashboardModelObserver::class);
         }
 

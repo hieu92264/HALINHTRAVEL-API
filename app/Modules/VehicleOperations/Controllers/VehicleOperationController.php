@@ -56,9 +56,14 @@ class VehicleOperationController extends Controller
         return $this->success($this->service->completeWorkerRun($workerVehicle, $request->validate(['actual_completed_at' => ['nullable', 'date']])['actual_completed_at'] ?? null), 'Đã hoàn thành xe chạy công nhân.');
     }
 
-    public function touristIndex(): JsonResponse
+    public function touristIndex(Request $request): JsonResponse
     {
-        return $this->success($this->service->runs('tourist'));
+        return $this->success($this->service->runs('tourist', $request->only(['from_date', 'to_date', 'status', 'customer_id', 'driver_id', 'license_plate'])));
+    }
+
+    public function touristShow(TouristVehicle $touristVehicle): JsonResponse
+    {
+        return $this->success($this->service->touristRun($touristVehicle));
     }
 
     public function touristStore(Request $request): JsonResponse
@@ -76,6 +81,16 @@ class VehicleOperationController extends Controller
         $this->service->deleteRun($touristVehicle);
 
         return $this->success(null, 'Đã hủy xe chạy.');
+    }
+
+    public function touristStart(Request $request, TouristVehicle $touristVehicle): JsonResponse
+    {
+        return $this->success($this->service->startTouristRun($touristVehicle, $request->validate(['actual_started_at' => ['nullable', 'date']])['actual_started_at'] ?? null));
+    }
+
+    public function touristComplete(Request $request, TouristVehicle $touristVehicle): JsonResponse
+    {
+        return $this->success($this->service->completeTouristRun($touristVehicle, $request->validate(['actual_completed_at' => ['nullable', 'date']])['actual_completed_at'] ?? null), 'Đã hoàn thành xe chạy du lịch.');
     }
 
     public function rateIndex(): JsonResponse

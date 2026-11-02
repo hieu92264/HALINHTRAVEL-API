@@ -15,10 +15,13 @@ Route::middleware('auth:api')->prefix('vehicle-operations')->controller(VehicleO
         Route::post('worker-vehicles/{workerVehicle}/complete', 'workerComplete');
     });
     Route::middleware('permission:'.PermissionEnum::TOURIST_VEHICLES_VIEW->value)->get('tourist-vehicles', 'touristIndex');
+    Route::middleware('permission:'.PermissionEnum::TOURIST_VEHICLES_VIEW->value)->get('tourist-vehicles/{touristVehicle}', 'touristShow');
     Route::middleware('permission:'.PermissionEnum::TOURIST_VEHICLES_MANAGE->value)->group(function (): void {
         Route::post('tourist-vehicles', 'touristStore');
         Route::patch('tourist-vehicles/{touristVehicle}', 'touristUpdate');
         Route::delete('tourist-vehicles/{touristVehicle}', 'touristDestroy');
+        Route::post('tourist-vehicles/{touristVehicle}/start', 'touristStart');
+        Route::post('tourist-vehicles/{touristVehicle}/complete', 'touristComplete');
     });
     Route::middleware('permission:'.PermissionEnum::WORKER_VEHICLE_RATES_VIEW->value)->get('worker-vehicle-rates', 'rateIndex');
     Route::middleware('permission:'.PermissionEnum::WORKER_VEHICLE_RATES_MANAGE->value)->group(function (): void {

@@ -125,7 +125,7 @@ class DriverPayrollDetailWordExport
     /** @param array<string, mixed> $row */
     private function documentNo(array $row): string
     {
-        return (string) ($row['order_no'] ?? $row['receipt_no'] ?? $row['expense_no'] ?? $row['remittance_no'] ?? '');
+        return (string) ($row['worker_run_no'] ?? $row['tourist_run_no'] ?? $row['run_no'] ?? '');
     }
 
     /** @param array<string, mixed> $row */
@@ -166,9 +166,6 @@ class DriverPayrollDetailWordExport
         return match ($type) {
             'fixed_trip' => 'Lương chuyến công nhân',
             'tourism_commission' => 'Lương chuyến du lịch',
-            'direct_customer_collection' => 'Lái xe thu tiền',
-            'driver_reimbursement' => 'Lái xe tự chi',
-            'driver_cash_remittance' => 'Lái xe nộp tiền',
             'allowance' => 'Lương trách nhiệm',
             default => 'Khác',
         };

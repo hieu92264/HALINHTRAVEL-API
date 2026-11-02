@@ -11,4 +11,6 @@ interface AuthServiceInterface
     public function refresh(): array;
 
     public function logout(): void;
+
+    public function changePassword(array $data): void;
 }

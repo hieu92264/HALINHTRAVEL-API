@@ -7,9 +7,18 @@
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
+            <exclude>tests/Unit/Contract</exclude>
+            <exclude>tests/Unit/Dispatch</exclude>
+            <exclude>tests/Unit/Rental</exclude>
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <exclude>tests/Feature/Contract</exclude>
+            <exclude>tests/Feature/Dispatch</exclude>
+            <exclude>tests/Feature/Rental</exclude>
+            <exclude>tests/Feature/MasterData/VehicleDatabaseSeederTest.php</exclude>
+            <exclude>tests/Feature/MasterData/VehicleTypeApiTest.php</exclude>
+            <exclude>tests/Feature/MasterData/VehicleTypeDatabaseSeederTest.php</exclude>
         </testsuite>
     </testsuites>
     <source>

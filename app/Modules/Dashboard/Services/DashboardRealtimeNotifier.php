@@ -3,14 +3,12 @@
 namespace App\Modules\Dashboard\Services;
 
 use App\Modules\Dashboard\Jobs\BroadcastDashboardOverviewUpdate;
-use App\Modules\Dispatch\Models\DispatchOrder;
-use App\Modules\Dispatch\Models\TripAssignment;
-use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Models\Driver;
-use App\Modules\MasterData\Models\Vehicle;
+use App\Modules\VehicleOperations\Models\TouristVehicle;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -42,10 +40,8 @@ class DashboardRealtimeNotifier
     private function sectionsFor(Model $model): array
     {
         return match ($model::class) {
-            TripSchedule::class => ['operations', 'alerts'],
-            TripAssignment::class => ['operations', 'alerts', 'fleet'],
-            DispatchOrder::class => ['operations'],
-            Vehicle::class, Driver::class => ['fleet', 'alerts'],
+            WorkerVehicle::class, TouristVehicle::class => ['operations', 'alerts', 'fleet'],
+            Driver::class => ['fleet', 'alerts'],
             Receipt::class, Expense::class, PartnerPayment::class => ['finance'],
             default => [],
         };

@@ -3,6 +3,7 @@
 namespace App\Modules\DriverPayroll\Models;
 
 use App\Modules\MasterData\Models\Driver;
+use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Shared\Enums\DriverAttendanceStatusEnum;
 use App\Shared\Enums\WorkTypeEnum;
@@ -49,6 +50,11 @@ class DriverAttendance extends Model
     public function workerVehicle(): BelongsTo
     {
         return $this->belongsTo(WorkerVehicle::class);
+    }
+
+    public function touristVehicle(): BelongsTo
+    {
+        return $this->belongsTo(TouristVehicle::class);
     }
 
     public function payrollItemDetails(): HasMany

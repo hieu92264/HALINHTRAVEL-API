@@ -23,4 +23,9 @@ class DebtReportController extends Controller
     {
         return $this->success($this->service->partnerDebts($request->validated('from_date'), $request->validated('to_date')), 'Lấy công nợ đối tác thành công.');
     }
+
+    public function externalDriverDebts(DebtReportRequest $request): JsonResponse
+    {
+        return $this->success($this->service->externalDriverDebts($request->validated('from_date'), $request->validated('to_date')), 'Lấy công nợ thuê lái thành công.');
+    }
 }

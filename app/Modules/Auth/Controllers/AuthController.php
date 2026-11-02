@@ -4,6 +4,7 @@ namespace App\Modules\Auth\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Auth\Interfaces\AuthServiceInterface;
+use App\Modules\Auth\Requests\ChangePasswordRequest;
 use App\Modules\Auth\Requests\LoginRequest;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,5 +42,12 @@ class AuthController extends Controller
         $this->service->logout();
 
         return $this->success(null, 'Đăng xuất thành công.');
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $this->service->changePassword($request->validated());
+
+        return $this->success(null, 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.');
     }
 }

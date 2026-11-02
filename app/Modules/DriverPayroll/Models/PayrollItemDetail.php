@@ -2,10 +2,8 @@
 
 namespace App\Modules\DriverPayroll\Models;
 
-use App\Modules\Dispatch\Models\DispatchOrder;
-use App\Modules\Finance\Models\DriverCashRemittance;
-use App\Modules\Finance\Models\Expense;
-use App\Modules\Finance\Models\Receipt;
+use App\Modules\VehicleOperations\Models\TouristVehicle;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Shared\Enums\PayrollCalculationTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
@@ -18,15 +16,13 @@ class PayrollItemDetail extends Model
     protected $fillable = [
         'payroll_item_id',
         'driver_attendance_id',
-        'dispatch_order_id',
+        'worker_vehicle_id',
+        'tourist_vehicle_id',
         'calculation_type',
         'base_amount',
         'rate',
         'amount',
         'description',
-        'receipt_id',
-        'expense_id',
-        'driver_cash_remittance_id',
     ];
 
     protected function casts(): array
@@ -49,23 +45,13 @@ class PayrollItemDetail extends Model
         return $this->belongsTo(DriverAttendance::class);
     }
 
-    public function dispatchOrder(): BelongsTo
+    public function workerVehicle(): BelongsTo
     {
-        return $this->belongsTo(DispatchOrder::class);
+        return $this->belongsTo(WorkerVehicle::class);
     }
 
-    public function receipt(): BelongsTo
+    public function touristVehicle(): BelongsTo
     {
-        return $this->belongsTo(Receipt::class);
-    }
-
-    public function expense(): BelongsTo
-    {
-        return $this->belongsTo(Expense::class);
-    }
-
-    public function driverCashRemittance(): BelongsTo
-    {
-        return $this->belongsTo(DriverCashRemittance::class);
+        return $this->belongsTo(TouristVehicle::class);
     }
 }

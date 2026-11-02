@@ -3,12 +3,9 @@
 namespace App\Modules\Auth\Models;
 
 use App\Modules\Auth\Database\Factories\UserFactory;
-use App\Modules\Dispatch\Models\DispatchOrder;
-use App\Modules\Dispatch\Models\TripAssignment;
 use App\Modules\MasterData\Models\Driver;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -84,15 +81,5 @@ class User extends Authenticatable implements JWTSubject
     public function driver(): HasOne
     {
         return $this->hasOne(Driver::class, 'user_name', 'user_name');
-    }
-
-    public function assignedTripAssignments(): HasMany
-    {
-        return $this->hasMany(TripAssignment::class, 'assigned_by', 'user_name');
-    }
-
-    public function issuedDispatchOrders(): HasMany
-    {
-        return $this->hasMany(DispatchOrder::class, 'issued_by', 'user_name');
     }
 }

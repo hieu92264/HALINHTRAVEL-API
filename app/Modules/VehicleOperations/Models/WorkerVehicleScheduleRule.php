@@ -2,8 +2,13 @@
 
 namespace App\Modules\VehicleOperations\Models;
 
+use App\Modules\MasterData\Models\Customer;
+use App\Modules\MasterData\Models\Driver;
+use App\Modules\MasterData\Models\Partner;
+use App\Modules\MasterData\Models\Route;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkerVehicleScheduleRule extends Model
@@ -20,6 +25,26 @@ class WorkerVehicleScheduleRule extends Model
     public function days(): HasMany
     {
         return $this->hasMany(WorkerVehicleScheduleRuleDay::class, 'schedule_rule_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function route(): BelongsTo
+    {
+        return $this->belongsTo(Route::class);
+    }
+
+    public function partner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class);
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class);
     }
 
     public function runs(): HasMany

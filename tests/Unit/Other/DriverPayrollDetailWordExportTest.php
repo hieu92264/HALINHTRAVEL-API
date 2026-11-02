@@ -19,22 +19,12 @@ class DriverPayrollDetailWordExportTest extends TestCase
                 'driver_name' => 'Nguyễn Văn A',
                 'calculation_type' => 'tourism_commission',
                 'date' => '2026-10-05',
-                'order_no' => 'LDX20260001',
+                'tourist_run_no' => 'DLX20260001',
                 'journey' => 'Hải Phòng - Hạ Long',
                 'base_amount' => 5000000,
                 'rate' => 0.15,
                 'amount' => 750000,
                 'description' => 'Hoàn thành chuyến du lịch',
-            ],
-            [
-                'driver_name' => 'Nguyễn Văn A',
-                'calculation_type' => 'driver_cash_remittance',
-                'date' => '2026-10-06',
-                'remittance_no' => 'NTX20260001',
-                'base_amount' => 500000,
-                'rate' => null,
-                'amount' => -500000,
-                'description' => 'Nộp tiền khách đã thu',
             ],
         ], ['gross_salary' => 750000, 'net_salary' => 250000], '2026-10-01', '2026-10-31');
 
@@ -51,9 +41,7 @@ class DriverPayrollDetailWordExportTest extends TestCase
             $this->assertStringContainsString('(Từ ngày 01/10/2026 đến ngày 31/10/2026)', $document);
             $this->assertStringContainsString('Nguyễn Văn A', $document);
             $this->assertStringContainsString('Lương chuyến du lịch', $document);
-            $this->assertStringContainsString('Lái xe nộp tiền', $document);
-            $this->assertStringContainsString('LDX20260001', $document);
-            $this->assertStringContainsString('NTX20260001', $document);
+            $this->assertStringContainsString('DLX20260001', $document);
             $this->assertStringContainsString('05/10/26', $document);
             $this->assertStringContainsString('15.00%', $document);
             $this->assertStringContainsString('Tổng phát sinh chi tiết', $document);

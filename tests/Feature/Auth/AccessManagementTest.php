@@ -116,19 +116,19 @@ class AccessManagementTest extends TestCase
     {
         $this->seed(AuthDatabaseSeeder::class);
         $admin = User::query()->where('user_name', 'admin')->firstOrFail();
-        $capacityPermission = Permission::findByName(PermissionEnum::RENTAL_CAPACITY_VIEW->value, 'api');
+        $vehiclePermission = Permission::findByName(PermissionEnum::WORKER_VEHICLES_VIEW->value, 'api');
 
         $roleId = $this->actingAs($admin, 'api')->postJson('/api/auth/roles', [
-            'name' => 'capacity-checker',
+            'name' => 'worker-vehicle-viewer',
         ])->assertCreated()->json('metadata.id');
 
         $this->actingAs($admin, 'api')->putJson("/api/auth/roles/{$roleId}/permissions", [
-            'permission_ids' => [$capacityPermission->id],
+            'permission_ids' => [$vehiclePermission->id],
         ])->assertOk();
 
         $userId = $this->actingAs($admin, 'api')->postJson('/api/auth/users', [
-            'user_name' => 'capacity-user',
-            'email' => 'capacity-user@example.test',
+            'user_name' => 'worker-vehicle-user',
+            'email' => 'worker-vehicle-user@example.test',
             'password' => 'secure-password',
             'role_ids' => [$roleId],
         ])->assertCreated()->json('metadata.id');
@@ -136,25 +136,21 @@ class AccessManagementTest extends TestCase
 
         $this->actingAs($user, 'api')->getJson('/api/auth/me')
             ->assertOk()
-            ->assertJsonPath('metadata.permissions.0', PermissionEnum::RENTAL_CAPACITY_VIEW->value);
+            ->assertJsonPath('metadata.permissions.0', PermissionEnum::WORKER_VEHICLES_VIEW->value);
 
-        $this->actingAs($user, 'api')->postJson('/api/dispatch/availability', [
-            'start_at' => '2026-10-20 06:00:00',
-            'end_at' => '2026-10-20 18:00:00',
-            'items' => [],
-        ])->assertUnprocessable();
+        $this->actingAs($user, 'api')->getJson('/api/vehicle-operations/worker-vehicles')->assertOk();
     }
 
-    public function test_capacity_permission_repair_command_restores_system_role_access(): void
+    public function test_system_roles_keep_worker_vehicle_access_after_permission_sync(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
-        $permission = Permission::findByName(PermissionEnum::RENTAL_CAPACITY_VIEW->value, 'api');
+        $permission = Permission::findByName(PermissionEnum::WORKER_VEHICLES_VIEW->value, 'api');
         $admin = Role::findByName(RoleEnum::ADMIN->value, 'api');
         $admin->revokePermissionTo($permission);
 
         $this->assertFalse($admin->fresh()->hasPermissionTo($permission));
 
-        $this->artisan('auth:sync-system-capacity-permissions')->assertExitCode(0);
+        $this->seed(AuthDatabaseSeeder::class);
 
         $this->assertTrue($admin->fresh()->hasPermissionTo($permission));
     }

@@ -2,71 +2,62 @@
 
 namespace Tests\Feature;
 
-use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
-use App\Modules\Other\Services\ReportService;
+use App\Modules\Other\Services\DebtReportService;
+use App\Modules\Other\Services\OperationalReportService;
 use Database\Seeders\DatabaseSeeder;
-use Database\Seeders\RefreshBusinessDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class RefreshBusinessDataSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_the_default_seeder_creates_auth_and_business_data(): void
+    public function test_empty_sqlite_schema_seeds_a_compact_new_operations_dataset(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertDatabaseHas('users', ['user_name' => 'admin']);
-        $this->assertDatabaseHas('users', ['user_name' => 'driver']);
-        $this->assertDatabaseCount('customers', 5);
-        $this->assertDatabaseCount('dispatch_orders', 5);
-    }
-
-    public function test_it_replaces_business_data_without_changing_auth_data(): void
-    {
-        $this->seed(AuthDatabaseSeeder::class);
-
-        $users = DB::table('users')->count();
-        $roles = DB::table('roles')->count();
-        $roleAssignments = DB::table('model_has_roles')->count();
-
-        $this->seed(RefreshBusinessDataSeeder::class);
-
-        $this->assertSame($users, DB::table('users')->count());
-        $this->assertSame($roles, DB::table('roles')->count());
-        $this->assertSame($roleAssignments, DB::table('model_has_roles')->count());
-
-        foreach (['customers', 'partners', 'vehicle_types', 'vehicles', 'drivers', 'routes', 'route_rates', 'expense_types', 'rental_requests', 'quotations', 'contracts', 'trip_schedules', 'trip_assignments', 'dispatch_orders', 'receipts', 'expenses', 'partner_payments', 'driver_advances', 'payroll_items'] as $table) {
-            $this->assertLessThanOrEqual(5, DB::table($table)->count(), "{$table} must stay compact for its list screen.");
+        foreach (['worker_vehicles', 'tourist_vehicles', 'worker_vehicle_schedule_rules', 'worker_vehicle_rates', 'receipts', 'expenses', 'partner_payments', 'driver_attendances', 'payrolls', 'payroll_items'] as $table) {
+            $this->assertTrue(Schema::hasTable($table));
+            $this->assertGreaterThan(0, DB::table($table)->count(), "{$table} must contain representative data.");
+            $this->assertLessThanOrEqual(5, DB::table($table)->count(), "{$table} must stay compact for its screen.");
         }
 
-        $this->assertSame(0, DB::table('rental_requests')->whereIn('service_type', ['fixed', 'school'])->count());
-        $this->assertSame(0, DB::table('contract_items')->whereIn('service_type', ['fixed', 'school'])->count());
-        $this->assertSame(0, DB::table('trip_schedules')->whereIn('service_type', ['fixed', 'school'])->count());
+        $this->assertSame(5, DB::table('customers')->count());
+        $this->assertLessThanOrEqual(5, DB::table('drivers')->count());
+        $this->assertLessThanOrEqual(5, DB::table('partners')->count());
+        $this->assertFalse(Schema::hasTable('vehicles'));
+        $this->assertFalse(Schema::hasTable('dispatch_orders'));
+        $this->assertFalse(Schema::hasTable('contracts'));
     }
 
-    public function test_it_creates_current_month_completed_business_and_tourism_orders(): void
+    public function test_seed_supports_debt_profit_and_payroll_source_reports(): void
     {
-        $this->seed(AuthDatabaseSeeder::class);
-        $this->seed(RefreshBusinessDataSeeder::class);
+        $this->seed(DatabaseSeeder::class);
+        $filters = ['from_date' => now()->startOfMonth()->toDateString(), 'to_date' => now()->endOfMonth()->toDateString()];
 
-        $from = Carbon::now()->startOfMonth();
-        $to = Carbon::now()->endOfMonth();
+        $profit = app(OperationalReportService::class)->profit($filters);
+        $payroll = app(OperationalReportService::class)->payrollSources($filters);
+        $customerDebt = app(DebtReportService::class)->customerDebts($filters['from_date'], $filters['to_date']);
+        $partnerDebt = app(DebtReportService::class)->partnerDebts($filters['from_date'], $filters['to_date']);
+        $externalDriverDebt = app(DebtReportService::class)->externalDriverDebts($filters['from_date'], $filters['to_date']);
 
-        foreach (['business', 'tourism'] as $serviceType) {
-            $this->assertTrue(DB::table('dispatch_orders')
-                ->join('trip_schedules', 'trip_schedules.id', '=', 'dispatch_orders.trip_schedule_id')
-                ->where('trip_schedules.service_type', $serviceType)
-                ->where('dispatch_orders.status', 'COMPLETED')
-                ->whereBetween('dispatch_orders.completed_at', [$from, $to])
-                ->exists(), "{$serviceType} needs one completed order in the current month.");
-        }
-
-        $filters = ['from_date' => $from->toDateString(), 'to_date' => $to->toDateString()];
-        $this->assertNotEmpty(app(ReportService::class)->businessTrips($filters)['rows']);
-        $this->assertNotEmpty(app(ReportService::class)->tourismTrips($filters)['rows']);
+        $this->assertNotEmpty($profit['revenue_runs']);
+        $this->assertNotEmpty($profit['hired_drivers']);
+        $this->assertNotEmpty($payroll['rows']);
+        $this->assertNotEmpty($customerDebt);
+        $this->assertNotEmpty($partnerDebt);
+        $this->assertNotEmpty($externalDriverDebt);
+        $this->assertSame('13000000.00', $profit['summary']['total_revenue']);
+        $this->assertSame('2200000.00', $profit['summary']['total_costs']);
+        $this->assertSame('10800000.00', $profit['summary']['profit']);
+        $this->assertSame('800000.00', $profit['hired_drivers'][0]['incurred_amount']);
+        $this->assertSame('500000.00', $profit['hired_drivers'][0]['paid_amount']);
+        $this->assertSame('300000.00', $profit['hired_drivers'][0]['outstanding_amount']);
+        $this->assertSame('9000000.00', collect($customerDebt)->firstWhere('code', 'KH0001')['closing_balance']);
+        $this->assertSame('14000000.00', collect($partnerDebt)->firstWhere('code', 'DT0001')['closing_balance']);
+        $this->assertSame('300000.00', $payroll['summary']['worker_wage']);
+        $this->assertSame('600000.00', $payroll['summary']['tourist_wage']);
     }
 }

@@ -21,9 +21,7 @@ class DriverPayrollWordExportTest extends TestCase
                 'fixed_trip_wage' => 5000000,
                 'tourism_commission' => 1500000,
                 'gross_salary' => 7000000,
-                'driver_reimbursement' => 200000,
-                'direct_customer_collection' => 1000000,
-                'driver_remittance_amount' => 300000,
+                'advance_amount' => 500000,
                 'net_salary' => 6500000,
             ],
         ], '2026-10-01', '2026-10-31');
@@ -40,8 +38,7 @@ class DriverPayrollWordExportTest extends TestCase
             $this->assertStringContainsString('BẢNG LƯƠNG TRẢ LÁI XE THÁNG 10/2026', $document);
             $this->assertStringContainsString('(Từ ngày 01/10/2026 đến ngày 31/10/2026)', $document);
             $this->assertStringContainsString('Lương trách nhiệm', $document);
-            $this->assertStringContainsString('Lái xe chi', $document);
-            $this->assertStringContainsString('Lái xe nộp', $document);
+            $this->assertStringContainsString('Tạm ứng', $document);
             $this->assertStringContainsString('Nguyễn Văn A', $document);
             $this->assertStringContainsString('7,000,000', $document);
             $this->assertStringContainsString('6,500,000', $document);

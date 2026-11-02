@@ -5,18 +5,15 @@ namespace App\Modules\Dashboard\Services;
 use App\Modules\Auth\Models\User;
 use App\Modules\Dashboard\DTOs\DashboardOverviewData;
 use App\Modules\Dashboard\Interfaces\DashboardOverviewServiceInterface;
-use App\Modules\Dispatch\Models\TripAssignment;
-use App\Modules\Dispatch\Models\TripSchedule;
 use App\Modules\Finance\Models\Expense;
 use App\Modules\Finance\Models\PartnerPayment;
 use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Models\Driver;
-use App\Modules\MasterData\Models\Vehicle;
-use App\Shared\Enums\TripScheduleStatusEnum;
-use App\Shared\Enums\VehicleStatusEnum;
+use App\Modules\VehicleOperations\Models\TouristVehicle;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\Repository as CacheRepository;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class DashboardOverviewService implements DashboardOverviewServiceInterface
 {
@@ -33,26 +30,21 @@ class DashboardOverviewService implements DashboardOverviewServiceInterface
         $version = (string) $this->cache->get('dashboard:overview-version', 1);
         $key = "dashboard:overview:v{$version}:{$dayStart->toDateString()}:{$scope}";
 
-        return $this->cache->remember($key, now()->addSeconds(self::CACHE_TTL_SECONDS), function () use ($dayStart, $dayEnd, $permissions): array {
-            return [
-                'selected_date' => $dayStart->toDateString(),
-                'generated_at' => now()->toISOString(),
-                'operations' => $this->operations($dayStart, $dayEnd, $permissions['trip_schedules']),
-                'alerts' => $this->alerts($dayStart, $dayEnd, $permissions),
-                'fleet' => $this->fleet($dayStart, $dayEnd, $permissions),
-                'finance' => $this->finance($dayStart, $dayEnd, $permissions),
-            ];
-        });
+        return $this->cache->remember($key, now()->addSeconds(self::CACHE_TTL_SECONDS), fn (): array => [
+            'selected_date' => $dayStart->toDateString(),
+            'generated_at' => now()->toISOString(),
+            'operations' => $this->operations($dayStart, $permissions['operations']),
+            'alerts' => $this->alerts($dayStart, $permissions),
+            'fleet' => $this->fleet($dayStart, $permissions),
+            'finance' => $this->finance($dayStart, $dayEnd, $permissions),
+        ]);
     }
 
     /** @return array<string, bool> */
     private function permissions(User $user): array
     {
         return [
-            'trip_schedules' => $user->can('trip-schedules.view'),
-            'trip_assignments' => $user->can('trip-assignments.view'),
-            'dispatch_orders' => $user->can('dispatch-orders.view'),
-            'vehicles' => $user->can('vehicles.view'),
+            'operations' => $user->can('worker-vehicles.view') || $user->can('tourist-vehicles.view'),
             'drivers' => $user->can('drivers.view'),
             'receipts' => $user->can('receipts.view'),
             'expenses' => $user->can('expenses.view'),
@@ -60,151 +52,79 @@ class DashboardOverviewService implements DashboardOverviewServiceInterface
         ];
     }
 
+    /** @return Collection<int, array<string, mixed>> */
+    private function runsForDay(CarbonImmutable $day): Collection
+    {
+        $worker = WorkerVehicle::query()->with(['route:id,name', 'driver:id,full_name'])->where('is_active', true)->whereDate('run_date', $day)->get()->map(fn (WorkerVehicle $run): array => $this->runData($run, 'worker'));
+        $tourist = TouristVehicle::query()->with('driver:id,full_name')->where('is_active', true)->whereDate('run_date', '<=', $day)->where(fn ($query) => $query->whereNull('return_date')->orWhereDate('return_date', '>=', $day))->get()->map(fn (TouristVehicle $run): array => $this->runData($run, 'tourist'));
+
+        return $worker->concat($tourist)->sortBy('scheduled_start_at')->values();
+    }
+
     /** @return array<string, mixed> */
-    private function operations(CarbonImmutable $start, CarbonImmutable $end, bool $available): array
+    private function operations(CarbonImmutable $day, bool $available): array
     {
         if (! $available) {
             return ['available' => false];
         }
 
-        $counts = array_fill_keys(TripScheduleStatusEnum::values(), 0);
-        $this->schedulesForDay($start, $end)
-            ->selectRaw('status, COUNT(*) as aggregate')
-            ->groupBy('status')
-            ->pluck('aggregate', 'status')
-            ->each(function (mixed $count, string $status) use (&$counts): void {
-                $counts[$status] = (int) $count;
-            });
+        $runs = $this->runsForDay($day);
+        $counts = array_fill_keys(['planned', 'assigned', 'in_progress', 'completed', 'cancelled'], 0);
+        $runs->each(function (array $run) use (&$counts): void {
+            $status = strtolower((string) $run['status']);
+            $counts[$status] = ($counts[$status] ?? 0) + 1;
+        });
 
-        $schedules = $this->schedulesForDay($start, $end)
-            ->with([
-                'route:id,name',
-                'requiredVehicleType:id,name',
-                'assignments' => fn ($query) => $query
-                    ->select(['id', 'trip_schedule_id', 'vehicle_id', 'driver_id'])
-                    ->where('is_current', true)
-                    ->with(['vehicle:id,license_plate', 'driver:id,code,full_name']),
-            ])
-            ->orderBy('scheduled_start_at')
-            ->limit(20)
-            ->get()
-            ->map(function (TripSchedule $schedule): array {
-                $assignment = $schedule->assignments->first();
-
-                return [
-                    'id' => $schedule->id,
-                    'schedule_no' => $schedule->schedule_no,
-                    'scheduled_start_at' => $schedule->scheduled_start_at?->toISOString(),
-                    'scheduled_end_at' => $schedule->scheduled_end_at?->toISOString(),
-                    'route_name' => $schedule->route?->name,
-                    'pickup_location' => $schedule->pickup_location,
-                    'dropoff_location' => $schedule->dropoff_location,
-                    'service_type' => $schedule->service_type?->value,
-                    'vehicle_type_name' => $schedule->requiredVehicleType?->name,
-                    'status' => $schedule->status?->value,
-                    'vehicle_plate' => $assignment?->vehicle?->license_plate,
-                    'driver_name' => $assignment?->driver?->full_name,
-                ];
-            })
-            ->all();
-
-        return [
-            'available' => true,
-            'counts' => [
-                'planned' => $counts[TripScheduleStatusEnum::PLANNED->value],
-                'assigned' => $counts[TripScheduleStatusEnum::ASSIGNED->value],
-                'in_progress' => $counts[TripScheduleStatusEnum::IN_PROGRESS->value],
-                'completed' => $counts[TripScheduleStatusEnum::COMPLETED->value],
-                'cancelled' => $counts[TripScheduleStatusEnum::CANCELLED->value],
-                'total' => array_sum($counts),
-            ],
-            'schedules' => $schedules,
-        ];
+        return ['available' => true, 'counts' => [...$counts, 'total' => $runs->count()], 'schedules' => $runs->take(20)->all()];
     }
 
     /** @param array<string, bool> $permissions
      * @return array<string, mixed>
      */
-    private function alerts(CarbonImmutable $start, CarbonImmutable $end, array $permissions): array
+    private function alerts(CarbonImmutable $day, array $permissions): array
     {
         $items = [];
-        if ($permissions['trip_schedules']) {
-            $unassigned = $this->schedulesForDay($start, $end)
-                ->whereIn('status', [TripScheduleStatusEnum::PLANNED->value, TripScheduleStatusEnum::ASSIGNED->value])
-                ->whereDoesntHave('assignments', fn (Builder $query): Builder => $query->where('is_current', true))
-                ->count();
+        if ($permissions['operations']) {
+            $runs = $this->runsForDay($day);
+            $unassigned = $runs->filter(fn (array $run): bool => $run['status'] === 'PLANNED' && (! $run['vehicle_plate'] || ! $run['driver_name']))->count();
             if ($unassigned > 0) {
-                $items[] = $this->alert('unassigned_trips', 'warning', $unassigned, "{$unassigned} chuyến chưa được phân công xe và tài xế.");
+                $items[] = $this->alert('unassigned_trips', 'warning', $unassigned, "{$unassigned} chuyến chưa đủ biển số hoặc tài xế.");
             }
-
-            $overdue = TripSchedule::query()->operational()
-                ->where('scheduled_end_at', '<', now())
-                ->whereNotIn('status', [TripScheduleStatusEnum::COMPLETED->value, TripScheduleStatusEnum::CANCELLED->value])
-                ->count();
+            $overdue = $runs->filter(fn (array $run): bool => $run['scheduled_end_at'] && $run['scheduled_end_at'] < now()->toISOString() && ! in_array($run['status'], ['COMPLETED', 'CANCELLED'], true))->count();
             if ($overdue > 0) {
                 $items[] = $this->alert('overdue_trips', 'critical', $overdue, "{$overdue} chuyến đã quá giờ kết thúc nhưng chưa hoàn tất.");
             }
         }
-        if ($permissions['vehicles']) {
-            $maintenance = Vehicle::query()->where('is_active', true)->whereIn('vehicle_status', [VehicleStatusEnum::MAINTENANCE->value, VehicleStatusEnum::INACTIVE->value])->count();
-            if ($maintenance > 0) {
-                $items[] = $this->alert('vehicle_attention', 'warning', $maintenance, "{$maintenance} xe đang bảo dưỡng hoặc ngừng hoạt động.");
-            }
-        }
         if ($permissions['drivers']) {
-            $licenseAttention = Driver::query()
-                ->where('is_active', true)
-                ->whereNotNull('license_expired_at')
-                ->whereDate('license_expired_at', '<=', $start->addDays(30)->toDateString())
-                ->count();
+            $licenseAttention = Driver::query()->where('is_active', true)->whereNotNull('license_expired_at')->whereDate('license_expired_at', '<=', $day->addDays(30)->toDateString())->count();
             if ($licenseAttention > 0) {
                 $items[] = $this->alert('driver_license', 'warning', $licenseAttention, "{$licenseAttention} bằng lái đã hoặc sắp hết hạn trong 30 ngày.");
             }
         }
-
         $priority = ['critical' => 0, 'warning' => 1, 'info' => 2];
         usort($items, fn (array $left, array $right): int => $priority[$left['severity']] <=> $priority[$right['severity']]);
 
-        return ['available' => $permissions['trip_schedules'] || $permissions['vehicles'] || $permissions['drivers'], 'items' => $items];
+        return ['available' => $permissions['operations'] || $permissions['drivers'], 'items' => $items];
     }
 
-    /** @return array<string, mixed> */
-    private function fleet(CarbonImmutable $start, CarbonImmutable $end, array $permissions): array
+    /** @param array<string, bool> $permissions
+     * @return array<string, mixed>
+     */
+    private function fleet(CarbonImmutable $day, array $permissions): array
     {
-        if (! $permissions['vehicles'] && ! $permissions['drivers']) {
+        if (! $permissions['operations'] && ! $permissions['drivers']) {
             return ['available' => false];
         }
+        $runs = $permissions['operations'] ? $this->runsForDay($day) : collect();
+        $assignedPlates = $runs->pluck('vehicle_plate')->filter()->unique()->count();
+        $assignedDrivers = $runs->pluck('driver_id')->filter()->unique()->count();
+        $activeDrivers = $permissions['drivers'] ? Driver::query()->where('is_active', true)->count() : null;
 
-        $result = ['available' => true, 'vehicles' => null, 'drivers' => null];
-        if ($permissions['vehicles']) {
-            $counts = array_fill_keys(VehicleStatusEnum::values(), 0);
-            Vehicle::query()->where('is_active', true)->selectRaw('vehicle_status, COUNT(*) as aggregate')->groupBy('vehicle_status')->pluck('aggregate', 'vehicle_status')->each(function (mixed $count, string $status) use (&$counts): void {
-                $counts[$status] = (int) $count;
-            });
-            $result['vehicles'] = [
-                'available' => $counts[VehicleStatusEnum::AVAILABLE->value],
-                'assigned' => $counts[VehicleStatusEnum::ASSIGNED->value],
-                'maintenance' => $counts[VehicleStatusEnum::MAINTENANCE->value],
-                'inactive' => $counts[VehicleStatusEnum::INACTIVE->value],
-                'total' => array_sum($counts),
-            ];
-        }
-        if ($permissions['drivers']) {
-            $activeDrivers = Driver::query()->where('is_active', true)->count();
-            $assignedDrivers = TripAssignment::query()
-                ->where('is_current', true)
-                ->whereHas('driver', fn (Builder $query): Builder => $query->where('is_active', true))
-                ->whereHas('tripSchedule', fn (Builder $query): Builder => $this->overlap($query->operational(), $start, $end))
-                ->distinct('driver_id')
-                ->count('driver_id');
-            $result['drivers'] = [
-                'active' => $activeDrivers,
-                'assigned' => $assignedDrivers,
-                'available' => max(0, $activeDrivers - $assignedDrivers),
-            ];
-        }
-
-        return $result;
+        return [
+            'available' => true,
+            'vehicles' => $permissions['operations'] ? ['available' => 0, 'assigned' => $assignedPlates, 'maintenance' => 0, 'inactive' => 0, 'total' => $assignedPlates] : null,
+            'drivers' => $permissions['drivers'] ? ['active' => $activeDrivers, 'assigned' => $assignedDrivers, 'available' => max(0, (int) $activeDrivers - $assignedDrivers)] : null,
+        ];
     }
 
     /** @param array<string, bool> $permissions
@@ -216,30 +136,20 @@ class DashboardOverviewService implements DashboardOverviewServiceInterface
         if (! $available) {
             return ['available' => false];
         }
-
         $receipts = $permissions['receipts'] ? $this->money(Receipt::query()->where('received_at', '>=', $start)->where('received_at', '<', $end)->sum('amount')) : null;
         $expenses = $permissions['expenses'] ? $this->money(Expense::query()->where('expense_date', '>=', $start)->where('expense_date', '<', $end)->sum('amount')) : null;
         $partnerPayments = $permissions['partner_payments'] ? $this->money(PartnerPayment::query()->where('paid_at', '>=', $start)->where('paid_at', '<', $end)->sum('amount')) : null;
 
-        return [
-            'available' => true,
-            'receipts' => $receipts,
-            'expenses' => $expenses,
-            'partner_payments' => $partnerPayments,
-            'net_cash' => $receipts !== null && $expenses !== null && $partnerPayments !== null
-                ? bcsub(bcsub($receipts, $expenses, 2), $partnerPayments, 2)
-                : null,
-        ];
+        return ['available' => true, 'receipts' => $receipts, 'expenses' => $expenses, 'partner_payments' => $partnerPayments, 'net_cash' => $receipts !== null && $expenses !== null && $partnerPayments !== null ? bcsub(bcsub($receipts, $expenses, 2), $partnerPayments, 2) : null];
     }
 
-    private function schedulesForDay(CarbonImmutable $start, CarbonImmutable $end): Builder
+    /** @return array<string, mixed> */
+    private function runData(WorkerVehicle|TouristVehicle $run, string $kind): array
     {
-        return $this->overlap(TripSchedule::query()->operational(), $start, $end);
-    }
+        $start = $run->run_date?->toDateString().' '.($run->pickup_time ?? '00:00:00');
+        $end = ($run->return_date ?? $run->run_date)?->toDateString().' '.($run->return_time ?? $run->pickup_time ?? '23:59:59');
 
-    private function overlap(Builder $query, CarbonImmutable $start, CarbonImmutable $end): Builder
-    {
-        return $query->where('scheduled_start_at', '<', $end)->where('scheduled_end_at', '>', $start);
+        return ['id' => $kind === 'worker' ? $run->id : 1000000000 + $run->id, 'schedule_no' => $run->run_no, 'scheduled_start_at' => CarbonImmutable::parse($start)->toISOString(), 'scheduled_end_at' => CarbonImmutable::parse($end)->toISOString(), 'route_name' => $kind === 'worker' ? $run->route?->name : $run->journey, 'pickup_location' => $run->pickup_location, 'dropoff_location' => $run->dropoff_location, 'service_type' => $kind === 'worker' ? 'Xe công nhân' : 'Xe du lịch', 'vehicle_type_name' => $kind === 'worker' ? 'Công nhân' : 'Du lịch', 'status' => strtoupper((string) $run->status), 'vehicle_plate' => $run->license_plate, 'driver_id' => $run->driver_id, 'driver_name' => $run->driver?->full_name ?? $run->hired_driver_name];
     }
 
     /** @return array<string, int|string> */
