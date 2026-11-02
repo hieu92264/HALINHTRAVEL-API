@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\VehicleOperations;
 
+use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
+use App\Modules\Auth\Models\User;
 use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Driver;
@@ -46,6 +48,30 @@ class VehicleOperationSchemaTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $service->createRun('worker', ['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca sáng', 'run_date' => '2026-02-01', 'pickup_time' => '09:00', 'return_time' => '11:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-000.02', 'is_hired_driver' => false]);
+    }
+
+    public function test_dispatcher_can_create_and_update_worker_rate_through_the_public_api(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $dispatcher = User::query()->where('user_name', 'dispatcher')->firstOrFail();
+        $customer = Customer::query()->create(['code' => 'KH-RATE-API', 'type' => 'company', 'name' => 'Khách hàng bảng giá']);
+        $route = Route::query()->create(['code' => 'T-RATE-API', 'customer_id' => $customer->id, 'name' => 'Tuyến bảng giá', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
+
+        $created = $this->actingAs($dispatcher, 'api')->postJson('/api/vehicle-operations/worker-vehicle-rates', [
+            'route_id' => $route->id,
+            'license_plate' => '15B-200.01',
+            'freight_amount' => 1500000,
+            'driver_wage' => 250000,
+            'effective_from' => '2026-01-01',
+        ])->assertCreated()->assertJsonPath('metadata.route_id', $route->id);
+
+        $id = $created->json('metadata.id');
+        $this->actingAs($dispatcher, 'api')->patchJson("/api/vehicle-operations/worker-vehicle-rates/{$id}", [
+            'driver_wage' => 275000,
+        ])->assertOk()->assertJsonPath('metadata.driver_wage', 275000);
+
+        $this->actingAs($dispatcher, 'api')->getJson('/api/vehicle-operations/worker-vehicle-rates')
+            ->assertOk()->assertJsonFragment(['id' => $id, 'license_plate' => '15B-200.01']);
     }
 
     public function test_default_seed_uses_only_new_vehicle_operation_records(): void

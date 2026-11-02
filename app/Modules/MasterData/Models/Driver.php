@@ -3,8 +3,6 @@
 namespace App\Modules\MasterData\Models;
 
 use App\Modules\Auth\Models\User;
-use App\Modules\Contract\Models\ContractScheduleRule;
-use App\Modules\Dispatch\Models\TripAssignment;
 use App\Modules\Finance\Models\Expense;
 use App\Shared\Enums\OwnershipTypeEnum;
 use HieuDev92264\LaravelModules\Traits\HasBaseMetadata;
@@ -57,16 +55,6 @@ class Driver extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_name', 'user_name');
-    }
-
-    public function defaultContractScheduleRules(): HasMany
-    {
-        return $this->hasMany(ContractScheduleRule::class, 'default_driver_id');
-    }
-
-    public function tripAssignments(): HasMany
-    {
-        return $this->hasMany(TripAssignment::class);
     }
 
     public function expenses(): HasMany

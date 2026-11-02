@@ -6,10 +6,7 @@ return [
     'aliases' => [
         'auth' => 'Auth',
         'md' => 'MasterData',
-        'disp' => 'Dispatch',
-        'ctr' => 'Contract',
         'fin' => 'Finance',
-        'rental' => 'Rental',
         'other' => 'Other',
         'dp' => 'DriverPayroll',
         'dash' => 'Dashboard',

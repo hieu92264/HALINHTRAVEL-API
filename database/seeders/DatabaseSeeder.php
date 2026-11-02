@@ -10,12 +10,7 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed authentication and the compact business dataset.
-     *
-     * ImportedHalinhTravelSeeder remains available as an explicit import tool,
-     * but must never replace the predictable data created by `db:seed`.
-     */
+    /** Seed authentication and the compact business dataset. */
     public function run(): void
     {
         $this->call([

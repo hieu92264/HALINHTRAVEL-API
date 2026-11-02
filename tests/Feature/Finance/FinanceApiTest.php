@@ -37,4 +37,18 @@ class FinanceApiTest extends TestCase
         $this->actingAs($accountant, 'api')->postJson('/api/finance/expenses', ['expense_type_id' => $type->id, 'expense_date' => '2026-10-02', 'amount' => '500000'])->assertUnprocessable();
         $this->postJson('/api/finance/expenses', ['expense_type_id' => $type->id, 'expense_date' => '2026-10-02', 'amount' => '500000', 'hired_driver_name' => 'Lái thuê A'])->assertCreated();
     }
+
+    public function test_debt_report_endpoints_return_their_rows_directly_in_metadata(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
+
+        foreach (['customer-debts', 'partner-debts', 'external-driver-debts'] as $report) {
+            $response = $this->actingAs($accountant, 'api')->getJson("/api/other/reports/{$report}?from_date=2026-11-01&to_date=2026-11-02");
+
+            $response->assertOk();
+            $this->assertIsArray($response->json('metadata'));
+            $response->assertJsonCount(0, 'metadata');
+        }
+    }
 }
