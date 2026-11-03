@@ -49,4 +49,9 @@ class Partner extends Model
     {
         return $this->hasMany(PartnerPayment::class);
     }
+
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class);
+    }
 }

@@ -24,6 +24,8 @@ enum PermissionEnum: string
     case ROUTES_MANAGE = 'routes.manage';
     case EXPENSE_TYPES_VIEW = 'expense-types.view';
     case EXPENSE_TYPES_MANAGE = 'expense-types.manage';
+    case VEHICLES_VIEW = 'vehicles.view';
+    case VEHICLES_MANAGE = 'vehicles.manage';
 
     case WORKER_VEHICLES_VIEW = 'worker-vehicles.view';
     case WORKER_VEHICLES_MANAGE = 'worker-vehicles.manage';
