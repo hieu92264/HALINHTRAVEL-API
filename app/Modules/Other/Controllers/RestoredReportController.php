@@ -7,6 +7,7 @@ use App\Modules\Other\Requests\ReportRequest;
 use App\Modules\Other\Services\RestoredReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
+use Illuminate\Support\Carbon;
 
 class RestoredReportController extends Controller
 {
@@ -66,7 +67,7 @@ class RestoredReportController extends Controller
         if ($request->validated('format') !== 'pdf') {
             return $this->success($report, 'Lấy báo cáo thành công.');
         }
-        $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'fromDate' => $filters['from_date'], 'toDate' => $filters['to_date']])
+        $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'fromDate' => Carbon::parse($filters['from_date'])->format('d/m/Y'), 'toDate' => Carbon::parse($filters['to_date'])->format('d/m/Y')])
             ->setPaper('a4', 'landscape');
 
         return $pdf->download($filename.'-'.$filters['from_date'].'-'.$filters['to_date'].'.pdf');
@@ -75,8 +76,8 @@ class RestoredReportController extends Controller
     private function title(string $filename): string
     {
         return match ($filename) {
-            'business-trips' => 'BÁO CÁO XE CHẠY CÔNG NHÂN',
-            'tourism-trips' => 'BÁO CÁO XE CHẠY DU LỊCH',
+            'business-trips' => 'BÁO CÁO THỐNG KÊ XE CHẠY CÔNG NHÂN',
+            'tourism-trips' => 'BÁO CÁO THỐNG KÊ XE CHẠY DU LỊCH',
             'customer-debts' => 'BẢNG TỔNG HỢP CÔNG NỢ KHÁCH HÀNG',
             'partner-debts' => 'BẢNG TỔNG HỢP CÔNG NỢ CHỦ XE',
             'driver-payroll' => 'BẢNG LƯƠNG LÁI XE',
@@ -92,8 +93,8 @@ class RestoredReportController extends Controller
     private function pdfData(string $filename, array $report): array
     {
         $columns = match ($filename) {
-            'business-trips' => ['stt' => 'STT', 'date' => 'Ngày', 'vehicle_plate' => 'Biển số', 'customer_name' => 'Khách hàng', 'route_name' => 'Tên tuyến', 'pickup_time' => 'Giờ đón', 'return_time' => 'Giờ về', 'driver_name' => 'Tên lái xe', 'revenue' => 'Cước xe', 'driver_wage' => 'Lương lái xe', 'external_driver_cost' => 'Tiền thuê lái', 'partner_vehicle_cost' => 'Tiền thuê xe', 'external_vehicle_profit' => 'Lợi nhuận', 'partner_name' => 'Chủ xe'],
-            'tourism-trips' => ['stt' => 'STT', 'date' => 'Ngày', 'vehicle_plate' => 'Biển số', 'journey' => 'Hành trình', 'driver_name' => 'Tên lái xe', 'revenue' => 'Cước xe', 'driver_wage' => 'Lương lái xe', 'external_driver_cost' => 'Tiền thuê lái', 'partner_vehicle_cost' => 'Tiền thuê xe', 'driver_collected_amount' => 'Lái xe thu', 'driver_remitted_amount' => 'Lái xe nộp', 'company_collected_amount' => 'Công ty thu', 'remaining_receivable' => 'Còn lại'],
+            'business-trips' => ['stt' => 'STT', 'date' => 'Ngày', 'vehicle_plate' => 'Biển số', 'customer_name' => 'Khách hàng', 'route_name' => 'Tên tuyến', 'pickup_time' => 'Giờ đi', 'return_time' => 'Giờ về', 'driver_name' => 'Tên lái xe', 'revenue' => 'Cước xe', 'driver_wage' => 'Lương lái xe', 'external_driver_cost' => 'Tiền thuê lái', 'partner_vehicle_cost' => 'Tiền thuê xe', 'external_vehicle_profit' => 'Lợi nhuận xe', 'partner_name' => 'Chủ xe'],
+            'tourism-trips' => ['stt' => 'STT', 'date' => 'Ngày', 'vehicle_plate' => 'Biển số', 'journey' => 'Hành trình', 'driver_name' => 'Tên lái xe', 'revenue' => 'Cước xe', 'driver_wage_rate' => '% lương', 'driver_wage' => 'Lương lái xe', 'external_driver_cost' => 'Tiền thuê lái', 'hired_driver_name' => 'Tên lái thuê', 'driver_collected_amount' => 'Lái xe thu', 'driver_remitted_amount' => 'Lái xe nộp', 'company_collected_amount' => 'Công ty thu', 'remaining_receivable' => 'Còn lại phải thu'],
             'customer-debts' => ['stt' => 'STT', 'code' => 'Mã khách hàng', 'name' => 'Khách hàng', 'opening_balance' => 'Nợ đầu kỳ', 'fixed_trip_amount' => 'Cước xe công nhân', 'tourism_trip_amount' => 'Cước xe du lịch', 'incurred_amount' => 'Nợ phát sinh', 'received_amount' => 'Đã thu', 'closing_balance' => 'Nợ cuối kỳ'],
             'partner-debts' => ['stt' => 'STT', 'code' => 'Mã chủ xe', 'name' => 'Chủ xe', 'opening_balance' => 'Nợ đầu kỳ', 'partner_vehicle_cost' => 'Tiền thuê xe', 'incurred_amount' => 'Nợ phát sinh', 'paid_amount' => 'Đã chi trả', 'closing_balance' => 'Nợ cuối kỳ'],
             'customer-debt-details', 'partner-debt-details' => ['stt' => 'STT', 'date' => 'Ngày', 'document_no' => 'Số chứng từ', 'type' => 'Diễn giải', 'journey' => 'Hành trình', 'vehicle_plate' => 'Biển số', 'pickup_time' => 'Giờ đón', 'return_time' => 'Giờ về', 'note' => 'Ghi chú', 'debit' => 'Nợ phát sinh', 'credit' => 'Có phát sinh', 'balance' => 'Nợ cuối kỳ'],
@@ -110,20 +111,22 @@ class RestoredReportController extends Controller
                 if (in_array($key, $money, true)) {
                     $value = number_format((float) $value, 2, ',', '.');
                 } elseif ($key === 'date' && $value !== '') {
-                    $value = substr((string) $value, 0, 10);
-                } elseif ($key === 'rate' && $value !== '') {
+                    $value = Carbon::parse($value)->format('d/m/Y');
+                } elseif (in_array($key, ['rate', 'driver_wage_rate'], true) && $value !== '') {
                     $value = number_format((float) $value * 100, 2, ',', '.').'%';
                 }
                 $result[$key] = (string) $value;
             }
+
             return $result;
         })->all();
         $totals = [];
         foreach ($report['totals'] ?? [] as $key => $value) {
             if (isset($columns[$key])) {
-                $totals[$columns[$key]] = number_format((float) $value, 2, ',', '.');
+                $totals[$key] = number_format((float) $value, 2, ',', '.');
             }
         }
-        return compact('columns', 'rows', 'totals');
+
+        return [...compact('columns', 'rows', 'totals'), 'legacy_trip_layout' => in_array($filename, ['business-trips', 'tourism-trips'], true)];
     }
 }

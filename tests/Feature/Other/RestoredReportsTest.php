@@ -4,7 +4,12 @@ namespace Tests\Feature\Other;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
+use App\Modules\MasterData\Models\Customer;
+use App\Modules\MasterData\Models\Partner;
+use App\Modules\MasterData\Models\Vehicle;
 use App\Modules\Other\Services\RestoredReportService;
+use App\Modules\VehicleOperations\Models\TouristVehicle;
+use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -42,5 +47,65 @@ class RestoredReportsTest extends TestCase
 
         $this->actingAs($user, 'api')->get('/api/other/reports/business-trips?'.http_build_query([...$query, 'format' => 'pdf']))
             ->assertOk()->assertHeader('content-disposition')->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_business_trip_report_applies_all_supported_filters_and_calculates_profit(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $reports = app(RestoredReportService::class);
+        $run = WorkerVehicle::query()->where('run_no', 'CN-SEED-001')->firstOrFail();
+        $filters = [
+            'from_date' => now()->subDays(10)->toDateString(),
+            'to_date' => now()->toDateString(),
+            'customer_id' => $run->customer_id,
+            'vehicle_id' => $run->vehicle_id,
+            'driver_id' => $run->driver_id,
+            'route_id' => $run->route_id,
+            'shift_name' => $run->shift_name,
+        ];
+
+        $report = $reports->businessTrips($filters);
+
+        $this->assertCount(1, $report['rows']);
+        $this->assertSame('CN-SEED-001', $report['rows'][0]['run_no']);
+        $this->assertSame('2200000.00', $report['rows'][0]['external_vehicle_profit']);
+        $this->assertEmpty($reports->businessTrips([...$filters, 'shift_name' => 'Ca không tồn tại'])['rows']);
+        $this->assertEmpty($reports->businessTrips([...$filters, 'customer_id' => Customer::query()->where('code', 'KH0002')->valueOrFail('id')])['rows']);
+
+        $partnerRun = $run->replicate();
+        $partnerVehicle = Vehicle::query()->where('ownership_type', 'partner')->firstOrFail();
+        $partner = Partner::query()->where('code', 'DT0001')->firstOrFail();
+        $partnerRun->forceFill([
+            'run_no' => 'CN-SEED-PARTNER-FILTER',
+            'schedule_rule_id' => null,
+            'vehicle_id' => $partnerVehicle->id,
+            'license_plate' => $partnerVehicle->license_plate,
+            'is_company_vehicle' => false,
+            'partner_id' => $partner->id,
+            'driver_id' => null,
+            'pickup_time' => '09:00',
+        ])->save();
+
+        $partnerReport = $reports->businessTrips(['from_date' => $filters['from_date'], 'to_date' => $filters['to_date'], 'partner_id' => $partner->id]);
+        $this->assertCount(1, $partnerReport['rows']);
+        $this->assertSame('CN-SEED-PARTNER-FILTER', $partnerReport['rows'][0]['run_no']);
+    }
+
+    public function test_tourism_trip_report_separates_hired_driver_and_calculates_remaining_receivable(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $reports = app(RestoredReportService::class);
+        $tourism = TouristVehicle::query()->where('run_no', 'DL-SEED-001')->firstOrFail();
+        $filters = ['from_date' => now()->subDays(10)->toDateString(), 'to_date' => now()->toDateString(), 'customer_id' => $tourism->customer_id, 'vehicle_id' => $tourism->vehicle_id, 'driver_id' => $tourism->driver_id];
+
+        $row = $reports->tourismTrips($filters)['rows'][0];
+        $this->assertSame('DL-SEED-001', $row['run_no']);
+        $this->assertEquals(0.1, (float) $row['driver_wage_rate']);
+        $this->assertSame('4050000.00', $row['remaining_receivable']);
+
+        $hiredTourism = TouristVehicle::query()->where('run_no', 'DL-SEED-003')->firstOrFail();
+        $hiredRow = $reports->tourismTrips(['from_date' => now()->subDays(10)->toDateString(), 'to_date' => now()->toDateString(), 'vehicle_id' => $hiredTourism->vehicle_id])['rows'][0];
+        $this->assertNull($hiredRow['driver_name']);
+        $this->assertSame('Nguyễn Văn Thuê', $hiredRow['hired_driver_name']);
     }
 }
