@@ -40,7 +40,7 @@ class RestoredReportsTest extends TestCase
         $this->actingAs($user, 'api')->getJson('/api/other/reports/customer-debts?'.http_build_query($query))
             ->assertOk()->assertJsonIsArray('metadata');
 
-        $this->actingAs($user, 'api')->get('/api/other/reports/business-trips?'.http_build_query([...$query, 'format' => 'docx']))
-            ->assertOk()->assertHeader('content-disposition');
+        $this->actingAs($user, 'api')->get('/api/other/reports/business-trips?'.http_build_query([...$query, 'format' => 'pdf']))
+            ->assertOk()->assertHeader('content-disposition')->assertHeader('content-type', 'application/pdf');
     }
 }

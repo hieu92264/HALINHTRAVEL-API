@@ -1,284 +1,119 @@
 # Sổ tay tự học điều hành xe chạy và lương lái xe — Nguyễn Mạnh Trường
 
-## 0. Mục tiêu và nguyên tắc học
-
-Sau khi hoàn thành, Trường phải tự làm và tự giải thích được:
-
-1. Khai báo bảng giá, lịch lặp và một chuyến xe công nhân ngoại lệ.
-2. Phân biệt thời gian kế hoạch với thời gian thực tế; đưa một chuyến từ `planned` đến `completed`.
-3. Tạo chuyến du lịch xe nhà, xe đối tác và thuê lái; kiểm tra snapshot cước/lương.
-4. Giải thích vì sao hoàn thành lặp lại chỉ có một chấm công `pending`.
-5. Xác nhận công, tính kỳ lương và lần được một dòng lương về chuyến gốc.
-6. Dùng DevTools lần đường đi từ nút bấm đến service/backend/test.
-
-Tài liệu này mô tả website hiện tại. Mọi số liệu tài chính, công nợ và báo cáo chỉ lấy từ chuyến có trạng thái `completed` khi chức năng tương ứng yêu cầu.
-
-## 1. Từ điển nghiệp vụ
-
-| Khái niệm | Ý nghĩa | Dữ liệu chính |
-| --- | --- | --- |
-| Xe chạy công nhân | Một lần chạy theo tuyến/ca cho khách hàng | `worker_vehicles` |
-| Xe chạy du lịch | Một lần chạy theo hành trình du lịch/cá nhân | `tourist_vehicles` |
-| Quy tắc lịch | Khuôn mẫu chạy công nhân dài hạn | `worker_vehicle_schedule_rules` và `..._days` |
-| Bảng giá công nhân | Cước và lương theo tuyến, biển số, kỳ hiệu lực | `worker_vehicle_rates` |
-| Snapshot | Giá/lương được chép vào chuyến lúc sinh hoặc lưu, không đổi theo danh mục về sau | các cột tiền trên chuyến |
-| Xe nhà | Xe công ty, có thể dùng lái xe nội bộ | `is_company_vehicle = true` |
-| Xe đối tác | Xe do đối tác cung cấp; có tiền thuê xe | `partner_id`, `partner_vehicle_cost` |
-| Thuê lái | Lái xe ngoài; có tên và chi phí thuê | `is_hired_driver`, `hired_driver_name`, `hired_driver_cost` |
-| Chấm công | Công chuyến chờ kế toán xác nhận | `driver_attendances` |
-
-### Quy ước ngày chạy
-
-`weekday` dùng ISO-8601, không phải cách đánh số ngày trong JavaScript:
-
-| Giá trị | Ngày |
-| --- | --- |
-| 1 | Thứ Hai |
-| 2 | Thứ Ba |
-| 3 | Thứ Tư |
-| 4 | Thứ Năm |
-| 5 | Thứ Sáu |
-| 6 | Thứ Bảy |
-| 7 | Chủ nhật |
-
-## 2. Bản đồ luồng nghiệp vụ
-
-```mermaid
-flowchart TB
-  A[Danh mục nền<br/>Khách hàng · Tuyến · Tài xế · Đối tác]
-
-  subgraph CN[Luồng xe công nhân]
-    direction TB
-    B[Bảng giá theo tuyến + biển số] --> C[Quy tắc lịch lặp<br/>Ngày 1–7]
-    C --> D[Sinh chuyến kế hoạch<br/>Cửa sổ 90 ngày]
-  end
-
-  subgraph DL[Luồng xe du lịch]
-    direction TB
-    E[Tạo chuyến trực tiếp] --> F[Chốt snapshot<br/>Cước · tỷ lệ · lương]
-  end
-
-  A --> B
-  A --> E
-  D --> G[Bắt đầu và hoàn thành<br/>Giữ riêng giờ thực tế]
-  F --> G
-  G --> H[Chấm công pending<br/>Chỉ xe nhà + lái nội bộ]
-  H --> I[Xác nhận công]
-  I --> J[Tính kỳ lương]
-
-  classDef source fill:#DBEAFE,stroke:#1769C2,color:#10233B,stroke-width:2px,font-size:16px;
-  classDef process fill:#E8F5EE,stroke:#2F8A68,color:#10233B,stroke-width:2px,font-size:16px;
-  classDef finance fill:#FFF4D6,stroke:#E6A93D,color:#10233B,stroke-width:2px,font-size:16px;
-  class A source;
-  class B,C,D,E,F,G process;
-  class H,I,J finance;
-```
-
-Điểm quan trọng: lịch lặp chỉ sinh chuyến công nhân. Chuyến du lịch luôn do điều hành tạo trực tiếp.
-
-## 3. Bản đồ code và màn hình
-
-| Việc | Frontend | API | Backend cần đọc |
-| --- | --- | --- | --- |
-| Danh sách/chuyến công nhân | `VehicleRunsPage.vue`, `WorkerVehicleForm.vue` | `/vehicle-operations/worker-vehicles` | `VehicleOperationService::createRun()` |
-| Lịch lặp | `WorkerSchedulesPage.vue`, `WorkerScheduleForm.vue` | `/worker-vehicle-schedule-rules` | `saveRule()`, `generateRuns()` |
-| Bảng giá | `WorkerRatesPage.vue` | `/worker-vehicle-rates` | `saveRate()`, `applicableRate()` |
-| Xe du lịch | `TouristVehicleForm.vue`, `TouristVehicleDetail.vue` | `/tourist-vehicles` | `syncTouristWage()` |
-| Chấm công/kỳ lương | `PayrollPage.vue`, `PayrollDetail.vue` | `/driver-payroll/*` | `DriverPayrollService` |
-
-Tất cả request frontend xe chạy đi qua `HALINHTRAVEL-CLIENT/src/services/vehicle-operations.service.ts`. Route backend nằm tại `app/Modules/VehicleOperations/Routes/index.php`.
+## 0. Mục tiêu và phạm vi
 
-## 4. Xe công nhân: từ bảng giá tới chuyến hoàn tất
+Trường cần có thể tạo, hoàn tất và đối soát một chuyến xe công nhân hoặc xe du lịch; sau đó lần số liệu tới chấm công và kỳ lương.
 
-### 4.1. Tạo bảng giá trước
+Tài liệu áp dụng nghiệp vụ đã chốt tháng 11/2026. Các mục **Loại xe / xe đối tác riêng / giá tuyến × loại xe** là chuẩn nghiệp vụ đích của kế hoạch 01–03. Bản ứng dụng đang chạy vẫn dùng bảng `vehicles` chung và bảng giá công nhân theo **tuyến + biển số + thời gian hiệu lực**; không tự coi giao diện cũ là quy tắc mới.
 
-Một giá gồm `route_id`, `license_plate`, `freight_amount`, `driver_wage`, `effective_from`, `effective_to`.
-
-```json
-POST /api/vehicle-operations/worker-vehicle-rates
-{
-  "route_id": 3,
-  "license_plate": "15B-123.45",
-  "freight_amount": 1800000,
-  "driver_wage": 280000,
-  "effective_from": "2026-11-01",
-  "effective_to": null
-}
-```
+## 1. Quy tắc nguồn xe
 
-Luật cần nhớ:
+Nguồn xe là một lựa chọn nghiệp vụ, không phải checkbox để người dùng tự đoán:
 
-- Cùng tuyến và biển số không được có hai khoảng giá chồng lấn.
-- `effective_to`, nếu có, không được trước `effective_from`.
-- Khi sinh chuyến, cước/lương được chép vào chuyến. Sửa bảng giá sau đó không sửa lịch sử chuyến cũ.
+| Nguồn | Cách chọn | Dữ liệu bắt buộc | Ý nghĩa tài chính |
+|---|---|---|---|
+| Xe công ty | Chọn xe công ty | Biển số; tài xế công ty hoặc thuê lái | Không có tiền thuê xe đối tác |
+| Xe đối tác | Chọn chủ xe/hãng vận tải, rồi chọn hoặc nhập biển số | Chủ xe/hãng vận tải, biển số, tiền thuê xe | Phát sinh công nợ chủ xe khi chuyến hoàn tất |
+| Thuê lái | Là trạng thái tài xế của từng chuyến, độc lập nguồn xe | Tên lái thuê, tiền thuê lái | Phát sinh công nợ thuê lái khi cờ thuê lái bật |
 
-### 4.2. Tạo lịch lặp
+Xe đối tác mới phải được lưu lại để lần sau chọn lại. Tài xế ngoài không mặc nhiên gắn cố định với một xe đối tác.
 
-Quy tắc chứa khách hàng, tuyến, ca, điểm đón/trả, xe/lái xe và các ngày chạy. Mỗi phần tử `days` có `weekday`, `pickup_time`, `return_time`.
+> Trong schema hiện hành, xe công ty và xe đối tác cùng nằm ở `vehicles`; `ownership_type` và `partner_id` quyết định nguồn xe. Khi tạo/chỉnh chuyến, nguồn xe phải lấy từ xe đã chọn, không cho một biển số công ty đi cùng `partner_id` hoặc ngược lại.
 
-```json
-POST /api/vehicle-operations/worker-vehicle-schedule-rules
-{
-  "customer_id": 1,
-  "route_id": 3,
-  "shift_name": "Ca sáng",
-  "effective_from": "2026-11-03",
-  "pickup_location": "Cổng KCN",
-  "dropoff_location": "Khu công nghiệp",
-  "is_company_vehicle": true,
-  "license_plate": "15B-123.45",
-  "driver_id": 2,
-  "is_hired_driver": false,
-  "days": [
-    { "weekday": 1, "pickup_time": "06:30", "return_time": "17:30" },
-    { "weekday": 2, "pickup_time": "06:30", "return_time": "17:30" }
-  ]
-}
-```
+## 2. Tuyến, loại xe và giá
 
-Khi lưu, backend kiểm tra giá hiệu lực tại ngày bắt đầu, kiểm tra chồng lấn với chuyến du lịch và đồng bộ chuyến `planned` trong cửa sổ 90 ngày. Chuyến `in_progress` hoặc `completed` là lịch sử vận hành, không bị lịch mới ghi đè.
+Một tuyến có mã, tên, ca, khách hàng, điểm/giờ đón và trả. Quy tắc nghiệp vụ mới là mỗi ô **tuyến × loại xe** có một cước xe và một lương lái công nhân cố định.
 
-### 4.3. Sinh lịch idempotent
+Khi chọn tuyến và loại xe:
 
-`POST /worker-vehicle-schedule-rules/{id}/generate` nhận `from_date`, `to_date`. Một chuyến trùng `schedule_rule_id`, ngày và giờ đón không sinh lại. Nếu thiếu giá hoặc xung đột, ngày đó được đưa vào `skipped`.
+1. Hệ thống lấy đúng cước và lương từ bảng giá.
+2. Hai giá trị được snapshot vào chuyến.
+3. Sửa bảng giá sau này không làm đổi chuyến hoặc kỳ lương đã có.
 
-Command `MaintainWorkerVehicleWindow` đảm bảo cửa sổ 90 ngày; nó có thể chạy nhiều lần mà không tạo bản ghi trùng.
+Không dùng biển số xe hoặc khoảng ngày hiệu lực làm quy tắc giá của nghiệp vụ mới. Trong bản triển khai cũ, `worker_vehicle_rates` vẫn còn các trường biển số/ngày hiệu lực để tương thích; đây là điểm cần thay thế trong kế hoạch 02.
 
-### 4.4. Chuyến ngoại lệ
+## 3. Xe chạy công nhân
 
-Điều hành có quyền tạo chuyến công nhân không thuộc lịch lặp. Chuyến đó có `schedule_rule_id = null`, nhưng vẫn phải có khách hàng, tuyến, ngày, giờ, điểm đón/trả, biển số và thông tin xe/lái hợp lệ. Khi lưu, dịch vụ tìm đúng bảng giá theo tuyến, biển số và ngày chạy để chốt cước/lương.
+Mỗi chuyến công nhân cần có khách hàng, tuyến, ngày chạy, ca, giờ/điểm đón trả, nguồn xe và trạng thái.
 
-## 5. Xe du lịch và snapshot lương
+- Chọn tuyến để điền sẵn thông tin tuyến và bảng giá theo loại xe.
+- Xe công ty tự điền biển số, loại xe và tài xế phụ trách; từng chuyến vẫn có thể đánh dấu thuê lái.
+- Xe đối tác bắt buộc chủ xe/hãng vận tải và tiền thuê xe.
+- Chỉ chuyến `completed` mới đi vào công nợ, chấm công và báo cáo có điều kiện hoàn tất.
+- Giờ thực tế `actual_started_at`/`actual_completed_at` là căn cứ cho dữ liệu hoàn tất; dữ liệu cũ có thể dùng `completed_at` khi chưa có giờ thực tế.
 
-Xe du lịch luôn có khách hàng, hành trình, kế hoạch giờ/điểm đón trả, biển số, cước và loại xe/lái.
+## 4. Xe chạy du lịch và bốn khoản đối soát
 
-| Trường hợp | Bắt buộc | Chấm công khi hoàn thành |
-| --- | --- | --- |
-| Xe nhà + lái nội bộ | biển số, `driver_id` | Có, tối đa một dòng pending |
-| Xe đối tác | `partner_id`, `partner_vehicle_cost` | Không |
-| Thuê lái | `hired_driver_name`, `hired_driver_cost` | Không |
+Xe du lịch nhập tay khách hàng, hành trình, lịch trình và cước xe. Lương lái du lịch được tính:
 
-Với xe nhà có lái nội bộ, backend lấy `tourism_commission_rate` của tài xế và lưu vào `driver_wage_rate`; lương mặc định là `freight_amount × driver_wage_rate`.
+`lương lái du lịch = cước xe × % lương lái du lịch của loại xe`
 
-- Đổi tài xế: lấy tỷ lệ mới của tài xế được chọn và tính lại lương.
-- Đổi cước: tính lại theo tỷ lệ snapshot nếu chưa chốt thủ công.
-- Sửa trực tiếp lương: đánh dấu `driver_wage_is_overridden = true`.
-- Tính lại: bỏ cờ chốt thủ công, dùng tỷ lệ snapshot đang có; không đọc lại hồ sơ tài xế.
+Tỷ lệ và số tiền phải được snapshot vào chuyến. Schema hiện tại còn lấy tỷ lệ mặc định từ tài xế; đây là dữ liệu chuyển tiếp cho tới khi danh mục loại xe được triển khai.
 
-Các khoản `driver_collected_amount`, `company_collected_amount`, `driver_remitted_amount`, `driver_expense_amount` là đối soát của chính chuyến, không phải khoản cộng/trừ tự động vào lương.
+Trên chuyến du lịch phải phân biệt bốn khoản, không gộp chúng với nhau:
 
-## 6. Trạng thái, xung đột và thời gian thực tế
+| Khoản | Tác động tới lương lái | Tác động khác |
+|---|---:|---|
+| Lái xe thu khách | Trừ thực lĩnh | Không phải tiền công ty đã thu |
+| Công ty thu | Không tác động | Theo dõi dòng tiền công ty |
+| Lái xe nộp công ty | Cộng thực lĩnh | Xác nhận lái đã nộp lại |
+| Lái xe tự chi | Cộng thực lĩnh | Hoàn/ghi nhận khoản lái tự chi |
 
-| Trạng thái | Ý nghĩa | Thao tác hợp lệ |
-| --- | --- | --- |
-| `planned` | Chuyến kế hoạch | sửa, hủy, bắt đầu, hoàn thành |
-| `in_progress` | Đã bắt đầu | hoàn thành |
-| `completed` | Đã chốt vận hành | chỉ xem/đối chiếu |
-| `cancelled` | Đã hủy | không được hoàn thành |
+## 5. Từ chuyến hoàn tất đến chấm công
 
-`run_date`, `pickup_time`, `return_time` là kế hoạch. `actual_started_at`, `actual_completed_at` là thực tế, không được ghi đè kế hoạch.
+Với xe công ty do tài xế công ty chạy, hệ thống tạo chấm công từ chuyến hoàn tất:
 
-Hệ thống chặn hai chuyến chưa hủy nếu cùng biển số hoặc cùng lái xe có khoảng thời gian giao nhau, kể cả một chuyến công nhân và một chuyến du lịch.
+- Chuyến công nhân: tiền lương snapshot của chuyến.
+- Chuyến du lịch: lương snapshot của chuyến, không tính lại theo bảng giá đang hiện hành.
+- Chuyến dùng xe đối tác hoặc thuê lái không tạo lương cho tài xế công ty chỉ vì có biển số/chủ xe.
 
-## 7. Từ hoàn thành chuyến đến payroll
+Chấm công cần ở trạng thái `confirmed` trước khi tính vào kỳ lương. Khi kỳ lương đã khóa, chấm công liên quan chuyển `payroll_locked` và không được sửa.
 
-Khi hoàn thành xe nhà với lái nội bộ, backend dùng `firstOrCreate` theo chuyến và tài xế:
+## 6. Kỳ lương nhiều bản
 
-- Xe công nhân: `work_type = fixed_trip`, cơ sở tính là `driver_wage` đã snapshot.
-- Xe du lịch: `work_type = tourism_trip`, cơ sở tính là cước, tỷ lệ là `driver_wage_rate`, kết quả là `driver_wage` snapshot.
+Kỳ lương là snapshot toàn bộ dữ liệu hợp lệ của một tháng, không phải một màn hình tính lại động.
 
-Chấm công bắt đầu ở `pending`; kế toán xác nhận thành `confirmed`. Kỳ lương chỉ gom công `confirmed` trong kỳ.
+1. Có thể tạo kỳ cho tháng hiện tại hoặc tháng tương lai nếu đã có chuyến hoàn tất thuộc tháng đó; không cần chờ hết tháng.
+2. Bản đầu là `Tháng MM/YYYY - Bản 1`; tạo lại sẽ là Bản 2, Bản 3…
+3. Khi chưa có bản nào `paid` hoặc `locked`, tạo bản mới sẽ đặt bản mới là hiện hành (`is_current = true`) và chuyển bản cũ thành `superseded`.
+4. Khi một bản trong tháng đã trả hoặc khóa, không được tạo bản mới.
+5. Báo cáo mặc định đọc bản hiện hành; bản thay thế chỉ để đối chiếu, không dùng thanh toán.
 
-```text
-gross_salary = responsibility_allowance
-             + fixed_trip_wage
-             + tourism_commission
-             + other_allowance
+Vòng đời: `draft → calculated → approved → paid → locked`; trạng thái `superseded` là bản đã bị thay thế.
 
-net_salary = gross_salary - advance_amount - deduction_amount
-```
+### Công thức thực lĩnh
 
-Vòng đời kỳ lương: `draft` → `calculated` → `approved` → `paid` → `locked`. Sau khi khóa, công liên quan chuyển `payroll_locked`.
+`thực lĩnh = trách nhiệm + lương công nhân + lương du lịch - tạm ứng - lái xe thu khách + lái xe nộp công ty + lái xe tự chi`
 
-## 8. Hướng dẫn thao tác trên website: làm theo đúng thứ tự
+Khoản **công ty thu** không nằm trong công thức. Các khoản phụ cấp/khấu trừ khác chỉ được thêm khi có quyết định rõ ràng và phải hiển thị tách riêng trong chi tiết.
 
-### Bước 0 — Kiểm tra quyền và dữ liệu nền
+Ví dụ: trách nhiệm 1.000.000, công nhân 300.000, du lịch 600.000, tạm ứng 200.000, lái thu 450.000, lái nộp 200.000, lái tự chi 50.000 thì thực lĩnh là **1.500.000 đồng**.
 
-1. Đăng nhập, nhìn sidebar bên trái và mở **Quản lý danh mục**.
-2. Lần lượt kiểm tra đã có **Khách hàng**, **Tuyến đường**, **Tài xế** và, nếu dùng xe đối tác, **Đối tác** chưa.
-3. Mở Tài xế để xem lái xe nội bộ đang hoạt động và tỷ lệ lương du lịch của họ. Không tạo chuyến trước khi các danh mục này sẵn sàng.
-4. Nếu không thấy nhóm **Quản lý chạy xe** hoặc nút tạo/sửa, dừng lại và kiểm tra quyền thay vì thử nhập dữ liệu bằng ID thủ công.
+## 7. Quy trình thao tác kiểm tra
 
-### Kịch bản A — Khai báo một tuyến công nhân chạy lặp
+1. Kiểm tra khách hàng, chủ xe/hãng vận tải, xe và tài xế trước khi lập chuyến.
+2. Tạo chuyến, kiểm tra nguồn xe, tài xế/thuê lái, cước, lương và các snapshot.
+3. Hoàn tất chuyến với ngày giờ thực tế.
+4. Vào **Chấm công và lương** → xác nhận chấm công.
+5. Tạo kỳ lương đúng tháng, bấm tính lương, mở chi tiết để kiểm tra bốn khoản đối soát du lịch.
+6. Nếu phải tính lại trước trả/khóa, tạo bản mới thay vì sửa số liệu của bản cũ; kiểm tra bản mới là hiện hành.
 
-1. Sidebar → **Quản lý chạy xe** → **Xe chạy công nhân**. Đây là điểm vào duy nhất cho ba phần việc.
-2. Trên thanh tab của trang, chọn **Bảng giá** trước. Nhấn **Thêm bảng giá**, chọn tuyến từ danh mục, nhập biển số, cước, lương lái, ngày hiệu lực rồi lưu.
-3. Đọc lại dòng vừa tạo; bảo đảm ngày hiệu lực bao gồm ngày dự kiến chạy. Nếu bảng giá báo lỗi chồng lấn, sửa kỳ cũ hoặc chọn ngày bắt đầu khác.
-4. Chuyển tab **Lịch lặp** → **Thêm lịch lặp**. Chọn khách hàng, tuyến, ca, điểm đón/trả, xe và lái xe.
-5. Trong phần ngày chạy, thêm từng dòng ngày/giờ. Chọn `1` cho Thứ Hai … `7` cho Chủ nhật; không nhập số theo thứ tự Chủ nhật–Thứ Bảy.
-6. Lưu lịch. Hệ thống sinh các chuyến trong 90 ngày; quay lại tab **Chuyến chạy**, lọc theo biển số/ngày để xem các dòng `planned` đã sinh.
-7. Mở một dòng bằng nút xem chi tiết. Đối chiếu cước/lương trong phần tài chính với bảng giá đã khai báo; đó là snapshot của chuyến.
+## 8. Các kiểm tra bắt buộc
 
-### Kịch bản B — Điều hành một chuyến công nhân thực tế
-
-1. Tại tab **Chuyến chạy**, dùng bộ lọc ngày, trạng thái hoặc biển số để tìm chuyến hôm nay.
-2. Nếu là trường hợp ngoài lịch, nhấn **Tạo xe chạy công nhân** và điền đủ kế hoạch, xe/lái và tài chính. Sau khi lưu, quay lại danh sách để kiểm tra mã chuyến.
-3. Mở chi tiết chuyến `planned` → nhấn **Bắt đầu**. Chỉ điền giờ thực tế khác giờ hiện tại khi cần hiệu chỉnh.
-4. Kiểm tra badge đổi thành `in_progress` và phần thời gian thực tế đã có giờ bắt đầu.
-5. Khi kết thúc, nhấn **Hoàn thành**. Không dùng nút này cho chuyến đã hủy.
-6. Reload trang chi tiết: trạng thái phải là `completed`, có `actual_completed_at`; phần chấm công chỉ xuất hiện cho xe nhà có lái nội bộ.
-
-### Kịch bản C — Tạo và hoàn thành xe du lịch
-
-1. Sidebar → **Quản lý chạy xe** → **Xe chạy du lịch** → **Tạo xe chạy du lịch**.
-2. Điền phần kế hoạch trước: khách hàng, hành trình, ngày, giờ, điểm đón/trả.
-3. Chọn đúng nguồn xe/lái: xe nhà + tài xế; hoặc xe đối tác + đối tác/tiền thuê xe; hoặc thuê lái + tên/chi phí.
-4. Với xe nhà, xem phần snapshot lương: tỷ lệ hiển thị theo phần trăm, cước và lương được tự tính. Chỉ sửa lương khi thật sự muốn chốt thủ công.
-5. Nhập các khoản đối soát thu/nộp/chi nếu có, lưu rồi mở chi tiết kiểm tra.
-6. Thao tác **Bắt đầu** rồi **Hoàn thành** giống chuyến công nhân. Sau khi hoàn thành, kiểm tra attendance khi đó là xe nhà có lái nội bộ.
-
-### Kịch bản D — Đi tới chấm công và kỳ lương
-
-1. Sidebar → **Tài chính và nhân sự** → **Chấm công và lương**.
-2. Mở tab chấm công, lọc theo lái xe/ngày, chọn attendance `pending` từ chuyến vừa hoàn thành rồi xác nhận.
-3. Mở tab kỳ lương, tạo kỳ cho tháng đã kết thúc, nhấn tính lương; mở chi tiết kỳ để thấy công nhân và du lịch được tách nguồn.
-4. Chỉ duyệt, đánh dấu đã trả và khóa khi đã đối chiếu các dòng công, tạm ứng và thực lĩnh.
-
-## 9. Quy trình lần code và DevTools
-
-1. Mở màn hình, xác định thao tác và quyền cần có.
-2. DevTools → Network → lọc Fetch/XHR → thực hiện thao tác.
-3. Ghi method, URL, payload, response và status code.
-4. Tìm URL trong `vehicle-operations.service.ts` hoặc `driver-payroll.service.ts`.
-5. Lần ngược page/form; lần xuôi route → controller → service → model/test.
-
-| Mã lỗi | Cách đọc |
-| --- | --- |
-| 403 | Thiếu quyền view/manage hoặc schedule/rate tương ứng |
-| 422 | Field thiếu, ngày/giờ sai, thiếu giá, hoặc trùng lịch |
-| 409 | Sai trạng thái, chuyến đã hủy, quy tắc đã ngừng hoặc dữ liệu đã khóa |
-
-## 10. Sáu lab bắt buộc
-
-1. Tạo giá và thử tạo giá chồng kỳ; giải thích lỗi tại `effective_from`.
-2. Tạo rule chạy Thứ Hai và Thứ Sáu, sinh 14 ngày; chạy lại cùng request và chứng minh không trùng.
-3. Sửa rule, quan sát chỉ chuyến `planned` đổi/hủy.
-4. Tạo chuyến du lịch xe nhà, đổi cước, chốt lương rồi tính lại.
-5. Tạo hai chuyến giao giờ cùng biển số; ghi lại lỗi validation.
-6. Hoàn thành một chuyến hai lần, xác nhận đúng một attendance; xác nhận công và tính tay lương tài xế.
-
-## 11. Câu hỏi bảo vệ và checklist
-
-1. Vì sao cước/lương phải snapshot vào chuyến?
-2. Vì sao một rule có ngày chạy `1` là Thứ Hai?
-3. Vì sao đồng bộ rule không được sửa chuyến đang chạy/đã hoàn thành?
-4. Khi nào xe hoàn thành không sinh chấm công?
-5. Một dòng `PayrollItemDetail` lần về chuyến công nhân hoặc du lịch bằng khóa nào?
-
-Trước khi kết thúc tự học, Trường phải tự vẽ được sơ đồ từ rule/bảng giá tới attendance và kỳ lương, nêu đúng endpoint, quyền và ít nhất hai lỗi 422/409.
-
-## 12. Lộ trình ba ngày
-
-- **Ngày 1:** danh mục, bảng giá, rule, quy ước ngày 1–7 và lab 1–2.
-- **Ngày 2:** xe công nhân/du lịch, xung đột, snapshot, start/complete và lab 3–5.
-- **Ngày 3:** attendance, payroll, DevTools, lab 6 và trình bày 10 phút.
+- Không tạo được chuyến có nguồn xe mâu thuẫn với xe/chủ xe đã chọn.
+- Sửa giá sau khi có chuyến không làm đổi cước/lương snapshot của chuyến cũ.
+- Xe đối tác hoàn tất có tiền thuê xe; thuê lái có tên và chi phí thuê lái.
+- Lái thu, lái nộp và lái tự chi xuất hiện riêng trong bảng lương; công ty thu không làm đổi thực lĩnh.
+- Không tạo được Bản 2 sau khi một bản của tháng đã `paid` hoặc `locked`.
+- Báo cáo lương mặc định lấy bản `is_current = true`.
+
+## 9. Mốc source để lần lỗi
+
+| Việc | Thành phần chính |
+|---|---|
+| Chuyến công nhân/du lịch | `app/Modules/VehicleOperations`, `src/modules/vehicle-operations` |
+| Snapshot giá/lương | `WorkerVehicleRate`, `WorkerVehicle`, `TouristVehicle` |
+| Chấm công và kỳ lương | `DriverPayrollService`, `Payroll`, `PayrollItem` |
+| Bản kỳ lương | migration `2026_11_04_000000_add_revisions_and_settlements_to_payrolls.php` |
+
+Khi debug, kiểm tra Network theo thứ tự: payload chuyến → bản ghi chuyến snapshot → attendance → payroll item. Không sửa trực tiếp số liệu trong bảng lương để che lỗi ở chuyến nguồn.
