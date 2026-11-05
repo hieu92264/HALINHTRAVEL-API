@@ -145,10 +145,10 @@ class RouteService implements RouteServiceInterface
     /** @param list<array{vehicle_type_id:int,freight_amount:string|float|int,driver_wage:string|float|int}> $rates */
     private function syncRates(Route $route, array $rates): void
     {
-        $activeTypes = VehicleType::query()->active()->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
-        $provided = collect($rates)->pluck('vehicle_type_id')->map(fn ($id) => (int) $id)->sort()->values()->all();
-        if ($provided !== $activeTypes) {
-            abort(422, 'Bảng giá phải có đúng một dòng cho mỗi loại xe đang hoạt động.');
+        $provided = collect($rates)->pluck('vehicle_type_id')->map(fn ($id) => (int) $id)->values();
+        $activeCount = VehicleType::query()->active()->whereIn('id', $provided)->count();
+        if ($activeCount !== $provided->count()) {
+            abort(422, 'Chỉ được khai báo giá cho loại xe đang hoạt động.');
         }
         $route->vehicleTypeRates()->delete();
         $route->vehicleTypeRates()->createMany($rates);

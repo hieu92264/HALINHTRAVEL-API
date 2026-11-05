@@ -95,7 +95,6 @@ class SpatiePermissionTest extends TestCase
 
         $this->assertTrue($admin->hasPermissionTo(PermissionEnum::WORKER_VEHICLES_MANAGE->value));
         $this->assertTrue($admin->hasPermissionTo(PermissionEnum::TOURIST_VEHICLES_MANAGE->value));
-        $this->assertTrue($dispatcher->hasPermissionTo(PermissionEnum::WORKER_VEHICLE_SCHEDULES_MANAGE->value));
         $this->assertTrue($dispatcher->hasPermissionTo(PermissionEnum::TOURIST_VEHICLES_MANAGE->value));
         $this->assertTrue($accountant->hasPermissionTo(PermissionEnum::WORKER_VEHICLES_VIEW->value));
         $this->assertTrue($accountant->hasPermissionTo(PermissionEnum::TOURIST_VEHICLES_VIEW->value));

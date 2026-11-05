@@ -23,16 +23,4 @@ Route::middleware('auth:api')->prefix('vehicle-operations')->controller(VehicleO
         Route::post('tourist-vehicles/{touristVehicle}/start', 'touristStart');
         Route::post('tourist-vehicles/{touristVehicle}/complete', 'touristComplete');
     });
-    Route::middleware('permission:'.PermissionEnum::WORKER_VEHICLE_RATES_VIEW->value)->get('worker-vehicle-rates', 'rateIndex');
-    Route::middleware('permission:'.PermissionEnum::WORKER_VEHICLE_RATES_MANAGE->value)->group(function (): void {
-        Route::post('worker-vehicle-rates', 'rateStore');
-        Route::patch('worker-vehicle-rates/{workerVehicleRate}', 'rateUpdate');
-    });
-    Route::middleware('permission:'.PermissionEnum::WORKER_VEHICLE_SCHEDULES_MANAGE->value)->group(function (): void {
-        Route::get('worker-vehicle-schedule-rules', 'ruleIndex');
-        Route::post('worker-vehicle-schedule-rules', 'ruleStore');
-        Route::patch('worker-vehicle-schedule-rules/{workerVehicleScheduleRule}', 'ruleUpdate');
-        Route::delete('worker-vehicle-schedule-rules/{workerVehicleScheduleRule}', 'ruleDestroy');
-        Route::post('worker-vehicle-schedule-rules/{workerVehicleScheduleRule}/generate', 'generate');
-    });
 });

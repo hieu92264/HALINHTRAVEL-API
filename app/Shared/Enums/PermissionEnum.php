@@ -29,9 +29,6 @@ enum PermissionEnum: string
 
     case WORKER_VEHICLES_VIEW = 'worker-vehicles.view';
     case WORKER_VEHICLES_MANAGE = 'worker-vehicles.manage';
-    case WORKER_VEHICLE_SCHEDULES_MANAGE = 'worker-vehicle-schedules.manage';
-    case WORKER_VEHICLE_RATES_VIEW = 'worker-vehicle-rates.view';
-    case WORKER_VEHICLE_RATES_MANAGE = 'worker-vehicle-rates.manage';
     case TOURIST_VEHICLES_VIEW = 'tourist-vehicles.view';
     case TOURIST_VEHICLES_MANAGE = 'tourist-vehicles.manage';
 

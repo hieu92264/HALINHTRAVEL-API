@@ -81,6 +81,33 @@ class RouteApiTest extends TestCase
             ]]);
     }
 
+    public function test_route_accepts_only_configured_vehicle_type_rates_and_rejects_partial_pairs(): void
+    {
+        $dispatcher = $this->seededUser('dispatcher');
+        $customer = $this->createCustomer();
+        $type = VehicleType::query()->active()->firstOrFail();
+        $payload = [
+            'customer_id' => $customer->id,
+            'name' => 'Tuyến giá chọn lọc',
+            'shift_name' => 'Ca sáng',
+            'pickup_location' => 'A',
+            'dropoff_location' => 'B',
+            'default_pickup_time' => '06:30',
+            'default_return_time' => '17:30',
+            'rates' => [['vehicle_type_id' => $type->id, 'freight_amount' => 120000, 'driver_wage' => 50000]],
+        ];
+
+        $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/routes', $payload)
+            ->assertCreated()
+            ->assertJsonCount(1, 'metadata.rates');
+
+        $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/routes', [
+            ...$payload,
+            'name' => 'Tuyến thiếu lương',
+            'rates' => [['vehicle_type_id' => $type->id, 'freight_amount' => 120000]],
+        ])->assertUnprocessable()->assertJsonStructure(['metadata' => ['rates.0.driver_wage']]);
+    }
+
     public function test_dispatcher_can_get_active_customer_options_for_route_form(): void
     {
         $dispatcher = $this->seededUser('dispatcher');

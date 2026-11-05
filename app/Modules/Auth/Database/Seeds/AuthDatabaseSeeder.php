@@ -62,10 +62,8 @@ class AuthDatabaseSeeder extends Seeder
                 'ROUTES',
                 'WORKER_VEHICLES',
                 'TOURIST_VEHICLES',
-                'WORKER_VEHICLE_RATES',
                 'VEHICLES',
             ]),
-            $this->permissionValues([PermissionEnum::WORKER_VEHICLE_SCHEDULES_MANAGE]),
         ));
 
         $accountant = RoleModel::findOrCreate(RoleEnum::ACCOUNTANT->value, 'api');
