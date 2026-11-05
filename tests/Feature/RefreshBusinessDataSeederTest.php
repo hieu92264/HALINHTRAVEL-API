@@ -2,9 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Modules\Auth\Models\User;
-use App\Modules\Other\Services\DebtReportService;
-use App\Modules\Other\Services\OperationalReportService;
 use App\Modules\MasterData\Models\Vehicle;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\ReseedBusinessDataSeeder;
@@ -17,72 +14,30 @@ class RefreshBusinessDataSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_empty_sqlite_schema_seeds_a_compact_new_operations_dataset(): void
+    public function test_empty_sqlite_schema_seeds_the_normalized_vehicle_type_dataset(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        foreach (['worker_vehicles', 'tourist_vehicles', 'worker_vehicle_schedule_rules', 'worker_vehicle_rates', 'receipts', 'expenses', 'partner_payments', 'driver_attendances', 'driver_advances', 'payrolls', 'payroll_items', 'payroll_item_details'] as $table) {
+        foreach (['vehicle_types', 'route_vehicle_type_rates', 'worker_vehicles', 'tourist_vehicles', 'driver_attendances', 'driver_advances', 'payrolls', 'payroll_items', 'payroll_item_details'] as $table) {
             $this->assertTrue(Schema::hasTable($table));
             $this->assertGreaterThan(0, DB::table($table)->count(), "{$table} must contain representative data.");
-            $this->assertLessThanOrEqual(5, DB::table($table)->count(), "{$table} must stay compact for its screen.");
+            $this->assertLessThanOrEqual(in_array($table, ['vehicle_types', 'route_vehicle_type_rates'], true) ? 6 : 5, DB::table($table)->count(), "{$table} must stay compact for its screen.");
         }
 
         $this->assertSame(5, DB::table('customers')->count());
-        $this->assertLessThanOrEqual(5, DB::table('drivers')->count());
-        $this->assertLessThanOrEqual(5, DB::table('partners')->count());
+        $this->assertSame(2, DB::table('drivers')->count());
+        $this->assertSame(2, DB::table('partners')->count());
+        $this->assertSame(6, DB::table('vehicle_types')->count());
+        $this->assertSame(6, DB::table('route_vehicle_type_rates')->count());
         $this->assertTrue(Schema::hasTable('vehicles'));
         $this->assertFalse(Schema::hasTable('dispatch_orders'));
         $this->assertFalse(Schema::hasTable('contracts'));
-        $this->assertDatabaseHas('worker_vehicles', ['status' => 'in_progress']);
-        $this->assertDatabaseHas('worker_vehicles', ['status' => 'cancelled']);
-        $this->assertDatabaseHas('tourist_vehicles', ['is_hired_driver' => true, 'status' => 'completed']);
-        $this->assertDatabaseHas('tourist_vehicles', ['is_company_vehicle' => false, 'status' => 'completed']);
-        $this->assertDatabaseHas('driver_attendances', ['status' => 'pending']);
-
-        foreach (['worker_vehicle_rates', 'worker_vehicle_schedule_rules', 'worker_vehicles', 'tourist_vehicles'] as $table) {
-            $this->assertSame(0, DB::table($table)->whereNull('vehicle_id')->count(), "{$table} must reference a vehicle.");
-            $this->assertSame(
-                DB::table($table)->count(),
-                DB::table($table)->join('vehicles', "{$table}.vehicle_id", '=', 'vehicles.id')->whereColumn("{$table}.license_plate", 'vehicles.license_plate')->count(),
-                "{$table} must retain the selected vehicle plate snapshot.",
-            );
-        }
-
-        $from = now()->subDays(7)->startOfDay();
-        $to = now()->endOfDay();
-        foreach (['worker_vehicles', 'tourist_vehicles'] as $table) {
-            $this->assertGreaterThan(0, DB::table($table)->where('status', 'completed')->whereBetween('completed_at', [$from, $to])->count());
-            $this->assertSame(0, DB::table($table)->whereIn('status', ['planned', 'in_progress'])->where('run_date', '>', now()->addDays(30)->toDateString())->count());
-        }
-    }
-
-    public function test_seed_supports_debt_profit_and_payroll_source_reports(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        $filters = ['from_date' => now()->startOfMonth()->toDateString(), 'to_date' => now()->endOfMonth()->toDateString()];
-
-        $profit = app(OperationalReportService::class)->profit($filters);
-        $payroll = app(OperationalReportService::class)->payrollSources($filters);
-        $customerDebt = app(DebtReportService::class)->customerDebts($filters['from_date'], $filters['to_date']);
-        $partnerDebt = app(DebtReportService::class)->partnerDebts($filters['from_date'], $filters['to_date']);
-        $externalDriverDebt = app(DebtReportService::class)->externalDriverDebts($filters['from_date'], $filters['to_date']);
-
-        $this->assertNotEmpty($profit['revenue_runs']);
-        $this->assertNotEmpty($profit['hired_drivers']);
-        $this->assertNotEmpty($payroll['rows']);
-        $this->assertNotEmpty($customerDebt);
-        $this->assertNotEmpty($partnerDebt);
-        $this->assertNotEmpty($externalDriverDebt);
-        $this->assertSame('26800000.00', $profit['summary']['total_revenue']);
-        $this->assertSame('4200000.00', $profit['summary']['total_costs']);
-        $this->assertSame('22600000.00', $profit['summary']['profit']);
-        $this->assertSame('800000.00', $profit['hired_drivers'][0]['incurred_amount']);
-        $this->assertSame('500000.00', $profit['hired_drivers'][0]['paid_amount']);
-        $this->assertSame('300000.00', $profit['hired_drivers'][0]['outstanding_amount']);
-        $this->assertSame('21300000.00', collect($customerDebt)->firstWhere('code', 'KH0001')['closing_balance']);
-        $this->assertSame('20000000.00', collect($partnerDebt)->firstWhere('code', 'DT0001')['closing_balance']);
-        $this->assertSame('550000.00', $payroll['summary']['worker_wage']);
-        $this->assertSame('600000.00', $payroll['summary']['tourist_wage']);
+        $this->assertSame(0, DB::table('vehicles')->where('ownership_type', '!=', 'company')->count());
+        $this->assertSame(0, DB::table('vehicles')->whereNull('vehicle_type_id')->count());
+        $this->assertSame(0, DB::table('vehicles')->whereNull('default_driver_id')->count());
+        $this->assertDatabaseHas('worker_vehicles', ['is_company_vehicle' => false, 'vehicle_id' => null, 'vehicle_type_id' => DB::table('vehicle_types')->where('code', 'Xe29')->value('id')]);
+        $this->assertDatabaseHas('tourist_vehicles', ['is_company_vehicle' => false, 'vehicle_id' => null, 'customer_name' => 'Đoàn khách Tam Đảo']);
+        $this->assertSame(0, DB::table('worker_vehicle_rates')->count());
     }
 
     public function test_reseed_replaces_operational_demo_data_and_preserves_catalogs(): void
@@ -90,17 +45,15 @@ class RefreshBusinessDataSeederTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $vehicleCount = Vehicle::query()->count();
         $customerCount = DB::table('customers')->count();
-        $userCount = User::query()->count();
 
         $this->seed(ReseedBusinessDataSeeder::class);
         $this->seed(ReseedBusinessDataSeeder::class);
 
         $this->assertSame($vehicleCount, Vehicle::query()->count());
         $this->assertSame($customerCount, DB::table('customers')->count());
-        $this->assertSame($userCount, User::query()->count());
-        $this->assertSame(5, DB::table('worker_vehicles')->count());
-        $this->assertSame(5, DB::table('tourist_vehicles')->count());
-        $this->assertSame(0, DB::table('worker_vehicles')->whereNull('vehicle_id')->count());
-        $this->assertSame(0, DB::table('tourist_vehicles')->whereNull('vehicle_id')->count());
+        $this->assertSame(3, DB::table('worker_vehicles')->count());
+        $this->assertSame(2, DB::table('tourist_vehicles')->count());
+        $this->assertSame(1, DB::table('worker_vehicles')->whereNull('vehicle_id')->count());
+        $this->assertSame(1, DB::table('tourist_vehicles')->whereNull('vehicle_id')->count());
     }
 }

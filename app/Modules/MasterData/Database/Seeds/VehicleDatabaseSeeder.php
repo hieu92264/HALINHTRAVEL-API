@@ -2,24 +2,42 @@
 
 namespace App\Modules\MasterData\Database\Seeds;
 
-use App\Modules\MasterData\Models\Partner;
+use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Vehicle;
+use App\Modules\MasterData\Models\VehicleType;
 use Illuminate\Database\Seeder;
 
 class VehicleDatabaseSeeder extends Seeder
 {
-    /** Seed a varied, idempotent vehicle catalog for local operations. */
+    /** Seed company vehicles only. Partner vehicles are entered per trip. */
     public function run(): void
     {
-        foreach ($this->vehicles() as $vehicle) {
-            $partnerId = $vehicle['partner_code'] === null
-                ? null
-                : Partner::query()->where('code', $vehicle['partner_code'])->valueOrFail('id');
-            unset($vehicle['partner_code']);
+        $driverIds = Driver::query()->whereIn('code', ['LX0001', 'LX0004'])->pluck('id')->all();
+        if (count($driverIds) !== 2) {
+            throw new \RuntimeException('Cần seed tài xế công ty trước khi seed xe.');
+        }
 
-            Vehicle::query()->firstOrCreate(
-                ['license_plate' => $vehicle['license_plate']],
-                [...$vehicle, 'partner_id' => $partnerId],
+        foreach (array_values(array_filter($this->vehicles(), fn (array $vehicle): bool => $vehicle['ownership_type'] === 'company')) as $index => $vehicle) {
+            $vehicle['seat_count'] = match ($vehicle['seat_count']) {
+                35 => 34,
+                47 => 45,
+                default => $vehicle['seat_count'],
+            };
+            $typeCode = 'Xe'.str_pad((string) $vehicle['seat_count'], 2, '0', STR_PAD_LEFT);
+            $typeId = VehicleType::query()->where('code', $typeCode)->valueOrFail('id');
+
+            Vehicle::query()->updateOrCreate(
+                ['code' => $vehicle['code']],
+                [
+                    'license_plate' => $vehicle['license_plate'],
+                    'seat_count' => $vehicle['seat_count'], // retained legacy field, derived from the type
+                    'vehicle_model' => $vehicle['vehicle_model'],
+                    'ownership_type' => 'company',
+                    'partner_id' => null,
+                    'vehicle_type_id' => $typeId,
+                    'default_driver_id' => $driverIds[$index % count($driverIds)],
+                    'note' => $vehicle['note'],
+                ],
             );
         }
     }

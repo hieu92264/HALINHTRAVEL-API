@@ -12,11 +12,11 @@ class PartnerDatabaseSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_database_seeder_creates_partner_master_data_for_every_partner_type(): void
+    public function test_database_seeder_creates_only_transport_carriers_and_vehicle_owners(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(5, Partner::query()->count());
+        $this->assertSame(2, Partner::query()->count());
         $this->assertDatabaseHas('partners', [
             'code' => 'DT0001',
             'type' => PartnerTypeEnum::TRANSPORT_COMPANY->value,
@@ -24,7 +24,7 @@ class PartnerDatabaseSeederTest extends TestCase
             'opening_balance' => 15000000,
         ]);
         $this->assertSame(
-            PartnerTypeEnum::values(),
+            [PartnerTypeEnum::TRANSPORT_COMPANY->value, PartnerTypeEnum::VEHICLE_OWNER->value],
             Partner::query()
                 ->orderBy('code')
                 ->get()
@@ -34,6 +34,6 @@ class PartnerDatabaseSeederTest extends TestCase
 
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(5, Partner::query()->count());
+        $this->assertSame(2, Partner::query()->count());
     }
 }

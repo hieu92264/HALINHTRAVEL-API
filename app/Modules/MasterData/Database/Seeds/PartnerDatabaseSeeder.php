@@ -13,8 +13,8 @@ class PartnerDatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        foreach ($this->partners() as $partner) {
-            Partner::firstOrCreate(
+        foreach (array_filter($this->partners(), fn (array $partner): bool => in_array($partner['type'], [PartnerTypeEnum::TRANSPORT_COMPANY, PartnerTypeEnum::VEHICLE_OWNER], true)) as $partner) {
+            Partner::query()->updateOrCreate(
                 ['code' => $partner['code']],
                 $partner,
             );

@@ -3,7 +3,6 @@
 namespace App\Modules\MasterData\Database\Seeds;
 
 use App\Modules\MasterData\Models\Driver;
-use App\Modules\MasterData\Models\Partner;
 use Illuminate\Database\Seeder;
 
 class DriverDatabaseSeeder extends Seeder
@@ -13,18 +12,15 @@ class DriverDatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        foreach ($this->drivers() as $driver) {
-            $partnerId = $driver['partner_code'] === null
-                ? null
-                : Partner::query()->where('code', $driver['partner_code'])->valueOrFail('id');
-
+        foreach (array_filter($this->drivers(), fn (array $driver): bool => $driver['type'] === 'company') as $driver) {
             unset($driver['partner_code']);
 
-            Driver::firstOrCreate(
+            Driver::query()->updateOrCreate(
                 ['code' => $driver['code']],
                 [
                     ...$driver,
-                    'partner_id' => $partnerId,
+                    'partner_id' => null,
+                    'tourism_commission_rate' => 0,
                 ],
             );
         }
