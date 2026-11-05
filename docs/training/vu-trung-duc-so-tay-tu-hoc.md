@@ -16,11 +16,15 @@
 
 | Đối tượng | Công nợ phát sinh | Đã thu/đã trả | Công thức số dư |
 |---|---|---|---|
-| Khách hàng | Cước xe công nhân hoàn tất + cước xe du lịch hoàn tất | Phiếu thu khách hàng | Nợ cũ + phát sinh − đã thu |
+| Khách hàng | Cước xe công nhân hoàn tất + xe du lịch lịch sử còn liên kết khách hàng | Phiếu thu khách hàng | Nợ cũ + phát sinh − đã thu |
 | Chủ xe/hãng vận tải | Tiền thuê xe công nhân/du lịch hoàn tất | Phiếu chi trả chủ xe | Nợ cũ + phát sinh − đã trả |
 | Thuê lái | Tổng tiền thuê lái ở chuyến bật cờ thuê lái | Phiếu chi chung cùng tên lái thuê | Phát sinh − đã trả |
 
 `partner_vehicle_cost` là nghĩa vụ thuê xe snapshot trên chuyến. `hired_driver_cost` là nghĩa vụ thuê lái snapshot trên chuyến. Không dùng một trong hai trường này thay cho chứng từ đã trả.
+
+Với chuyến công nhân, cước snapshot lấy từ bảng giá **Tuyến × Loại xe**. Với chuyến du lịch, lương lái snapshot là `cước × tỷ lệ lương du lịch của Loại xe`. Vì vậy, sửa giá tuyến hoặc tỷ lệ loại xe sau này không làm đổi công nợ/lương của chuyến đã hoàn tất.
+
+Xe du lịch mới nhập `customer_name` bằng tay; `customer_id` chỉ giữ cho lịch sử. Không tự gán hoặc tự tạo khách hàng danh mục từ tên này để làm đẹp báo cáo công nợ. Khi cần đối soát một khách du lịch mới, dùng tên snapshot trên chuyến và chứng từ nguồn.
 
 ## 3. Phiếu thu khách hàng
 

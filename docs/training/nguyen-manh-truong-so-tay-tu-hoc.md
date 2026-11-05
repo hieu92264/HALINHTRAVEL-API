@@ -4,7 +4,7 @@
 
 Trường cần có thể tạo, hoàn tất và đối soát một chuyến xe công nhân hoặc xe du lịch; sau đó lần số liệu tới chấm công và kỳ lương.
 
-Tài liệu áp dụng nghiệp vụ đã chốt tháng 11/2026. Các mục **Loại xe / xe đối tác riêng / giá tuyến × loại xe** là chuẩn nghiệp vụ đích của kế hoạch 01–03. Bản ứng dụng đang chạy vẫn dùng bảng `vehicles` chung và bảng giá công nhân theo **tuyến + biển số + thời gian hiệu lực**; không tự coi giao diện cũ là quy tắc mới.
+Tài liệu áp dụng nghiệp vụ đã chốt tháng 11/2026: **Loại xe / xe đối tác theo từng chuyến / giá tuyến × loại xe** là quy tắc đang dùng. Backend là nơi duy nhất tính và snapshot cước/lương.
 
 ## 1. Quy tắc nguồn xe
 
@@ -13,12 +13,10 @@ Nguồn xe là một lựa chọn nghiệp vụ, không phải checkbox để ng
 | Nguồn | Cách chọn | Dữ liệu bắt buộc | Ý nghĩa tài chính |
 |---|---|---|---|
 | Xe công ty | Chọn xe công ty | Biển số; tài xế công ty hoặc thuê lái | Không có tiền thuê xe đối tác |
-| Xe đối tác | Chọn chủ xe/hãng vận tải, rồi chọn hoặc nhập biển số | Chủ xe/hãng vận tải, biển số, tiền thuê xe | Phát sinh công nợ chủ xe khi chuyến hoàn tất |
+| Xe đối tác | Chọn chủ xe/hãng vận tải rồi nhập biển số tay | Chủ xe/hãng vận tải, loại xe, biển số, tiền thuê xe | Phát sinh công nợ chủ xe khi chuyến hoàn tất |
 | Thuê lái | Là trạng thái tài xế của từng chuyến, độc lập nguồn xe | Tên lái thuê, tiền thuê lái | Phát sinh công nợ thuê lái khi cờ thuê lái bật |
 
-Xe đối tác mới phải được lưu lại để lần sau chọn lại. Tài xế ngoài không mặc nhiên gắn cố định với một xe đối tác.
-
-> Trong schema hiện hành, xe công ty và xe đối tác cùng nằm ở `vehicles`; `ownership_type` và `partner_id` quyết định nguồn xe. Khi tạo/chỉnh chuyến, nguồn xe phải lấy từ xe đã chọn, không cho một biển số công ty đi cùng `partner_id` hoặc ngược lại.
+Danh mục **Xe** chỉ chứa xe công ty, mỗi xe có Loại xe và tài xế mặc định. Xe đối tác không được thêm vào danh mục; biển số chỉ là snapshot của từng chuyến. Tài xế ngoài cũng không được tạo danh mục, mà nhập dưới dạng thuê lái của chuyến.
 
 ## 2. Tuyến, loại xe và giá
 
@@ -30,15 +28,15 @@ Khi chọn tuyến và loại xe:
 2. Hai giá trị được snapshot vào chuyến.
 3. Sửa bảng giá sau này không làm đổi chuyến hoặc kỳ lương đã có.
 
-Không dùng biển số xe hoặc khoảng ngày hiệu lực làm quy tắc giá của nghiệp vụ mới. Trong bản triển khai cũ, `worker_vehicle_rates` vẫn còn các trường biển số/ngày hiệu lực để tương thích; đây là điểm cần thay thế trong kế hoạch 02.
+Một tuyến chỉ được dùng tạo chuyến công nhân khi đủ sáu dòng giá `Xe04`, `Xe07`, `Xe16`, `Xe29`, `Xe34`, `Xe45`; cước và lương lái từng dòng đều lớn hơn 0.
 
 ## 3. Xe chạy công nhân
 
 Mỗi chuyến công nhân cần có khách hàng, tuyến, ngày chạy, ca, giờ/điểm đón trả, nguồn xe và trạng thái.
 
-- Chọn tuyến để điền sẵn thông tin tuyến và bảng giá theo loại xe.
-- Xe công ty tự điền biển số, loại xe và tài xế phụ trách; từng chuyến vẫn có thể đánh dấu thuê lái.
-- Xe đối tác bắt buộc chủ xe/hãng vận tải và tiền thuê xe.
+- Chọn **Tuyến trước**. Khách hàng, ca, giờ/điểm đón trả, cước và lương là dữ liệu snapshot chỉ đọc.
+- Xe công ty tự điền biển số, loại xe, số chỗ và tài xế mặc định; điều độ có thể đổi tài xế hoặc bật thuê lái.
+- Xe đối tác bắt buộc chủ xe/hãng vận tải, loại xe, biển số tay và tiền thuê xe.
 - Chỉ chuyến `completed` mới đi vào công nợ, chấm công và báo cáo có điều kiện hoàn tất.
 - Giờ thực tế `actual_started_at`/`actual_completed_at` là căn cứ cho dữ liệu hoàn tất; dữ liệu cũ có thể dùng `completed_at` khi chưa có giờ thực tế.
 
@@ -48,7 +46,7 @@ Xe du lịch nhập tay khách hàng, hành trình, lịch trình và cước xe
 
 `lương lái du lịch = cước xe × % lương lái du lịch của loại xe`
 
-Tỷ lệ và số tiền phải được snapshot vào chuyến. Schema hiện tại còn lấy tỷ lệ mặc định từ tài xế; đây là dữ liệu chuyển tiếp cho tới khi danh mục loại xe được triển khai.
+Tỷ lệ và số tiền phải được snapshot vào chuyến. Tỷ lệ lấy từ **Loại xe**, không lấy từ hồ sơ tài xế và không được nhập tay.
 
 Trên chuyến du lịch phải phân biệt bốn khoản, không gộp chúng với nhau:
 
@@ -112,7 +110,7 @@ Ví dụ: trách nhiệm 1.000.000, công nhân 300.000, du lịch 600.000, tạ
 | Việc | Thành phần chính |
 |---|---|
 | Chuyến công nhân/du lịch | `app/Modules/VehicleOperations`, `src/modules/vehicle-operations` |
-| Snapshot giá/lương | `WorkerVehicleRate`, `WorkerVehicle`, `TouristVehicle` |
+| Snapshot giá/lương | `RouteVehicleTypeRate`, `WorkerVehicle`, `TouristVehicle` |
 | Chấm công và kỳ lương | `DriverPayrollService`, `Payroll`, `PayrollItem` |
 | Bản kỳ lương | migration `2026_11_04_000000_add_revisions_and_settlements_to_payrolls.php` |
 

@@ -7,7 +7,7 @@ Quang cần quản lý đúng danh mục nền, lập chứng từ thu/chi, hi�
 ## 1. Bản đồ nghiệp vụ
 
 ```text
-Danh mục khách hàng / chủ xe / xe / tài xế
+Danh mục khách hàng / hãng vận tải / loại xe / xe công ty / tài xế
                 │
                 ├── Chuyến hoàn tất ──> doanh thu, chi phí thuê xe, lương lái
                 │
@@ -25,14 +25,14 @@ Chỉ chuyến `completed` và chứng từ còn hoạt động mới đi vào c
 | Danh mục | Dùng ở đâu | Quy tắc chính |
 |---|---|---|
 | Khách hàng | Chuyến, phiếu thu, công nợ | Có số dư đầu kỳ; không nhầm với người nộp |
-| Chủ xe/hãng vận tải | Xe đối tác, chi trả chủ xe, công nợ | Là đối tượng phải trả tiền thuê xe |
+| Hãng vận tải/chủ xe | Xe đối tác theo chuyến, chi trả chủ xe, công nợ | Là đối tượng phải trả tiền thuê xe |
 | Xe công ty | Chuyến công nhân/du lịch | Không có chủ xe đối tác |
-| Xe đối tác | Chuyến công nhân/du lịch | Bắt buộc gắn chủ xe/hãng vận tải |
-| Tài xế | Chuyến, công, lương | Thuê lái là dữ liệu theo chuyến, không suy ra chỉ từ xe |
-| Tuyến | Xe công nhân | Chứa khách hàng, ca, điểm/giờ đón trả |
-| Loại xe và bảng giá tuyến | Nghiệp vụ giá mới | Giá cố định theo tuyến × loại xe; snapshot vào chuyến |
+| Xe đối tác | Chuyến công nhân/du lịch | Không thuộc danh mục Xe; bắt buộc hãng, loại xe, biển số tay và tiền thuê |
+| Tài xế công ty | Chuyến, công, lương | Có tài xế mặc định ở Xe; thuê lái là dữ liệu theo chuyến |
+| Tuyến | Xe công nhân | Chứa khách hàng, ca, điểm/giờ đón trả và sáu dòng giá |
+| Loại xe và bảng giá tuyến | Xe, Tuyến, lương du lịch | Giá cố định theo tuyến × loại xe; snapshot vào chuyến |
 
-Schema đang triển khai dùng `vehicles` chung với `ownership_type = company|partner`. Khi kế hoạch danh mục xe hoàn tất, xe công ty và xe đối tác sẽ được hiển thị/tổ chức riêng nhưng vẫn phải giữ quy tắc nguồn xe ở trên.
+Xe trong danh mục luôn là xe công ty và phải có Loại xe, tài xế mặc định đang hoạt động. Sáu Loại xe chuẩn là `Xe04`, `Xe07`, `Xe16`, `Xe29`, `Xe34`, `Xe45`.
 
 ## 3. Thu chi: ba tab duy nhất
 
@@ -62,11 +62,13 @@ Các công thức báo cáo:
 
 | Báo cáo | Phát sinh | Đã thanh toán/thu | Số dư |
 |---|---|---|---|
-| Khách hàng | Cước công nhân + cước du lịch hoàn tất | Phiếu thu khách hàng | Nợ cũ + phát sinh − đã thu |
+| Khách hàng | Cước công nhân + cước du lịch lịch sử còn liên kết khách hàng | Phiếu thu khách hàng | Nợ cũ + phát sinh − đã thu |
 | Chủ xe | Tiền thuê xe công nhân + du lịch hoàn tất | Chi trả chủ xe | Nợ cũ + phát sinh − đã trả |
 | Thuê lái | Tiền thuê lái ở chuyến có cờ thuê lái | Phiếu chi chung cùng tên lái thuê | Phát sinh − đã trả |
 
 Báo cáo lợi nhuận xe dùng cước và các chi phí đã snapshot trên chuyến. Báo cáo chi trả lái xe nằm trong **Lợi nhuận xe**, không có tab công nợ thuê lái riêng trên Finance.
+
+Xe du lịch mới dùng tên khách hàng nhập tay. Không tự tạo khách hàng danh mục hoặc tự gán `customer_id` chỉ để đưa tên đó vào công nợ; đối soát bằng tên snapshot và chứng từ nguồn.
 
 Khi lọc khoảng ngày, số dư đầu kỳ phải bao gồm chứng từ trước ngày bắt đầu lọc; không được bỏ qua lịch sử chỉ vì chứng từ nằm ngoài khoảng xem.
 
@@ -84,7 +86,7 @@ Không còn quy trình hay lựa chọn xuất Word/DOCX. Nếu PDF hiển thị
 ### A. Chuẩn bị danh mục
 
 1. Kiểm tra khách hàng, chủ xe/hãng vận tải, xe và tài xế đang hoạt động.
-2. Với xe đối tác, kiểm tra đã có chủ xe; không tạo xe đối tác tự do không gắn chủ xe.
+2. Với chuyến xe đối tác, kiểm tra hãng vận tải, loại xe, biển số và tiền thuê; không tạo xe đối tác trong danh mục Xe.
 3. Kiểm tra một chuyến hoàn tất có đủ cước, tiền thuê xe hoặc tiền thuê lái trước khi đối soát.
 
 ### B. Ghi nhận chứng từ
