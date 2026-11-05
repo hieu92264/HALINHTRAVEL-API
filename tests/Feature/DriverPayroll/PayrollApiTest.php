@@ -69,21 +69,21 @@ class PayrollApiTest extends TestCase
         $this->assertSame('payroll_locked', DriverAdvance::findOrFail($advanceId)->status->value);
     }
 
-    public function test_only_complete_past_calendar_months_can_be_created_or_edited(): void
+    public function test_current_and_future_calendar_months_can_have_revisions_before_payment(): void
     {
         $this->travelTo(Carbon::parse('2025-01-01 00:00:00', 'Asia/Ho_Chi_Minh'));
         $this->seed(AuthDatabaseSeeder::class);
         $this->actingAs(User::where('user_name', 'accountant')->firstOrFail(), 'api');
-        $this->postJson('/api/driver-payroll/payrolls', ['month' => 1, 'year' => 2025, 'from_date' => '2025-01-01', 'to_date' => '2025-01-31'])->assertUnprocessable();
-        $this->postJson('/api/driver-payroll/payrolls', ['month' => 2, 'year' => 2025, 'from_date' => '2025-02-01', 'to_date' => '2025-02-28'])->assertUnprocessable();
+        $first = $this->postJson('/api/driver-payroll/payrolls', ['month' => 1, 'year' => 2025, 'from_date' => '2025-01-01', 'to_date' => '2025-01-31'])->assertCreated()
+            ->assertJsonPath('metadata.revision', 1)->json('metadata.id');
+        $second = $this->postJson('/api/driver-payroll/payrolls', ['month' => 1, 'year' => 2025, 'from_date' => '2025-01-01', 'to_date' => '2025-01-31'])->assertCreated()
+            ->assertJsonPath('metadata.revision', 2)->assertJsonPath('metadata.is_current', true)->json('metadata.id');
+        $this->assertDatabaseHas('payrolls', ['id' => $first, 'is_current' => false, 'status' => 'superseded']);
+        $this->assertDatabaseHas('payrolls', ['id' => $second, 'is_current' => true]);
+        $this->postJson('/api/driver-payroll/payrolls', ['month' => 2, 'year' => 2025, 'from_date' => '2025-02-01', 'to_date' => '2025-02-28'])->assertCreated();
         $this->postJson('/api/driver-payroll/payrolls', ['month' => 2, 'year' => 2024, 'from_date' => '2024-02-01', 'to_date' => '2024-02-28'])->assertUnprocessable();
         $leap = $this->postJson('/api/driver-payroll/payrolls', ['month' => 2, 'year' => 2024, 'from_date' => '2024-02-01', 'to_date' => '2024-02-29'])->assertCreated()->json('metadata.id');
-        $december = $this->postJson('/api/driver-payroll/payrolls', ['month' => 12, 'year' => 2024, 'from_date' => '2024-12-01', 'to_date' => '2024-12-31'])->assertCreated()->json('metadata.id');
-        $this->postJson('/api/driver-payroll/payrolls', ['month' => 12, 'year' => 2024, 'from_date' => '2024-12-01', 'to_date' => '2024-12-31'])->assertConflict();
-        $this->patchJson("/api/driver-payroll/payrolls/{$leap}", ['month' => 12, 'from_date' => '2024-12-01', 'to_date' => '2024-12-31'])->assertConflict();
-        $this->patchJson("/api/driver-payroll/payrolls/{$december}", ['to_date' => '2024-12-30'])->assertUnprocessable();
-        $this->patchJson("/api/driver-payroll/payrolls/{$leap}", ['month' => 3, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31'])->assertOk()->assertJsonPath('metadata.code', 'LUONG-2024-03');
-        $this->postJson("/api/driver-payroll/payrolls/{$december}/calculate")->assertOk();
+        $this->patchJson("/api/driver-payroll/payrolls/{$leap}", ['to_date' => '2024-02-28'])->assertUnprocessable();
     }
 
     public function test_existing_invalid_periods_cannot_be_processed_and_draft_can_be_repaired(): void
@@ -95,9 +95,9 @@ class PayrollApiTest extends TestCase
         $future = Payroll::create(['code' => 'LUONG-2026-11', 'month' => 11, 'year' => 2026, 'from_date' => '2026-11-01', 'to_date' => '2026-11-30', 'status' => 'calculated']);
         $approved = Payroll::create(['code' => 'LUONG-2026-12', 'month' => 12, 'year' => 2026, 'from_date' => '2026-12-01', 'to_date' => '2026-12-31', 'status' => 'approved']);
         $this->postJson("/api/driver-payroll/payrolls/{$draft->id}/calculate")->assertUnprocessable();
-        $this->postJson("/api/driver-payroll/payrolls/{$future->id}/calculate")->assertUnprocessable();
-        $this->postJson("/api/driver-payroll/payrolls/{$future->id}/approve")->assertUnprocessable();
-        $this->postJson("/api/driver-payroll/payrolls/{$approved->id}/mark-paid")->assertUnprocessable();
+        $this->postJson("/api/driver-payroll/payrolls/{$future->id}/calculate")->assertOk();
+        $this->postJson("/api/driver-payroll/payrolls/{$future->id}/approve")->assertOk();
+        $this->postJson("/api/driver-payroll/payrolls/{$approved->id}/mark-paid")->assertOk();
         $this->patchJson("/api/driver-payroll/payrolls/{$draft->id}", ['to_date' => '2026-10-31'])->assertOk();
         $this->postJson("/api/driver-payroll/payrolls/{$draft->id}/calculate")->assertOk();
     }

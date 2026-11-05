@@ -122,6 +122,7 @@ class RestoredReportService
     {
         $query = WorkerVehicle::query()->with(['customer:id,name', 'route:id,name', 'driver:id,full_name', 'partner:id,name'])->where('is_active', true)->where('status', 'completed');
         $this->date($query, $filters);
+        $this->runFilters($query, $filters, true);
 
         return $query->get();
     }
@@ -130,8 +131,33 @@ class RestoredReportService
     {
         $query = TouristVehicle::query()->with(['customer:id,name', 'driver:id,full_name', 'partner:id,name'])->where('is_active', true)->where('status', 'completed');
         $this->date($query, $filters);
+        $this->runFilters($query, $filters, false);
 
         return $query->get();
+    }
+
+    private function runFilters($query, array $filters, bool $worker): void
+    {
+        foreach (['customer_id', 'vehicle_id', 'driver_id'] as $key) {
+            if (filled($filters[$key] ?? null)) {
+                $query->where($key, $filters[$key]);
+            }
+        }
+        if (filled($filters['license_plate'] ?? null)) {
+            $query->where('license_plate', 'like', '%'.$filters['license_plate'].'%');
+        }
+        if (! $worker) {
+            return;
+        }
+        if (filled($filters['partner_id'] ?? null)) {
+            $query->where('partner_id', $filters['partner_id']);
+        }
+        if (filled($filters['route_id'] ?? null)) {
+            $query->where('route_id', $filters['route_id']);
+        }
+        if (filled($filters['shift_name'] ?? null)) {
+            $query->where('shift_name', 'like', '%'.$filters['shift_name'].'%');
+        }
     }
 
     private function date($query, array $filters): void
@@ -161,7 +187,8 @@ class RestoredReportService
         $received = (float) $run->driver_collected_amount + (float) $run->company_collected_amount;
 
         return ['tourist_vehicle_id' => $run->id, 'run_no' => $run->run_no, 'date' => ($run->actual_completed_at ?? $run->completed_at)?->toDateString(), 'vehicle_plate' => $run->license_plate,
-            'customer_name' => $run->customer?->name, 'journey' => $run->journey, 'pickup_time' => $run->pickup_time, 'return_time' => $run->return_time, 'driver_name' => $run->driver?->full_name ?? $run->hired_driver_name,
+            'customer_name' => $run->customer?->name, 'journey' => $run->journey, 'pickup_time' => $run->pickup_time, 'return_time' => $run->return_time, 'driver_name' => $run->driver?->full_name,
+            'driver_wage_rate' => (string) $run->driver_wage_rate, 'hired_driver_name' => $run->hired_driver_name,
             'partner_name' => $run->partner?->name, 'trip_type' => 'Du lịch', 'revenue' => $this->money($revenue), 'driver_wage' => $this->money($run->driver_wage),
             'external_driver_cost' => $this->money($run->hired_driver_cost), 'partner_vehicle_cost' => $this->money($run->partner_vehicle_cost), 'driver_collected_amount' => $this->money($run->driver_collected_amount),
             'driver_remitted_amount' => $this->money($run->driver_remitted_amount), 'company_collected_amount' => $this->money($run->company_collected_amount), 'remaining_receivable' => $this->money($revenue - $received)];
@@ -174,7 +201,7 @@ class RestoredReportService
             $totals[$key] = $this->money($rows->sum(fn (array $row) => (float) ($row[$key] ?? 0)));
         }
 
-        return [...$extra, 'filters' => $filters, 'generated_at' => now()->toISOString(), 'totals' => $totals, 'rows' => $rows->values()->all()];
+        return [...$extra, 'filters' => $filters, 'generated_at' => now()->toISOString(), 'totals' => $totals, 'rows' => $rows->values()->map(fn (array $row, int $index): array => ['stt' => $index + 1, ...$row])->all()];
     }
 
     private function money(mixed $amount): string

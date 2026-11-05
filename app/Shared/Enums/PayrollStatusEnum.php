@@ -13,4 +13,5 @@ enum PayrollStatusEnum: string
     case APPROVED = 'approved';
     case PAID = 'paid';
     case LOCKED = 'locked';
+    case SUPERSEDED = 'superseded';
 }
