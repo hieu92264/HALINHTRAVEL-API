@@ -5,8 +5,6 @@ namespace App\Modules\VehicleOperations\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
-use App\Modules\VehicleOperations\Models\WorkerVehicleRate;
-use App\Modules\VehicleOperations\Models\WorkerVehicleScheduleRule;
 use App\Modules\VehicleOperations\Services\VehicleOperationService;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -93,47 +91,4 @@ class VehicleOperationController extends Controller
         return $this->success($this->service->completeTouristRun($touristVehicle, $request->validate(['actual_completed_at' => ['nullable', 'date']])['actual_completed_at'] ?? null), 'Đã hoàn thành xe chạy du lịch.');
     }
 
-    public function rateIndex(): JsonResponse
-    {
-        return $this->success($this->service->rates());
-    }
-
-    public function rateStore(Request $request): JsonResponse
-    {
-        return $this->success($this->service->saveRate($request->all()), 'Tạo bảng giá thành công.', Response::HTTP_CREATED);
-    }
-
-    public function rateUpdate(Request $request, WorkerVehicleRate $workerVehicleRate): JsonResponse
-    {
-        return $this->success($this->service->saveRate([...$workerVehicleRate->getAttributes(), ...$request->all()], $workerVehicleRate));
-    }
-
-    public function ruleIndex(): JsonResponse
-    {
-        return $this->success($this->service->rules());
-    }
-
-    public function ruleStore(Request $request): JsonResponse
-    {
-        return $this->success($this->service->saveRule($request->all()), 'Tạo quy tắc lịch thành công.', Response::HTTP_CREATED);
-    }
-
-    public function ruleUpdate(Request $request, WorkerVehicleScheduleRule $workerVehicleScheduleRule): JsonResponse
-    {
-        return $this->success($this->service->saveRule([...$workerVehicleScheduleRule->getAttributes(), ...$request->all()], $workerVehicleScheduleRule));
-    }
-
-    public function ruleDestroy(WorkerVehicleScheduleRule $workerVehicleScheduleRule): JsonResponse
-    {
-        $this->service->deactivateRule($workerVehicleScheduleRule);
-
-        return $this->success(null, 'Đã ngừng quy tắc lịch.');
-    }
-
-    public function generate(Request $request, WorkerVehicleScheduleRule $workerVehicleScheduleRule): JsonResponse
-    {
-        $data = $request->validate(['from_date' => ['required', 'date'], 'to_date' => ['required', 'date', 'after_or_equal:from_date']]);
-
-        return $this->success($this->service->generateRuns($workerVehicleScheduleRule, $data['from_date'], $data['to_date']));
-    }
 }

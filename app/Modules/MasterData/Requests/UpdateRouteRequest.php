@@ -32,7 +32,7 @@ class UpdateRouteRequest extends FormRequest
             'default_return_time' => ['sometimes', 'required', 'date_format:H:i'],
             'estimated_distance_km' => ['sometimes', 'nullable', 'decimal:0,2', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
-            'rates' => ['sometimes', 'array', 'size:6'],
+            'rates' => ['sometimes', 'array'],
             'rates.*.vehicle_type_id' => ['required_with:rates', 'integer', 'distinct', Rule::exists('vehicle_types', 'id')],
             'rates.*.freight_amount' => ['required_with:rates', 'decimal:0,2', 'gt:0'],
             'rates.*.driver_wage' => ['required_with:rates', 'decimal:0,2', 'gt:0'],

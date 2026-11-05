@@ -24,7 +24,7 @@ class CreateRouteRequest extends FormRequest
             'default_pickup_time' => ['required', 'date_format:H:i'],
             'default_return_time' => ['required', 'date_format:H:i'],
             'estimated_distance_km' => ['nullable', 'decimal:0,2', 'min:0'],
-            'rates' => ['required', 'array', 'size:6'],
+            'rates' => ['required', 'array'],
             'rates.*.vehicle_type_id' => ['required', 'integer', 'distinct', Rule::exists('vehicle_types', 'id')],
             'rates.*.freight_amount' => ['required', 'decimal:0,2', 'gt:0'],
             'rates.*.driver_wage' => ['required', 'decimal:0,2', 'gt:0'],

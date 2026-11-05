@@ -93,28 +93,14 @@ class VehicleOperationSchemaTest extends TestCase
         $this->assertDatabaseHas('worker_vehicles', ['id' => $run->id, 'schedule_rule_id' => $rule->id, 'hired_driver_cost' => 0, 'note' => 'Đã cập nhật ghi chú']);
     }
 
-    public function test_dispatcher_can_create_and_update_worker_rate_through_the_public_api(): void
+    public function test_legacy_worker_schedule_and_rate_endpoints_are_not_registered(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
         $dispatcher = User::query()->where('user_name', 'dispatcher')->firstOrFail();
-        $customer = Customer::query()->create(['code' => 'KH-RATE-API', 'type' => 'company', 'name' => 'Khách hàng bảng giá']);
-        $route = Route::query()->create(['code' => 'T-RATE-API', 'customer_id' => $customer->id, 'name' => 'Tuyến bảng giá', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
-
-        $created = $this->actingAs($dispatcher, 'api')->postJson('/api/vehicle-operations/worker-vehicle-rates', [
-            'route_id' => $route->id,
-            'license_plate' => '15B-200.01',
-            'freight_amount' => 1500000,
-            'driver_wage' => 250000,
-            'effective_from' => '2026-01-01',
-        ])->assertCreated()->assertJsonPath('metadata.route_id', $route->id);
-
-        $id = $created->json('metadata.id');
-        $this->actingAs($dispatcher, 'api')->patchJson("/api/vehicle-operations/worker-vehicle-rates/{$id}", [
-            'driver_wage' => 275000,
-        ])->assertOk()->assertJsonPath('metadata.driver_wage', 275000);
-
         $this->actingAs($dispatcher, 'api')->getJson('/api/vehicle-operations/worker-vehicle-rates')
-            ->assertOk()->assertJsonFragment(['id' => $id, 'license_plate' => '15B-200.01']);
+            ->assertNotFound();
+        $this->actingAs($dispatcher, 'api')->getJson('/api/vehicle-operations/worker-vehicle-schedule-rules')
+            ->assertNotFound();
     }
 
     public function test_default_seed_uses_only_new_vehicle_operation_records(): void
@@ -177,26 +163,6 @@ class VehicleOperationSchemaTest extends TestCase
         $this->assertSame('5000000.00', $tourist['summary']['freight_amount']);
         $this->assertSame('6500000.00', $profit['summary']['total_revenue']);
         $this->assertSame('300000.00', $profit['hired_drivers'][0]['incurred_amount']);
-    }
-
-    public function test_rule_generates_an_idempotent_ninety_day_window_with_rate_snapshots(): void
-    {
-        $customer = Customer::query()->create(['code' => 'KH-WINDOW', 'type' => 'company', 'name' => 'Khách lịch lặp']);
-        $route = Route::query()->create(['code' => 'T-WINDOW', 'customer_id' => $customer->id, 'name' => 'Tuyến lịch lặp', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
-        $driver = Driver::query()->create(['code' => 'LX-WINDOW', 'type' => 'company', 'full_name' => 'Lái xe lịch lặp', 'license_number' => 'D-WINDOW', 'license_class' => 'D']);
-        $service = app(VehicleOperationService::class);
-        $from = now()->startOfDay();
-        $service->saveRate(['route_id' => $route->id, 'license_plate' => '15B-100.90', 'freight_amount' => 1800000, 'driver_wage' => 250000, 'effective_from' => $from->toDateString()]);
-        $rule = $service->saveRule(['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca tất cả các ngày', 'effective_from' => $from->toDateString(), 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'license_plate' => '15B-100.90', 'driver_id' => $driver->id, 'is_hired_driver' => false, 'days' => array_map(fn (int $weekday): array => ['weekday' => $weekday, 'pickup_time' => '06:00', 'return_time' => '17:00'], range(1, 7))]);
-        $model = WorkerVehicleScheduleRule::query()->findOrFail($rule['id']);
-        $service->saveRule([...$rule, 'hired_driver_cost' => null, 'note' => 'Cập nhật lịch không thuê lái'], $model);
-        $this->assertDatabaseHas('worker_vehicle_schedule_rules', ['id' => $model->id, 'hired_driver_cost' => 0, 'note' => 'Cập nhật lịch không thuê lái']);
-        $count = WorkerVehicle::query()->where('schedule_rule_id', $model->id)->count();
-
-        $this->assertGreaterThanOrEqual(90, $count);
-        $this->assertDatabaseHas('worker_vehicles', ['schedule_rule_id' => $model->id, 'freight_amount' => 1800000, 'driver_wage' => 250000]);
-        $service->generateRuns($model, $from->toDateString(), $from->addDays(90)->toDateString());
-        $this->assertSame($count, WorkerVehicle::query()->where('schedule_rule_id', $model->id)->count());
     }
 
     public function test_run_conflict_also_blocks_an_internal_driver_on_a_different_plate(): void
