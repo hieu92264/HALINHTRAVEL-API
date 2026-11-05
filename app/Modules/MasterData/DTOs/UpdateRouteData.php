@@ -17,6 +17,8 @@ readonly class UpdateRouteData
         public ?string $defaultReturnTime,
         public ?string $estimatedDistanceKm,
         public ?bool $isActive,
+        /** @var list<array{vehicle_type_id:int,freight_amount:string|float|int,driver_wage:string|float|int}>|null */
+        public ?array $rates,
         public array $provided = [],
     ) {}
 

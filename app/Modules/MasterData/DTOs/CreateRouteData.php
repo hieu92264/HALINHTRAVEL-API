@@ -13,6 +13,8 @@ readonly class CreateRouteData
         public ?string $defaultPickupTime,
         public ?string $defaultReturnTime,
         public ?string $estimatedDistanceKm,
+        /** @var list<array{vehicle_type_id:int,freight_amount:string|float|int,driver_wage:string|float|int}> */
+        public array $rates,
     ) {}
 
     /** @return array<string, int|string|null> */

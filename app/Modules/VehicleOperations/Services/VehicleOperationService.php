@@ -4,7 +4,9 @@ namespace App\Modules\VehicleOperations\Services;
 
 use App\Modules\DriverPayroll\Models\DriverAttendance;
 use App\Modules\MasterData\Models\Driver;
+use App\Modules\MasterData\Models\Route;
 use App\Modules\MasterData\Models\Vehicle;
+use App\Modules\MasterData\Models\VehicleType;
 use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicleRate;
@@ -269,13 +271,13 @@ class VehicleOperationService
     /** @return array<string, mixed> */
     private function run(Model $run): array
     {
-        $run->loadMissing($run instanceof WorkerVehicle ? ['vehicle:id,license_plate,seat_count,vehicle_model', 'customer:id,name', 'route:id,name', 'partner:id,name', 'driver:id,full_name'] : ['vehicle:id,license_plate,seat_count,vehicle_model', 'customer:id,name', 'partner:id,name', 'driver:id,full_name']);
+        $run->loadMissing($run instanceof WorkerVehicle ? ['vehicle:id,license_plate,seat_count,vehicle_model', 'vehicleType:id,code,name', 'customer:id,name', 'route:id,name', 'partner:id,name', 'driver:id,full_name'] : ['vehicle:id,license_plate,seat_count,vehicle_model', 'vehicleType:id,code,name', 'customer:id,name', 'partner:id,name', 'driver:id,full_name']);
 
         $attendance = $run instanceof WorkerVehicle
             ? DriverAttendance::query()->where('worker_vehicle_id', $run->id)->first()
             : DriverAttendance::query()->where('tourist_vehicle_id', $run->id)->first();
 
-        return [...$run->only(['id', 'vehicle_id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'journey', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage_rate', 'driver_wage', 'driver_wage_is_overridden', 'driver_collected_amount', 'company_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note', 'is_active']), 'run_date' => $run->run_date?->toDateString(), 'return_date' => $run->return_date?->toDateString(), 'pickup_time' => $this->timeValue($run->pickup_time), 'return_time' => $this->timeValue($run->return_time), 'vehicle_model' => $run->vehicle?->vehicle_model, 'seat_count' => $run->vehicle?->seat_count, 'customer_name' => $run->customer?->name, 'route_name' => $run instanceof WorkerVehicle ? $run->route?->name : null, 'partner_name' => $run->partner?->name, 'driver_name' => $run->driver?->full_name, 'attendance' => $attendance?->only(['id', 'status', 'calculated_wage'])];
+        return [...$run->only(['id', 'vehicle_id', 'vehicle_type_id', 'run_no', 'schedule_rule_id', 'customer_id', 'customer_name', 'route_id', 'shift_name', 'journey', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage_rate', 'driver_wage', 'driver_wage_is_overridden', 'driver_collected_amount', 'company_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note', 'is_active']), 'run_date' => $run->run_date?->toDateString(), 'return_date' => $run->return_date?->toDateString(), 'pickup_time' => $this->timeValue($run->pickup_time), 'return_time' => $this->timeValue($run->return_time), 'vehicle_type_code' => $run->vehicleType?->code, 'vehicle_type_name' => $run->vehicleType?->name, 'customer_name' => $run->customer_name ?? $run->customer?->name, 'route_name' => $run instanceof WorkerVehicle ? $run->route?->name : null, 'partner_name' => $run->partner?->name, 'driver_name' => $run->driver?->full_name, 'attendance' => $attendance?->only(['id', 'status', 'calculated_wage'])];
     }
 
     /** @return array<string, mixed> */
@@ -379,8 +381,8 @@ class VehicleOperationService
     /** @param array<string, mixed> $data @param array<string, mixed> $input */
     private function syncTouristWage(array &$data, array $input, ?TouristVehicle $existing = null): void
     {
-        $isInternalCompanyRun = $data['is_company_vehicle'] && ! $data['is_hired_driver'] && ! empty($data['driver_id']);
-        if (! $isInternalCompanyRun) {
+        $hasCompanyDriver = ! $data['is_hired_driver'] && ! empty($data['driver_id']);
+        if (! $hasCompanyDriver) {
             $data['driver_wage_rate'] = 0;
             $data['driver_wage'] = 0;
             $data['driver_wage_is_overridden'] = false;
@@ -388,34 +390,26 @@ class VehicleOperationService
             return;
         }
 
-        $driverChanged = $existing === null || (int) $existing->driver_id !== (int) $data['driver_id'];
-        if ($driverChanged) {
-            $data['driver_wage_rate'] = Driver::query()->findOrFail($data['driver_id'])->tourism_commission_rate;
-            $data['driver_wage_is_overridden'] = false;
-        } elseif (array_key_exists('driver_wage_rate', $input)) {
-            $data['driver_wage_rate'] = $input['driver_wage_rate'];
+        $type = VehicleType::query()->active()->find($data['vehicle_type_id'] ?? null);
+        if (! $type) {
+            throw ValidationException::withMessages(['vehicle_type_id' => 'Chuyến du lịch cần loại xe đang hoạt động để tính lương.']);
         }
-
-        $override = array_key_exists('driver_wage_is_overridden', $input)
-            ? (bool) $input['driver_wage_is_overridden']
-            : (bool) ($data['driver_wage_is_overridden'] ?? false);
-        if (array_key_exists('driver_wage', $input) && ! array_key_exists('driver_wage_is_overridden', $input)) {
-            $override = true;
-        }
-        $data['driver_wage_is_overridden'] = $override;
-        $data['driver_wage'] = $override && array_key_exists('driver_wage', $input)
-            ? $input['driver_wage']
-            : number_format((float) $data['freight_amount'] * (float) $data['driver_wage_rate'], 2, '.', '');
+        $data['driver_wage_rate'] = $type->tourism_wage_rate;
+        $data['driver_wage_is_overridden'] = false;
+        $data['driver_wage'] = number_format((float) $data['freight_amount'] * (float) $type->tourism_wage_rate, 2, '.', '');
     }
 
     private function validatedRun(string $kind, array $input, bool $create): array
     {
         $input = $this->normalizeTimeInput($input, ['pickup_time', 'return_time']);
-        $rules = ['vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')], 'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')], 'run_date' => ['required', 'date'], 'return_date' => ['nullable', 'date', 'after_or_equal:run_date'], 'pickup_time' => ['required', 'date_format:H:i'], 'return_time' => ['nullable', 'date_format:H:i'], 'pickup_location' => ['required', 'string', 'max:500'], 'dropoff_location' => ['required', 'string', 'max:500'], 'is_company_vehicle' => ['nullable', 'boolean', 'required_without:vehicle_id'], 'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id')], 'license_plate' => ['nullable', 'string', 'max:50', 'required_without:vehicle_id'], 'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')], 'is_hired_driver' => ['required', 'boolean'], 'hired_driver_name' => ['nullable', 'string', 'max:255'], 'hired_driver_cost' => ['nullable', 'numeric', 'min:0'], 'partner_vehicle_cost' => ['nullable', 'numeric', 'min:0'], 'freight_amount' => ['nullable', 'numeric', 'min:0'], 'driver_wage' => ['nullable', 'numeric', 'min:0'], 'status' => ['nullable', Rule::in(['planned', 'in_progress', 'completed', 'cancelled'])], 'completed_at' => ['nullable', 'date'], 'note' => ['nullable', 'string']];
+        if ($kind === 'worker' && ! empty($input['route_id'])) {
+            $this->applyWorkerRouteSnapshot($input);
+        }
+        $rules = ['vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')], 'vehicle_type_id' => ['nullable', 'integer', Rule::exists('vehicle_types', 'id')], 'customer_id' => ['nullable', 'integer', Rule::exists('customers', 'id')], 'run_date' => ['required', 'date'], 'return_date' => ['nullable', 'date', 'after_or_equal:run_date'], 'pickup_time' => ['required', 'date_format:H:i'], 'return_time' => ['nullable', 'date_format:H:i'], 'pickup_location' => ['required', 'string', 'max:500'], 'dropoff_location' => ['required', 'string', 'max:500'], 'is_company_vehicle' => ['nullable', 'boolean', 'required_without:vehicle_id'], 'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id')], 'license_plate' => ['nullable', 'string', 'max:50', 'required_without:vehicle_id'], 'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')], 'is_hired_driver' => ['required', 'boolean'], 'hired_driver_name' => ['nullable', 'string', 'max:255'], 'hired_driver_cost' => ['nullable', 'numeric', 'min:0'], 'partner_vehicle_cost' => ['nullable', 'numeric', 'min:0'], 'freight_amount' => ['nullable', 'numeric', 'min:0'], 'driver_wage' => ['nullable', 'numeric', 'min:0'], 'status' => ['nullable', Rule::in(['planned', 'in_progress', 'completed', 'cancelled'])], 'completed_at' => ['nullable', 'date'], 'note' => ['nullable', 'string']];
         if ($kind === 'worker') {
-            $rules += ['route_id' => ['required', 'integer', Rule::exists('routes', 'id')], 'shift_name' => ['required', 'string', 'max:100'], 'schedule_rule_id' => ['nullable', 'integer', Rule::exists('worker_vehicle_schedule_rules', 'id')]];
+            $rules += ['route_id' => ['required', 'integer', Rule::exists('routes', 'id')], 'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')], 'shift_name' => ['required', 'string', 'max:100'], 'schedule_rule_id' => ['nullable', 'integer', Rule::exists('worker_vehicle_schedule_rules', 'id')]];
         } else {
-            $rules += ['journey' => ['required', 'string', 'max:1000'], 'driver_wage_rate' => ['nullable', 'numeric', 'min:0', 'max:1'], 'driver_wage_is_overridden' => ['nullable', 'boolean'], 'driver_collected_amount' => ['nullable', 'numeric', 'min:0'], 'company_collected_amount' => ['nullable', 'numeric', 'min:0'], 'driver_remitted_amount' => ['nullable', 'numeric', 'min:0'], 'driver_expense_amount' => ['nullable', 'numeric', 'min:0']];
+            $rules += ['customer_name' => ['required', 'string', 'max:255'], 'journey' => ['required', 'string', 'max:1000'], 'driver_collected_amount' => ['nullable', 'numeric', 'min:0'], 'company_collected_amount' => ['nullable', 'numeric', 'min:0'], 'driver_remitted_amount' => ['nullable', 'numeric', 'min:0'], 'driver_expense_amount' => ['nullable', 'numeric', 'min:0']];
         } $data = Validator::make($input, $rules)->validate();
         $this->applyVehicleSnapshot($data, false);
         if (! $data['is_company_vehicle'] && empty($data['partner_id'])) {
@@ -424,8 +418,20 @@ class VehicleOperationService
             throw ValidationException::withMessages(['hired_driver_name' => 'Thuê lái phải có tên và chi phí thuê.']);
         }
 
-        if ($kind === 'tourist' && ! $data['is_company_vehicle'] && ! array_key_exists('partner_vehicle_cost', $data)) {
-            throw ValidationException::withMessages(['partner_vehicle_cost' => 'Xe đối tác phải có tiền thuê xe.']);
+        if (! $data['is_company_vehicle'] && (float) ($data['partner_vehicle_cost'] ?? 0) <= 0) {
+            throw ValidationException::withMessages(['partner_vehicle_cost' => 'Xe đối tác phải có tiền thuê xe lớn hơn 0.']);
+        }
+
+        if (! $data['is_company_vehicle'] && empty($data['vehicle_type_id'])) {
+            throw ValidationException::withMessages(['vehicle_type_id' => 'Xe đối tác phải chọn loại xe.']);
+        }
+        if ($kind === 'tourist') {
+            if ((float) ($data['driver_collected_amount'] ?? 0) + (float) ($data['company_collected_amount'] ?? 0) > (float) ($data['freight_amount'] ?? 0)) {
+                throw ValidationException::withMessages(['driver_collected_amount' => 'Tổng tiền lái xe thu và công ty thu không được vượt cước xe.']);
+            }
+            if ((float) ($data['driver_remitted_amount'] ?? 0) > (float) ($data['driver_collected_amount'] ?? 0)) {
+                throw ValidationException::withMessages(['driver_remitted_amount' => 'Lái xe nộp không được vượt số tiền đã thu.']);
+            }
         }
 
         // The database keeps a non-null numeric cost even when this trip does not hire a driver.
@@ -516,5 +522,38 @@ class VehicleOperationService
         $data['license_plate'] = $vehicle->license_plate;
         $data['is_company_vehicle'] = $vehicle->ownership_type === OwnershipTypeEnum::COMPANY;
         $data['partner_id'] = $vehicle->ownership_type === OwnershipTypeEnum::PARTNER ? $vehicle->partner_id : null;
+        $data['vehicle_type_id'] = $vehicle->vehicle_type_id;
+        if (empty($data['driver_id'])) {
+            $data['driver_id'] = $vehicle->default_driver_id;
+        }
+        if (! $vehicle->vehicle_type_id) {
+            throw ValidationException::withMessages(['vehicle_id' => 'Xe chưa được gán loại xe, cần cập nhật danh mục xe trước khi tạo chuyến.']);
+        }
+    }
+
+    /** Override all client-provided worker-route values with the approved route snapshot. */
+    private function applyWorkerRouteSnapshot(array &$data): void
+    {
+        $route = Route::query()->with('vehicleTypeRates')->active()->find($data['route_id']);
+        if (! $route || ! $route->customer_id || ! $route->shift_name || ! $route->default_pickup_time || ! $route->default_return_time) {
+            throw ValidationException::withMessages(['route_id' => 'Tuyến chưa đầy đủ khách hàng, ca hoặc thời gian mặc định.']);
+        }
+        $typeId = $data['vehicle_type_id'] ?? null;
+        if (! empty($data['vehicle_id'])) {
+            $typeId = Vehicle::query()->active()->whereKey($data['vehicle_id'])->value('vehicle_type_id');
+        }
+        $rate = $route->vehicleTypeRates->firstWhere('vehicle_type_id', $typeId);
+        if (! $rate) {
+            throw ValidationException::withMessages(['vehicle_type_id' => 'Tuyến chưa có bảng giá cho loại xe đã chọn.']);
+        }
+        $data['vehicle_type_id'] = $typeId;
+        $data['customer_id'] = $route->customer_id;
+        $data['shift_name'] = $route->shift_name;
+        $data['pickup_location'] = $route->pickup_location;
+        $data['dropoff_location'] = $route->dropoff_location;
+        $data['pickup_time'] = substr((string) $route->default_pickup_time, 0, 5);
+        $data['return_time'] = substr((string) $route->default_return_time, 0, 5);
+        $data['freight_amount'] = $rate->freight_amount;
+        $data['driver_wage'] = $rate->driver_wage;
     }
 }

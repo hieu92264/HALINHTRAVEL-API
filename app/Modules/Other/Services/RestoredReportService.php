@@ -62,7 +62,9 @@ class RestoredReportService
 
     public function driverPayroll(array $filters): array
     {
-        $payrolls = Payroll::query()->with(['items.driver'])->where('is_active', true)
+        // A later revision recalculates the whole month.  Reporting more than
+        // the current revision would duplicate every driver's amount.
+        $payrolls = Payroll::query()->with(['items.driver'])->where('is_active', true)->where('is_current', true)
             ->whereDate('from_date', '<=', $filters['to_date'])->whereDate('to_date', '>=', $filters['from_date'])->get();
         $rows = $payrolls->flatMap(fn (Payroll $payroll) => $payroll->items->map(fn ($item) => [
             'payroll_id' => $payroll->id, 'payroll_code' => $payroll->code, 'driver_id' => $item->driver_id,

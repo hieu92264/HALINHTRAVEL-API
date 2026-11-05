@@ -14,7 +14,7 @@ class DriverService implements DriverServiceInterface
     public function drivers(): array
     {
         return Driver::query()
-            ->with('partner:id,name')
+            ->where('type', OwnershipTypeEnum::COMPANY)
             ->orderBy('id')
             ->get()
             ->map(fn (Driver $driver): array => $this->driver($driver))
@@ -23,25 +23,15 @@ class DriverService implements DriverServiceInterface
 
     public function driver(Driver $driver): array
     {
-        $driver->loadMissing('partner:id,name');
-
         return [
             'id' => $driver->id,
             'code' => $driver->code,
-            'user_name' => $driver->user_name,
-            'partner_id' => $driver->partner_id,
-            'partner_name' => $driver->partner?->name,
+            // Kept in the response for existing operation clients; new master-data
+            // forms do not expose it and all new drivers are company drivers.
             'type' => $driver->type?->value,
             'full_name' => $driver->full_name,
             'phone' => $driver->phone,
-            'cccd' => $driver->cccd,
-            'license_number' => $driver->license_number,
-            'license_class' => $driver->license_class,
-            'license_issued_at' => $driver->license_issued_at?->toDateString(),
-            'license_expired_at' => $driver->license_expired_at?->toDateString(),
-            'base_salary' => $driver->base_salary,
             'responsibility_allowance' => $driver->responsibility_allowance,
-            'tourism_commission_rate' => $driver->tourism_commission_rate,
             'joined_at' => $driver->joined_at?->toDateString(),
             'left_at' => $driver->left_at?->toDateString(),
             'is_active' => $driver->is_active,

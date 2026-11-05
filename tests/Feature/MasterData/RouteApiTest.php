@@ -6,7 +6,9 @@ use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Route;
+use App\Modules\MasterData\Models\VehicleType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class RouteApiTest extends TestCase
@@ -30,7 +32,7 @@ class RouteApiTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_dispatcher_can_create_route_with_generated_code_and_optional_customer(): void
+    public function test_dispatcher_can_create_route_with_generated_code_and_required_customer_and_rates(): void
     {
         $dispatcher = $this->seededUser('dispatcher');
         $customer = $this->createCustomer();
@@ -45,6 +47,7 @@ class RouteApiTest extends TestCase
             'default_pickup_time' => '06:30',
             'default_return_time' => '17:30',
             'estimated_distance_km' => '42.50',
+            'rates' => $this->standardRates(),
         ])->assertCreated()
             ->assertJsonPath('metadata.code', 'TUYEN001')
             ->assertJsonPath('metadata.customer_id', $customer->id)
@@ -122,7 +125,7 @@ class RouteApiTest extends TestCase
             ->assertJsonPath('metadata.is_active', false);
     }
 
-    public function test_route_update_preserves_omitted_fields_clears_nullable_fields_and_reactivates(): void
+    public function test_route_update_rejects_clearing_required_snapshot_fields_and_reactivates(): void
     {
         $dispatcher = $this->seededUser('dispatcher');
         $customer = $this->createCustomer();
@@ -137,13 +140,10 @@ class RouteApiTest extends TestCase
             'customer_id' => null,
             'shift_name' => null,
             'default_pickup_time' => null,
-            'is_active' => false,
-        ])->assertOk()
-            ->assertJsonPath('metadata.customer_id', null)
-            ->assertJsonPath('metadata.shift_name', null)
-            ->assertJsonPath('metadata.default_pickup_time', null)
-            ->assertJsonPath('metadata.pickup_location', 'Điểm đón')
-            ->assertJsonPath('metadata.is_active', false);
+        ])->assertUnprocessable();
+
+        $this->actingAs($dispatcher, 'api')->putJson("/api/master-data/routes/{$route->id}", ['is_active' => false])
+            ->assertOk()->assertJsonPath('metadata.is_active', false);
 
         $this->actingAs($dispatcher, 'api')->deleteJson("/api/master-data/routes/{$route->id}")
             ->assertOk();
@@ -174,17 +174,20 @@ class RouteApiTest extends TestCase
     public function test_route_rejects_matching_times_but_allows_an_overnight_route(): void
     {
         $dispatcher = $this->seededUser('dispatcher');
+        $customer = $this->createCustomer();
         $matchingTimes = [
+            'customer_id' => $customer->id,
             'name' => 'Tuyến giờ trùng',
+            'shift_name' => 'Ca sáng',
             'pickup_location' => 'A',
             'dropoff_location' => 'B',
             'default_pickup_time' => '14:22',
             'default_return_time' => '14:22',
+            'rates' => $this->standardRates(),
         ];
 
         $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/routes', $matchingTimes)
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Giờ về mặc định phải khác giờ đón mặc định.');
+            ->assertUnprocessable();
 
         $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/routes', [
             ...$matchingTimes,
@@ -208,6 +211,22 @@ class RouteApiTest extends TestCase
             ->assertJsonPath('message', 'Giờ về mặc định phải khác giờ đón mặc định.');
     }
 
+    public function test_route_update_normalizes_legacy_empty_distance_before_saving(): void
+    {
+        $dispatcher = $this->seededUser('dispatcher');
+        $route = $this->createRoute('TUYEN001');
+        DB::table('routes')->where('id', $route->id)->update(['estimated_distance_km' => '']);
+
+        $this->actingAs($dispatcher, 'api')->putJson("/api/master-data/routes/{$route->id}", [
+            'name' => 'Tuyến đã chuẩn hóa',
+            'estimated_distance_km' => null,
+        ])->assertOk()
+            ->assertJsonPath('metadata.name', 'Tuyến đã chuẩn hóa')
+            ->assertJsonPath('metadata.estimated_distance_km', null);
+
+        $this->assertDatabaseHas('routes', ['id' => $route->id, 'estimated_distance_km' => null]);
+    }
+
     private function createRoute(string $code, bool $isActive = true, ?Customer $customer = null): Route
     {
         return Route::create([
@@ -218,5 +237,16 @@ class RouteApiTest extends TestCase
             'dropoff_location' => 'Điểm trả',
             'is_active' => $isActive,
         ]);
+    }
+
+    /** @return list<array{vehicle_type_id:int,freight_amount:int,driver_wage:int}> */
+    private function standardRates(): array
+    {
+        return VehicleType::query()->active()->orderBy('code')->get()
+            ->map(fn (VehicleType $type): array => [
+                'vehicle_type_id' => $type->id,
+                'freight_amount' => 100000,
+                'driver_wage' => 50000,
+            ])->all();
     }
 }
