@@ -6,6 +6,7 @@ use App\Modules\MasterData\DTOs\CreatePartnerData;
 use App\Modules\MasterData\DTOs\UpdatePartnerData;
 use App\Modules\MasterData\Interfaces\PartnerServiceInterface;
 use App\Modules\MasterData\Models\Partner;
+use App\Shared\Enums\PartnerTypeEnum;
 use Illuminate\Support\Facades\DB;
 
 class PartnerService implements PartnerServiceInterface
@@ -13,6 +14,7 @@ class PartnerService implements PartnerServiceInterface
     public function partners(): array
     {
         return Partner::query()
+            ->whereIn('type', [PartnerTypeEnum::VEHICLE_OWNER->value, PartnerTypeEnum::TRANSPORT_COMPANY->value])
             ->orderBy('id')
             ->get()
             ->map(fn (Partner $partner): array => $this->partner($partner))
@@ -38,15 +40,10 @@ class PartnerService implements PartnerServiceInterface
         return [
             'id' => $partner->id,
             'code' => $partner->code,
-            'type' => $partner->type?->value,
             'name' => $partner->name,
             'phone' => $partner->phone,
-            'email' => $partner->email,
             'cccd' => $partner->cccd,
-            'tax_code' => $partner->tax_code,
             'address' => $partner->address,
-            'bank_name' => $partner->bank_name,
-            'bank_account' => $partner->bank_account,
             'opening_balance' => $partner->opening_balance,
             'is_active' => $partner->is_active,
             'user_name_created' => $partner->user_name_created,
@@ -62,6 +59,7 @@ class PartnerService implements PartnerServiceInterface
         return DB::transaction(function () use ($data): array {
             $partner = Partner::create([
                 ...$data->toArray(),
+                'type' => PartnerTypeEnum::VEHICLE_OWNER->value,
                 'code' => $this->nextCode(),
             ]);
 
@@ -71,7 +69,9 @@ class PartnerService implements PartnerServiceInterface
 
     public function update(Partner $partner, UpdatePartnerData $data): array
     {
-        $partner->fill($data->toArray())->save();
+        $changes = $data->toArray();
+        unset($changes['type'], $changes['email'], $changes['tax_code'], $changes['bank_name'], $changes['bank_account']);
+        $partner->fill($changes)->save();
 
         return $this->partner($partner->fresh());
     }

@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AuthDatabaseSeeder::class,
-            RefreshBusinessDataSeeder::class,
+            BusinessDataSeeder::class,
         ]);
     }
 }

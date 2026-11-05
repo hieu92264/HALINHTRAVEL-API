@@ -31,6 +31,12 @@ class RefreshBusinessDataSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(BusinessDataSeeder::class);
+    }
+
+    /** @deprecated Kept temporarily for reference; do not use legacy vehicle-rate demo data. */
+    private function runLegacy(): void
+    {
         $this->call([CustomerDatabaseSeeder::class, PartnerDatabaseSeeder::class, DriverDatabaseSeeder::class, VehicleDatabaseSeeder::class]);
 
         $fuel = ExpenseType::firstOrCreate(['code' => 'FUEL'], ['name' => 'Xăng dầu', 'scope' => 'general', 'profit_category' => 'fuel']);

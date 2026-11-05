@@ -3,7 +3,6 @@
 namespace App\Modules\MasterData\Requests;
 
 use App\Modules\MasterData\DTOs\CreateVehicleData;
-use App\Shared\Enums\OwnershipTypeEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,10 +24,8 @@ class CreateVehicleRequest extends FormRequest
     {
         return [
             'license_plate' => ['required', 'string', 'max:50', 'unique:vehicles,license_plate'],
-            'seat_count' => ['required', 'integer', 'min:1', 'max:999'],
-            'vehicle_model' => ['nullable', 'string', 'max:255'],
-            'ownership_type' => ['required', Rule::enum(OwnershipTypeEnum::class)],
-            'partner_id' => [Rule::requiredIf($this->input('ownership_type') === OwnershipTypeEnum::PARTNER->value), 'nullable', 'integer', Rule::exists('partners', 'id')],
+            'vehicle_type_id' => ['required', 'integer', Rule::exists('vehicle_types', 'id')],
+            'default_driver_id' => ['required', 'integer', Rule::exists('drivers', 'id')],
             'note' => ['nullable', 'string'],
         ];
     }
@@ -39,10 +36,8 @@ class CreateVehicleRequest extends FormRequest
 
         return new CreateVehicleData(
             license_plate: $data['license_plate'],
-            seat_count: $data['seat_count'],
-            vehicle_model: $data['vehicle_model'] ?? null,
-            ownership_type: OwnershipTypeEnum::from($data['ownership_type']),
-            partner_id: $data['partner_id'] ?? null,
+            vehicle_type_id: $data['vehicle_type_id'],
+            default_driver_id: $data['default_driver_id'],
             note: $data['note'] ?? null,
         );
     }

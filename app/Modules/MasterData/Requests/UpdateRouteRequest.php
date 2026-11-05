@@ -23,15 +23,19 @@ class UpdateRouteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => ['sometimes', 'nullable', 'integer', Rule::exists('customers', 'id')],
-            'name' => ['sometimes', 'string', 'max:255'],
-            'shift_name' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'pickup_location' => ['sometimes', 'string', 'max:500'],
-            'dropoff_location' => ['sometimes', 'string', 'max:500'],
-            'default_pickup_time' => ['sometimes', 'nullable', 'date_format:H:i'],
-            'default_return_time' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'customer_id' => ['sometimes', 'required', 'integer', Rule::exists('customers', 'id')],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'shift_name' => ['sometimes', 'required', 'string', 'max:100'],
+            'pickup_location' => ['sometimes', 'required', 'string', 'max:500'],
+            'dropoff_location' => ['sometimes', 'required', 'string', 'max:500'],
+            'default_pickup_time' => ['sometimes', 'required', 'date_format:H:i'],
+            'default_return_time' => ['sometimes', 'required', 'date_format:H:i'],
             'estimated_distance_km' => ['sometimes', 'nullable', 'decimal:0,2', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'rates' => ['sometimes', 'array', 'size:6'],
+            'rates.*.vehicle_type_id' => ['required_with:rates', 'integer', 'distinct', Rule::exists('vehicle_types', 'id')],
+            'rates.*.freight_amount' => ['required_with:rates', 'decimal:0,2', 'gt:0'],
+            'rates.*.driver_wage' => ['required_with:rates', 'decimal:0,2', 'gt:0'],
         ];
     }
 
@@ -62,9 +66,10 @@ class UpdateRouteRequest extends FormRequest
             defaultPickupTime: $data['default_pickup_time'] ?? null,
             defaultReturnTime: $data['default_return_time'] ?? null,
             estimatedDistanceKm: array_key_exists('estimated_distance_km', $data)
-                ? (string) $data['estimated_distance_km']
+                ? ($data['estimated_distance_km'] === null ? null : (string) $data['estimated_distance_km'])
                 : null,
             isActive: array_key_exists('is_active', $data) ? (bool) $data['is_active'] : null,
+            rates: $data['rates'] ?? null,
             provided: array_keys($data),
         );
     }

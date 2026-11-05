@@ -16,14 +16,18 @@ class CreateRouteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => ['nullable', 'integer', Rule::exists('customers', 'id')],
+            'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')],
             'name' => ['required', 'string', 'max:255'],
-            'shift_name' => ['nullable', 'string', 'max:100'],
+            'shift_name' => ['required', 'string', 'max:100'],
             'pickup_location' => ['required', 'string', 'max:500'],
             'dropoff_location' => ['required', 'string', 'max:500'],
-            'default_pickup_time' => ['nullable', 'date_format:H:i'],
-            'default_return_time' => ['nullable', 'date_format:H:i'],
+            'default_pickup_time' => ['required', 'date_format:H:i'],
+            'default_return_time' => ['required', 'date_format:H:i'],
             'estimated_distance_km' => ['nullable', 'decimal:0,2', 'min:0'],
+            'rates' => ['required', 'array', 'size:6'],
+            'rates.*.vehicle_type_id' => ['required', 'integer', 'distinct', Rule::exists('vehicle_types', 'id')],
+            'rates.*.freight_amount' => ['required', 'decimal:0,2', 'gt:0'],
+            'rates.*.driver_wage' => ['required', 'decimal:0,2', 'gt:0'],
         ];
     }
 
@@ -54,8 +58,9 @@ class CreateRouteRequest extends FormRequest
             defaultPickupTime: $data['default_pickup_time'] ?? null,
             defaultReturnTime: $data['default_return_time'] ?? null,
             estimatedDistanceKm: array_key_exists('estimated_distance_km', $data)
-                ? (string) $data['estimated_distance_km']
+                ? ($data['estimated_distance_km'] === null ? null : (string) $data['estimated_distance_km'])
                 : null,
+            rates: $data['rates'],
         );
     }
 }

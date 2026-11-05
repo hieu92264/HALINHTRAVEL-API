@@ -4,8 +4,9 @@ namespace Tests\Feature\MasterData;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
-use App\Modules\MasterData\Models\Partner;
+use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Vehicle;
+use App\Modules\MasterData\Models\VehicleType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,18 +22,18 @@ class VehicleApiTest extends TestCase
         $this->actingAs($driver, 'api')->getJson('/api/master-data/vehicles')->assertForbidden();
 
         $dispatcher = User::query()->where('user_name', 'dispatcher')->firstOrFail();
-        $partner = Partner::query()->create(['code' => 'DT-XE-001', 'type' => 'vehicle_owner', 'name' => 'Chủ xe test']);
+        $driverRecord = Driver::query()->create(['code' => 'LX-XE-001', 'type' => 'company', 'full_name' => 'Tài xế xe test']);
+        $type = VehicleType::query()->where('code', 'Xe29')->firstOrFail();
         $response = $this->actingAs($dispatcher, 'api')->postJson('/api/master-data/vehicles', [
             'license_plate' => '15b-123.45',
-            'seat_count' => 29,
-            'vehicle_model' => 'Thaco 29 chỗ',
-            'ownership_type' => 'partner',
-            'partner_id' => $partner->id,
+            'vehicle_type_id' => $type->id,
+            'default_driver_id' => $driverRecord->id,
             'note' => 'Xe tuyến mẫu',
         ])->assertCreated()
             ->assertJsonPath('metadata.code', 'VX0001')
             ->assertJsonPath('metadata.license_plate', '15B-123.45')
-            ->assertJsonPath('metadata.partner_name', 'Chủ xe test');
+            ->assertJsonPath('metadata.vehicle_type_code', 'Xe29')
+            ->assertJsonPath('metadata.default_driver_name', 'Tài xế xe test');
 
         $vehicleId = $response->json('metadata.id');
         $this->actingAs($dispatcher, 'api')->getJson('/api/master-data/vehicles/options')
@@ -42,7 +43,7 @@ class VehicleApiTest extends TestCase
             ->assertOk()->assertJsonCount(0, 'metadata');
     }
 
-    public function test_vehicle_validates_unique_plate_seat_count_and_partner_ownership(): void
+    public function test_vehicle_validates_unique_plate_vehicle_type_and_default_driver(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
         $admin = User::query()->where('user_name', 'admin')->firstOrFail();
@@ -50,8 +51,6 @@ class VehicleApiTest extends TestCase
 
         $this->actingAs($admin, 'api')->postJson('/api/master-data/vehicles', [
             'license_plate' => '15B-123.45',
-            'seat_count' => 0,
-            'ownership_type' => 'partner',
-        ])->assertUnprocessable()->assertJsonStructure(['metadata' => ['license_plate', 'seat_count', 'partner_id']]);
+        ])->assertUnprocessable()->assertJsonStructure(['metadata' => ['license_plate', 'vehicle_type_id', 'default_driver_id']]);
     }
 }

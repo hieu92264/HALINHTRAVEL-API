@@ -15,7 +15,7 @@ class WorkerVehicle extends Model
 {
     use HasBaseMetadata;
 
-    protected $fillable = ['vehicle_id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note'];
+    protected $fillable = ['vehicle_id', 'vehicle_type_id', 'run_no', 'schedule_rule_id', 'customer_id', 'route_id', 'shift_name', 'run_date', 'return_date', 'pickup_time', 'return_time', 'pickup_location', 'dropoff_location', 'is_company_vehicle', 'partner_id', 'license_plate', 'driver_id', 'is_hired_driver', 'hired_driver_name', 'hired_driver_cost', 'partner_vehicle_cost', 'freight_amount', 'driver_wage', 'status', 'completed_at', 'actual_started_at', 'actual_completed_at', 'note'];
 
     protected function casts(): array
     {
@@ -30,6 +30,11 @@ class WorkerVehicle extends Model
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
+    }
+
+    public function vehicleType(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\MasterData\Models\VehicleType::class);
     }
 
     public function customer(): BelongsTo

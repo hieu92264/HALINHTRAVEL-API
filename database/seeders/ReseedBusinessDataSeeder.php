@@ -29,7 +29,7 @@ class ReseedBusinessDataSeeder extends Seeder
                 DB::table($table)->delete();
             }
 
-            $this->call(RefreshBusinessDataSeeder::class);
+            $this->call(BusinessDataSeeder::class);
         });
     }
 }
