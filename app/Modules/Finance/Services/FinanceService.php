@@ -49,19 +49,25 @@ class FinanceService implements FinanceServiceInterface
         return $this->receipt($receipt->fresh());
     }
 
-    public function expenses(): array
+    public function expenses(array $filters = []): array
     {
-        return Expense::query()->with('expenseType:id,name,code')->where('is_active', true)->latest('expense_date')->get()->map(fn (Expense $item) => $this->expenseData($item))->all();
+        $query = Expense::query()->with(['expenseType:id,name,code,scope,profit_category', 'vehicle:id,license_plate'])->where('is_active', true);
+        foreach (['vehicle_id', 'expense_type_id'] as $key) if (filled($filters[$key] ?? null)) $query->where($key, $filters[$key]);
+        if (filled($filters['scope'] ?? null)) $query->whereHas('expenseType', fn ($q) => $q->where('scope', $filters['scope']));
+        if (filled($filters['from_date'] ?? null)) $query->whereDate('expense_date', '>=', $filters['from_date']);
+        if (filled($filters['to_date'] ?? null)) $query->whereDate('expense_date', '<=', $filters['to_date']);
+        return $query->latest('expense_date')->get()->map(fn (Expense $item) => $this->expenseData($item))->all();
     }
 
     public function expense(Expense $expense): array
     {
-        return $this->expenseData($expense->load('expenseType:id,name,code'));
+        return $this->expenseData($expense->load(['expenseType:id,name,code,scope,profit_category', 'vehicle:id,license_plate']));
     }
 
     public function createExpense(array $data): array
     {
         return DB::transaction(function () use ($data): array {
+            $this->assertExpenseScope($data);
             $this->assertHiredDriverName($data);
 
             return $this->expense(Expense::query()->create([...$data, 'expense_no' => $this->nextNo(Expense::class, 'PC')]));
@@ -71,7 +77,9 @@ class FinanceService implements FinanceServiceInterface
     public function updateExpense(Expense $expense, array $data): array
     {
         $this->assertUnlocked($expense);
-        $this->assertHiredDriverName([...$expense->getAttributes(), ...$data]);
+        $data = [...$expense->getAttributes(), ...$data];
+        $this->assertExpenseScope($data);
+        $this->assertHiredDriverName($data);
         $expense->fill($data)->save();
 
         return $this->expense($expense->fresh());
@@ -141,6 +149,14 @@ class FinanceService implements FinanceServiceInterface
         }
     }
 
+    private function assertExpenseScope(array $data): void
+    {
+        $type = ExpenseType::query()->find($data['expense_type_id'] ?? null);
+        if (! $type) return;
+        if ($type->scope->value === 'vehicle' && empty($data['vehicle_id'])) throw ValidationException::withMessages(['vehicle_id' => 'Chi phí xe phải chọn xe.']);
+        if ($type->scope->value === 'general' && ! empty($data['vehicle_id'])) throw ValidationException::withMessages(['vehicle_id' => 'Chi phí chung không được gắn xe.']);
+    }
+
     private function nextNo(string $model, string $prefix): string
     {
         return $prefix.now()->format('Ymd').str_pad((string) ($model::query()->where('created_at', '>=', now()->startOfDay())->count() + 1), 3, '0', STR_PAD_LEFT);
@@ -153,7 +169,7 @@ class FinanceService implements FinanceServiceInterface
 
     private function expenseData(Expense $item): array
     {
-        return [...$item->only(['id', 'expense_no', 'expense_type_id', 'expense_date', 'amount', 'payment_method', 'recipient_name', 'hired_driver_name', 'description', 'is_locked', 'is_active']), 'expense_type_name' => $item->expenseType?->name];
+        return [...$item->only(['id', 'expense_no', 'expense_type_id', 'vehicle_id', 'expense_date', 'amount', 'payment_method', 'recipient_name', 'paid_by', 'hired_driver_name', 'description', 'is_locked', 'is_active']), 'expense_type_name' => $item->expenseType?->name, 'expense_scope' => $item->expenseType?->scope?->value, 'vehicle_plate' => $item->vehicle?->license_plate];
     }
 
     private function partnerPaymentData(PartnerPayment $item): array

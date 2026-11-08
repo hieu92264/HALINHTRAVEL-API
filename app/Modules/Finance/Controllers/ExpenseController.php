@@ -18,7 +18,7 @@ class ExpenseController extends Controller
 
     public function index(): JsonResponse
     {
-        return $this->success($this->service->expenses(), 'Lấy danh sách chi phí thành công.');
+        return $this->success($this->service->expenses(request()->only(['scope', 'from_date', 'to_date', 'vehicle_id', 'expense_type_id'])), 'Lấy danh sách chi phí thành công.');
     }
 
     public function show(Expense $expense): JsonResponse

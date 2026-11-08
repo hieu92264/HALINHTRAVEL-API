@@ -20,7 +20,7 @@ interface FinanceServiceInterface
 
     public function lockReceipt(Receipt $receipt): array;
 
-    public function expenses(): array;
+    public function expenses(array $filters = []): array;
 
     public function expense(Expense $expense): array;
 

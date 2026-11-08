@@ -103,23 +103,27 @@ class RestoredReportService
     {
         $runs = $this->workerRuns($filters)->map(fn (WorkerVehicle $run) => $this->workerRow($run))
             ->concat($this->touristRuns($filters)->map(fn (TouristVehicle $run) => $this->touristRow($run)));
-        $generalCost = (float) Expense::query()->where('is_active', true)->whereBetween('expense_date', [$filters['from_date'], $filters['to_date']])->sum('amount');
+        $expenses = Expense::query()->with('expenseType:id,scope,profit_category')->where('is_active', true)->whereBetween('expense_date', [$filters['from_date'], $filters['to_date'].' 23:59:59'])->get();
+        $generalCost = (float) $expenses->filter(fn (Expense $expense) => $expense->expenseType?->scope?->value === 'general')->sum('amount');
         $groups = $runs->groupBy(fn (array $row) => $row['vehicle_plate'] ?: 'Chưa có biển số');
         $allocation = $groups->isEmpty() ? 0 : $generalCost / $groups->count();
-        $rows = $groups->map(function (Collection $items, string $plate) use ($allocation): array {
+        $rows = $groups->map(function (Collection $items, string $plate) use ($allocation, $expenses): array {
             $revenue = (float) $items->sum('revenue');
             $wage = (float) $items->sum('driver_wage');
             $partner = (float) $items->sum('partner_vehicle_cost');
             $external = (float) $items->sum('external_driver_cost');
-            $cost = $wage + $partner + $external + $allocation;
+            $vehicleIds = $items->pluck('vehicle_id')->filter()->unique();
+            $direct = fn (string $category): float => (float) $expenses->filter(fn (Expense $expense) => $expense->expenseType?->scope?->value === 'vehicle' && $expense->expenseType?->profit_category?->value === $category && $vehicleIds->contains($expense->vehicle_id))->sum('amount');
+            $fuel = $direct('fuel'); $repair = $direct('repair'); $insurance = $direct('insurance_registration'); $other = $direct('other');
+            $cost = $wage + $partner + $external + $fuel + $repair + $insurance + $other + $allocation;
 
             return ['vehicle_plate' => $plate, 'vehicle_type' => $items->pluck('trip_type')->unique()->join(', '), 'revenue' => $this->money($revenue),
                 'driver_wage' => $this->money($wage), 'partner_vehicle_cost' => $this->money($partner), 'external_driver_cost' => $this->money($external),
-                'fuel_cost' => '0.00', 'repair_cost' => '0.00', 'insurance_registration_cost' => '0.00', 'other_cost' => '0.00',
+                'fuel_cost' => $this->money($fuel), 'repair_cost' => $this->money($repair), 'insurance_registration_cost' => $this->money($insurance), 'other_cost' => $this->money($other),
                 'general_cost_allocated' => $this->money($allocation), 'total_cost' => $this->money($cost), 'profit' => $this->money($revenue - $cost)];
         })->values();
 
-        return $this->report($filters, $rows, ['revenue', 'driver_wage', 'partner_vehicle_cost', 'external_driver_cost', 'general_cost_allocated', 'total_cost', 'profit']);
+        return $this->report($filters, $rows, ['revenue', 'driver_wage', 'partner_vehicle_cost', 'external_driver_cost', 'fuel_cost', 'repair_cost', 'insurance_registration_cost', 'other_cost', 'general_cost_allocated', 'total_cost', 'profit']);
     }
 
     private function workerRuns(array $filters): Collection
@@ -142,7 +146,7 @@ class RestoredReportService
 
     private function runFilters($query, array $filters, bool $worker): void
     {
-        foreach (['customer_id', 'vehicle_id', 'driver_id'] as $key) {
+        foreach ($worker ? ['vehicle_id', 'driver_id'] : ['customer_id', 'vehicle_id', 'driver_id'] as $key) {
             if (filled($filters[$key] ?? null)) {
                 $query->where($key, $filters[$key]);
             }
@@ -153,14 +157,8 @@ class RestoredReportService
         if (! $worker) {
             return;
         }
-        if (filled($filters['partner_id'] ?? null)) {
-            $query->where('partner_id', $filters['partner_id']);
-        }
         if (filled($filters['route_id'] ?? null)) {
             $query->where('route_id', $filters['route_id']);
-        }
-        if (filled($filters['shift_name'] ?? null)) {
-            $query->where('shift_name', 'like', '%'.$filters['shift_name'].'%');
         }
     }
 
@@ -179,7 +177,7 @@ class RestoredReportService
         $revenue = (float) $run->freight_amount;
         $cost = (float) $run->driver_wage + (float) $run->hired_driver_cost + (float) $run->partner_vehicle_cost;
 
-        return ['worker_vehicle_id' => $run->id, 'run_no' => $run->run_no, 'date' => ($run->actual_completed_at ?? $run->completed_at)?->toDateString(), 'vehicle_plate' => $run->license_plate,
+        return ['worker_vehicle_id' => $run->id, 'vehicle_id' => $run->vehicle_id, 'run_no' => $run->run_no, 'date' => ($run->actual_completed_at ?? $run->completed_at)?->toDateString(), 'vehicle_plate' => $run->license_plate,
             'customer_name' => $run->customer?->name, 'route_name' => $run->route?->name, 'journey' => $run->shift_name, 'pickup_time' => $run->pickup_time, 'return_time' => $run->return_time,
             'driver_name' => $run->driver?->full_name ?? $run->hired_driver_name, 'partner_name' => $run->partner?->name, 'trip_type' => 'Công nhân', 'revenue' => $this->money($revenue),
             'driver_wage' => $this->money($run->driver_wage), 'external_driver_cost' => $this->money($run->hired_driver_cost), 'partner_vehicle_cost' => $this->money($run->partner_vehicle_cost), 'external_vehicle_profit' => $this->money($revenue - $cost)];
@@ -190,7 +188,7 @@ class RestoredReportService
         $revenue = (float) $run->freight_amount;
         $received = (float) $run->driver_collected_amount + (float) $run->company_collected_amount;
 
-        return ['tourist_vehicle_id' => $run->id, 'run_no' => $run->run_no, 'date' => ($run->actual_completed_at ?? $run->completed_at)?->toDateString(), 'vehicle_plate' => $run->license_plate,
+        return ['tourist_vehicle_id' => $run->id, 'vehicle_id' => $run->vehicle_id, 'run_no' => $run->run_no, 'date' => ($run->actual_completed_at ?? $run->completed_at)?->toDateString(), 'vehicle_plate' => $run->license_plate,
             'customer_name' => $run->customer?->name, 'journey' => $run->journey, 'pickup_time' => $run->pickup_time, 'return_time' => $run->return_time, 'driver_name' => $run->driver?->full_name,
             'driver_wage_rate' => (string) $run->driver_wage_rate, 'hired_driver_name' => $run->hired_driver_name,
             'partner_name' => $run->partner?->name, 'trip_type' => 'Du lịch', 'revenue' => $this->money($revenue), 'driver_wage' => $this->money($run->driver_wage),
