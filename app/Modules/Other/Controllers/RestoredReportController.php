@@ -3,11 +3,14 @@
 namespace App\Modules\Other\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Other\Exports\ReportExcelExport;
 use App\Modules\Other\Requests\ReportRequest;
 use App\Modules\Other\Services\RestoredReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use HieuDev92264\LaravelModules\Traits\ApiResponse;
 use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RestoredReportController extends Controller
 {
@@ -64,7 +67,24 @@ class RestoredReportController extends Controller
     {
         $filters = $request->filters();
         $report = $this->service->{$method}($filters);
-        if ($request->validated('format') !== 'pdf') {
+        $format = $request->validated('format');
+        if ($format === 'xlsx') {
+            $data = $this->pdfData($filename, $report);
+
+            return Excel::download(
+                new ReportExcelExport(
+                    $this->title($filename),
+                    'Từ ngày '.Carbon::parse($filters['from_date'])->format('d/m/Y').' đến ngày '.Carbon::parse($filters['to_date'])->format('d/m/Y'),
+                    $report['subject_name'] ?? null,
+                    $data['columns'],
+                    $data['rows'],
+                    $data['totals'],
+                ),
+                $filename.'-'.$filters['from_date'].'-'.$filters['to_date'].'.xlsx',
+                ExcelFormat::XLSX,
+            );
+        }
+        if ($format !== 'pdf') {
             return $this->success($report, 'Lấy báo cáo thành công.');
         }
         $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'fromDate' => Carbon::parse($filters['from_date'])->format('d/m/Y'), 'toDate' => Carbon::parse($filters['to_date'])->format('d/m/Y')])
