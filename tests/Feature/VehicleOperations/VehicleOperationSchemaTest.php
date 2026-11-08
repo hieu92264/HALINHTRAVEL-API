@@ -260,4 +260,32 @@ class VehicleOperationSchemaTest extends TestCase
         $this->assertSame('15B-888.88', $run['license_plate']);
         $this->assertSame(1200000, $run['partner_vehicle_cost']);
     }
+
+    public function test_tourist_run_uses_the_vehicle_type_rate_instead_of_client_wage_values(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-TOUR-RATE', 'type' => 'company', 'name' => 'Khách du lịch']);
+        $driver = Driver::query()->create(['code' => 'LX-TOUR-RATE', 'type' => 'company', 'full_name' => 'Lái xe du lịch', 'license_number' => 'B2-TOUR-RATE', 'license_class' => 'B2']);
+        $type = VehicleType::query()->create(['code' => 'XE-TOUR-RATE', 'name' => 'Xe du lịch', 'tourism_wage_rate' => 0.105]);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-TOUR-RATE', 'license_plate' => '15B-999.99', 'seat_count' => 29, 'ownership_type' => 'company', 'vehicle_type_id' => $type->id, 'default_driver_id' => $driver->id]);
+
+        $run = app(VehicleOperationService::class)->createRun('tourist', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'journey' => 'Hải Phòng - Hạ Long',
+            'run_date' => '2026-02-15',
+            'pickup_time' => '08:00',
+            'return_time' => '17:00',
+            'pickup_location' => 'A',
+            'dropoff_location' => 'B',
+            'is_company_vehicle' => true,
+            'vehicle_id' => $vehicle->id,
+            'is_hired_driver' => false,
+            'freight_amount' => 5000000,
+            'driver_wage_rate' => 0.9,
+            'driver_wage' => 1,
+        ]);
+
+        $this->assertSame('0.1050', $run['driver_wage_rate']);
+        $this->assertSame('525000.00', $run['driver_wage']);
+    }
 }
