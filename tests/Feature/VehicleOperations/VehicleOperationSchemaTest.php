@@ -21,6 +21,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class VehicleOperationSchemaTest extends TestCase
@@ -287,5 +288,52 @@ class VehicleOperationSchemaTest extends TestCase
 
         $this->assertSame('0.1050', $run['driver_wage_rate']);
         $this->assertSame('525000.00', $run['driver_wage']);
+    }
+
+    public function test_tourist_run_can_snapshot_an_overridden_rate_but_never_a_client_wage(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-TOUR-OVERRIDE', 'type' => 'company', 'name' => 'Khách du lịch']);
+        $driver = Driver::query()->create(['code' => 'LX-TOUR-OVERRIDE', 'type' => 'company', 'full_name' => 'Lái xe du lịch', 'license_number' => 'B2-TOUR-OVERRIDE', 'license_class' => 'B2']);
+        $type = VehicleType::query()->create(['code' => 'XE-TOUR-OVERRIDE', 'name' => 'Xe du lịch', 'tourism_wage_rate' => 0.1]);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-TOUR-OVERRIDE', 'license_plate' => '15B-888.88', 'seat_count' => 29, 'ownership_type' => 'company', 'vehicle_type_id' => $type->id, 'default_driver_id' => $driver->id]);
+        $service = app(VehicleOperationService::class);
+        $run = $service->createRun('tourist', ['customer_name' => $customer->name, 'journey' => 'Hải Phòng - Hạ Long', 'run_date' => '2026-03-01', 'pickup_time' => '08:00', 'return_time' => '17:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'vehicle_id' => $vehicle->id, 'is_hired_driver' => false, 'freight_amount' => 5000000]);
+
+        $updated = $service->updateRun('tourist', TouristVehicle::query()->findOrFail($run['id']), ['driver_wage_is_overridden' => true, 'driver_wage_rate' => 0.125, 'driver_wage' => 1]);
+
+        $this->assertTrue($updated['driver_wage_is_overridden']);
+        $this->assertEquals(0.125, $updated['driver_wage_rate']);
+        $this->assertEquals(625000, $updated['driver_wage']);
+    }
+
+    public function test_completed_tourist_run_rejects_a_rate_change(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-TOUR-LOCK', 'type' => 'company', 'name' => 'Khách du lịch']);
+        $driver = Driver::query()->create(['code' => 'LX-TOUR-LOCK', 'type' => 'company', 'full_name' => 'Lái xe du lịch', 'license_number' => 'B2-TOUR-LOCK', 'license_class' => 'B2']);
+        $type = VehicleType::query()->create(['code' => 'XE-TOUR-LOCK', 'name' => 'Xe du lịch', 'tourism_wage_rate' => 0.1]);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-TOUR-LOCK', 'license_plate' => '15B-777.77', 'seat_count' => 29, 'ownership_type' => 'company', 'vehicle_type_id' => $type->id, 'default_driver_id' => $driver->id]);
+        $service = app(VehicleOperationService::class);
+        $run = $service->createRun('tourist', ['customer_name' => $customer->name, 'journey' => 'Hải Phòng - Hạ Long', 'run_date' => '2026-03-02', 'pickup_time' => '08:00', 'return_time' => '17:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => true, 'vehicle_id' => $vehicle->id, 'is_hired_driver' => false, 'freight_amount' => 5000000]);
+        $model = TouristVehicle::query()->findOrFail($run['id']);
+        $service->completeTouristRun($model, '2026-03-02 17:00:00');
+
+        $this->expectException(HttpException::class);
+        $service->updateRun('tourist', $model->fresh(), ['driver_wage_is_overridden' => true, 'driver_wage_rate' => 0.125]);
+    }
+
+    public function test_worker_list_falls_back_to_the_route_shift_and_only_planned_runs_can_be_cancelled(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-CANCEL-RUN', 'type' => 'company', 'name' => 'Khách hàng']);
+        $route = Route::query()->create(['code' => 'T-CANCEL-RUN', 'customer_id' => $customer->id, 'name' => 'Tuyến xe', 'shift_name' => 'Ca chiều', 'pickup_location' => 'A', 'dropoff_location' => 'B']);
+        $planned = WorkerVehicle::query()->create(['run_no' => 'CN-CANCEL-001', 'customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => '', 'run_date' => '2026-04-01', 'pickup_time' => '13:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => false, 'partner_id' => Partner::query()->create(['code' => 'DT-CANCEL-RUN', 'type' => 'transport_company', 'name' => 'Đối tác'])->id, 'license_plate' => '15B-555.55', 'is_hired_driver' => true, 'hired_driver_name' => 'Lái thuê', 'hired_driver_cost' => 300000, 'partner_vehicle_cost' => 1000000, 'status' => 'planned']);
+        $service = app(VehicleOperationService::class);
+
+        $this->assertSame('Ca chiều', $service->workerRun($planned)['shift_name']);
+        $service->deleteRun($planned);
+        $this->assertSame('cancelled', $planned->fresh()->status);
+
+        $completed = WorkerVehicle::query()->create(['run_no' => 'CN-CANCEL-002', 'customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca chiều', 'run_date' => '2026-04-02', 'pickup_time' => '13:00', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => false, 'partner_id' => $planned->partner_id, 'license_plate' => '15B-555.56', 'is_hired_driver' => true, 'hired_driver_name' => 'Lái thuê', 'hired_driver_cost' => 300000, 'partner_vehicle_cost' => 1000000, 'status' => 'completed']);
+        $this->expectException(HttpException::class);
+        $service->deleteRun($completed);
     }
 }
