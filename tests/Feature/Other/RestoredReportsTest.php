@@ -104,6 +104,33 @@ class RestoredReportsTest extends TestCase
             ]]]]);
     }
 
+    public function test_debt_detail_reports_only_return_actual_transactions(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(AuthDatabaseSeeder::class);
+        $user = User::query()->where('user_name', 'admin')->firstOrFail();
+        $dates = ['from_date' => now()->subDays(90)->toDateString(), 'to_date' => now()->toDateString()];
+
+        foreach ([
+            'customer-debt-details' => [...$dates, 'customer_id' => Customer::query()->firstOrFail()->id],
+            'partner-debt-details' => [...$dates, 'partner_id' => Partner::query()->firstOrFail()->id],
+        ] as $slug => $filters) {
+            $report = $this->actingAs($user, 'api')->getJson('/api/other/reports/'.$slug.'?'.http_build_query($filters))
+                ->assertOk()
+                ->json('metadata');
+
+            $this->assertArrayHasKey('opening_balance', $report);
+            $this->assertArrayHasKey('closing_balance', $report);
+            $this->assertNotEmpty($report['rows']);
+            $this->assertSame(1, $report['rows'][0]['stt']);
+            $this->assertFalse(collect($report['rows'])->contains(fn (array $row): bool => ($row['type'] ?? null) === 'Nợ đầu kỳ' || ($row['stt'] ?? null) === 0));
+            $this->assertSame(
+                number_format((float) $report['opening_balance'] + (float) $report['rows'][0]['debit'] - (float) $report['rows'][0]['credit'], 2, '.', ''),
+                $report['rows'][0]['balance'],
+            );
+        }
+    }
+
     public function test_business_trip_report_applies_all_supported_filters_and_calculates_profit(): void
     {
         $this->seed(DatabaseSeeder::class);

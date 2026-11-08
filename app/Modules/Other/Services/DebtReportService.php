@@ -74,7 +74,7 @@ class DebtReportService implements DebtReportServiceInterface
         $entries = $this->inPeriod($runs, 'date', $fromDate, $toDate)->map(fn (array $run) => ['date' => $run['date'], 'document_no' => $run['run_no'], 'type' => $run['kind'] === 'worker' ? 'Xe công nhân hoàn tất' : 'Xe du lịch hoàn tất', 'journey' => $run['journey'], 'vehicle_plate' => $run['license_plate'], 'pickup_time' => $run['pickup_time'], 'return_time' => $run['return_time'], 'debit' => $run['amount'], 'credit' => 0, 'note' => $run['note']]);
         $entries = $entries->concat($this->inPeriod($receipts, 'received_at', $fromDate, $toDate)->map(fn (Receipt $item) => ['date' => $item->received_at, 'document_no' => $item->receipt_no, 'type' => 'Phiếu thu khách hàng', 'journey' => null, 'vehicle_plate' => null, 'pickup_time' => null, 'return_time' => null, 'debit' => 0, 'credit' => (float) $item->amount, 'note' => $item->description]));
 
-        return $this->detail($customer->name, $opening, $entries, $fromDate);
+        return $this->detail($customer->name, $opening, $entries);
     }
 
     public function partnerDebtDetails(int $partnerId, string $fromDate, string $toDate): array
@@ -86,7 +86,7 @@ class DebtReportService implements DebtReportServiceInterface
         $entries = $this->inPeriod($runs, 'date', $fromDate, $toDate)->map(fn (array $run) => ['date' => $run['date'], 'document_no' => $run['run_no'], 'type' => 'Tiền thuê xe', 'journey' => $run['journey'], 'vehicle_plate' => $run['license_plate'], 'pickup_time' => $run['pickup_time'], 'return_time' => $run['return_time'], 'debit' => $run['partner_vehicle_cost'], 'credit' => 0, 'note' => $run['note']]);
         $entries = $entries->concat($this->inPeriod($payments, 'paid_at', $fromDate, $toDate)->map(fn (PartnerPayment $item) => ['date' => $item->paid_at, 'document_no' => $item->payment_no, 'type' => 'Chi trả đối tác', 'journey' => null, 'vehicle_plate' => null, 'pickup_time' => null, 'return_time' => null, 'debit' => 0, 'credit' => (float) $item->amount, 'note' => $item->description]));
 
-        return $this->detail($partner->name, $opening, $entries, $fromDate);
+        return $this->detail($partner->name, $opening, $entries);
     }
 
     /** @return Collection<int, array<string, mixed>> */
@@ -103,7 +103,7 @@ class DebtReportService implements DebtReportServiceInterface
         return ['kind' => $kind, 'customer_id' => $run->customer_id, 'partner_id' => $run->partner_id, 'run_no' => $run->run_no, 'journey' => $run instanceof TouristVehicle ? $run->journey : $run->shift_name, 'license_plate' => $run->license_plate, 'pickup_time' => $run->pickup_time, 'return_time' => $run->return_time, 'amount' => (float) $run->freight_amount, 'partner_vehicle_cost' => (float) $run->partner_vehicle_cost, 'hired_driver_cost' => (float) $run->hired_driver_cost, 'is_hired_driver' => $run->is_hired_driver, 'hired_driver_name' => $run->hired_driver_name, 'date' => $run->actual_completed_at ?? $run->completed_at, 'note' => $run->note];
     }
 
-    private function detail(string $subjectName, float $opening, Collection $entries, string $fromDate): array
+    private function detail(string $subjectName, float $opening, Collection $entries): array
     {
         $balance = $opening;
         $rows = $entries->sortBy('date')->values()->map(function (array $entry, int $index) use (&$balance): array {
@@ -111,8 +111,6 @@ class DebtReportService implements DebtReportServiceInterface
 
             return [...$entry, 'stt' => $index + 1, 'date' => $entry['date']?->toDateString(), 'debit' => $this->money((float) $entry['debit']), 'credit' => $this->money((float) $entry['credit']), 'balance' => $this->money($balance)];
         })->all();
-        array_unshift($rows, ['stt' => 0, 'date' => $fromDate, 'document_no' => null, 'type' => 'Nợ đầu kỳ', 'journey' => null, 'vehicle_plate' => null, 'pickup_time' => null, 'return_time' => null, 'debit' => '0.00', 'credit' => '0.00', 'balance' => $this->money($opening), 'note' => null]);
-
         return ['subject_name' => $subjectName, 'opening_balance' => $this->money($opening), 'rows' => $rows, 'closing_balance' => $this->money($balance)];
     }
 
