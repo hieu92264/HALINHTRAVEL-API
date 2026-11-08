@@ -19,6 +19,28 @@ class RestoredReportsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_report_pdf_view_uses_the_shared_signature_layout_for_legacy_trip_reports(): void
+    {
+        $html = view('reports.pdf', [
+            'report' => [],
+            'pdf' => [
+                'rows' => [],
+                'columns' => ['stt' => 'STT'],
+                'legacy_trip_layout' => true,
+            ],
+            'title' => 'BÁO CÁO KIỂM TRA',
+            'fromDate' => '01/11/2026',
+            'toDate' => '08/11/2026',
+        ])->render();
+
+        $this->assertStringContainsString('class="signature-date"', $html);
+        $this->assertMatchesRegularExpression(
+            '/class="director".*GIÁM ĐỐC.*class="accountant".*KẾ TOÁN.*class="preparer".*NGƯỜI LẬP/s',
+            $html,
+        );
+        $this->assertStringNotContainsString('legacy-signatures', $html);
+    }
+
     public function test_restored_reports_use_the_new_vehicle_operation_sources(): void
     {
         $this->seed(DatabaseSeeder::class);
