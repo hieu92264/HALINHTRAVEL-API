@@ -43,7 +43,9 @@ class DriverPayrollDetailWordExportTest extends TestCase
             $this->assertStringNotContainsString('Lương chuyến du lịch', $document);
             $this->assertStringContainsString('DLX20260001', $document);
             $this->assertStringContainsString('05/10/26', $document);
-            $this->assertStringContainsString('15.00%', $document);
+            $this->assertStringContainsString('Tỷ lệ %', $document);
+            $this->assertStringContainsString('15%', $document);
+            $this->assertStringNotContainsString('15.00%', $document);
             $this->assertStringContainsString('Tổng phát sinh chi tiết', $document);
             $this->assertStringContainsString('Tổng lương: 750,000 đồng', $document);
             $this->assertStringContainsString('Thực lĩnh: 250,000 đồng', $document);

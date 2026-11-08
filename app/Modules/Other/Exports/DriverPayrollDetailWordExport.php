@@ -69,7 +69,7 @@ class DriverPayrollDetailWordExport
     private function addDetailTable($section, array $rows, array $totals): void
     {
         $widths = [550, 1700, 1100, 1900, 6000, 1500, 950, 1700];
-        $headers = ['STT', 'Lái xe', 'Ngày', 'Lệnh/chứng từ', 'Hành trình/Diễn giải', 'Cơ sở tính', 'Tỷ lệ', 'Số tiền'];
+        $headers = ['STT', 'Lái xe', 'Ngày', 'Lệnh/chứng từ', 'Hành trình/Diễn giải', 'Cơ sở tính', 'Tỷ lệ %', 'Số tiền'];
         $table = $section->addTable([
             'borderSize' => 4,
             'borderColor' => '000000',
@@ -171,7 +171,7 @@ class DriverPayrollDetailWordExport
             return '';
         }
 
-        return number_format((float) $rate * 100, 2, '.', '').'%';
+        return rtrim(rtrim(number_format((float) $rate * 100, 2, '.', ''), '0'), '.').'%';
     }
 
     private function money(float $value): string
