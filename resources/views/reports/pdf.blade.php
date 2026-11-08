@@ -93,9 +93,8 @@
             text-align: right;
         }
 
-        .signature-date {
-            display: block;
-            margin-bottom: 12px;
+        .signature-date td {
+            padding-bottom: 12px;
             font-style: italic;
             font-weight: normal;
         }
@@ -150,11 +149,13 @@
         </tbody>
     </table>
     <table class="signatures">
+        <tr class="signature-date">
+            <td class="director">{{ config('reports.city', 'Hải Phòng') }}, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}</td>
+            <td></td>
+            <td></td>
+        </tr>
         <tr>
-            <td class="director">
-                <span class="signature-date">{{ config('reports.city', 'Hải Phòng') }}, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}</span>
-                GIÁM ĐỐC
-            </td>
+            <td class="director">GIÁM ĐỐC</td>
             <td class="accountant">KẾ TOÁN</td>
             <td class="preparer">NGƯỜI LẬP</td>
         </tr>
