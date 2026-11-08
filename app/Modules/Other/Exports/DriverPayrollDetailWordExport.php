@@ -68,8 +68,8 @@ class DriverPayrollDetailWordExport
      */
     private function addDetailTable($section, array $rows, array $totals): void
     {
-        $widths = [550, 1700, 1100, 1600, 1700, 4750, 1400, 900, 1600];
-        $headers = ['STT', 'Lái xe', 'Ngày', 'Loại khoản', 'Lệnh/chứng từ', 'Hành trình/Diễn giải', 'Cơ sở tính', 'Tỷ lệ', 'Số tiền'];
+        $widths = [550, 1700, 1100, 1900, 6000, 1500, 950, 1700];
+        $headers = ['STT', 'Lái xe', 'Ngày', 'Lệnh/chứng từ', 'Hành trình/Diễn giải', 'Cơ sở tính', 'Tỷ lệ', 'Số tiền'];
         $table = $section->addTable([
             'borderSize' => 4,
             'borderColor' => '000000',
@@ -93,7 +93,6 @@ class DriverPayrollDetailWordExport
                 $index + 1,
                 $row['driver_name'] ?? '',
                 $this->date($row['date'] ?? null),
-                $this->calculationLabel((string) ($row['calculation_type'] ?? '')),
                 $this->documentNo($row),
                 $this->description($row),
                 $this->money((float) ($row['base_amount'] ?? 0)),
@@ -102,17 +101,17 @@ class DriverPayrollDetailWordExport
             ];
             $table->addRow();
             foreach ($values as $column => $value) {
-                $alignment = in_array($column, [0, 2, 7], true) ? Jc::CENTER : (in_array($column, [6, 8], true) ? Jc::RIGHT : Jc::LEFT);
-                $style = $column === 8 && $amount < 0 ? ['color' => 'C00000'] : [];
+                $alignment = in_array($column, [0, 2, 6], true) ? Jc::CENTER : (in_array($column, [5, 7], true) ? Jc::RIGHT : Jc::LEFT);
+                $style = $column === 7 && $amount < 0 ? ['color' => 'C00000'] : [];
                 $table->addCell($widths[$column], ['valign' => VerticalJc::CENTER])
                     ->addText((string) $value, $style, ['alignment' => $alignment]);
             }
         }
 
         $table->addRow();
-        $table->addCell($widths[0], ['gridSpan' => 8, 'valign' => VerticalJc::CENTER])
+        $table->addCell($widths[0], ['gridSpan' => 7, 'valign' => VerticalJc::CENTER])
             ->addText('Tổng phát sinh chi tiết', ['bold' => true], ['alignment' => Jc::RIGHT]);
-        $table->addCell($widths[8], ['valign' => VerticalJc::CENTER])
+        $table->addCell($widths[7], ['valign' => VerticalJc::CENTER])
             ->addText($this->money($detailTotal), ['bold' => true], ['alignment' => Jc::RIGHT]);
 
         $section->addText(
@@ -159,16 +158,6 @@ class DriverPayrollDetailWordExport
     private function addPageNumber($section): void
     {
         $section->addFooter()->addPreserveText('{PAGE}', [], ['alignment' => Jc::RIGHT]);
-    }
-
-    private function calculationLabel(string $type): string
-    {
-        return match ($type) {
-            'fixed_trip' => 'Lương chuyến công nhân',
-            'tourism_commission' => 'Lương chuyến du lịch',
-            'allowance' => 'Lương trách nhiệm',
-            default => 'Khác',
-        };
     }
 
     private function date(mixed $date): string

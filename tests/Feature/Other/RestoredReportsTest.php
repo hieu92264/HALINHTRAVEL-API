@@ -83,6 +83,27 @@ class RestoredReportsTest extends TestCase
         }
     }
 
+    public function test_driver_payroll_detail_report_hides_the_internal_calculation_type(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(AuthDatabaseSeeder::class);
+        $user = User::query()->where('user_name', 'admin')->firstOrFail();
+        $payroll = Payroll::query()->firstOrFail();
+
+        $response = $this->actingAs($user, 'api')->getJson('/api/other/reports/driver-payroll-details?'.http_build_query([
+            'from_date' => now()->subDays(90)->toDateString(),
+            'to_date' => now()->toDateString(),
+            'payroll_id' => $payroll->id,
+        ]));
+
+        $response->assertOk()
+            ->assertJsonPath('metadata.rows.0.driver_name', $payroll->items()->firstOrFail()->driver->full_name)
+            ->assertJsonMissingPath('metadata.rows.0.calculation_type')
+            ->assertJsonStructure(['metadata' => ['rows' => [[
+                'driver_name', 'date', 'worker_run_no', 'tourist_run_no', 'journey', 'base_amount', 'rate', 'amount',
+            ]]]]);
+    }
+
     public function test_business_trip_report_applies_all_supported_filters_and_calculates_profit(): void
     {
         $this->seed(DatabaseSeeder::class);

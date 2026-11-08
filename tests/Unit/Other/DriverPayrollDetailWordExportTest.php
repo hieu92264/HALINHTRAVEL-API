@@ -17,7 +17,6 @@ class DriverPayrollDetailWordExportTest extends TestCase
         $path = app(DriverPayrollDetailWordExport::class)->create([
             [
                 'driver_name' => 'Nguyễn Văn A',
-                'calculation_type' => 'tourism_commission',
                 'date' => '2026-10-05',
                 'tourist_run_no' => 'DLX20260001',
                 'journey' => 'Hải Phòng - Hạ Long',
@@ -40,7 +39,8 @@ class DriverPayrollDetailWordExportTest extends TestCase
             $this->assertStringContainsString('CHI TIẾT LƯƠNG LÁI XE', $document);
             $this->assertStringContainsString('(Từ ngày 01/10/2026 đến ngày 31/10/2026)', $document);
             $this->assertStringContainsString('Nguyễn Văn A', $document);
-            $this->assertStringContainsString('Lương chuyến du lịch', $document);
+            $this->assertStringNotContainsString('Loại khoản', $document);
+            $this->assertStringNotContainsString('Lương chuyến du lịch', $document);
             $this->assertStringContainsString('DLX20260001', $document);
             $this->assertStringContainsString('05/10/26', $document);
             $this->assertStringContainsString('15.00%', $document);
