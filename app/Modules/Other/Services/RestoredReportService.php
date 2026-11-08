@@ -87,7 +87,7 @@ class RestoredReportService
                 $run = $detail->workerVehicle ?? $detail->touristVehicle;
 
                 return ['driver_name' => $item->driver?->full_name, 'date' => $detail->driverAttendance?->work_date?->toDateString(),
-                    'calculation_type' => $detail->calculation_type?->value, 'worker_run_no' => $detail->workerVehicle?->run_no,
+                    'worker_run_no' => $detail->workerVehicle?->run_no,
                     'tourist_run_no' => $detail->touristVehicle?->run_no, 'journey' => $detail->workerVehicle?->route?->name ?? $detail->touristVehicle?->journey,
                     'description' => $detail->description, 'base_amount' => $this->money($detail->base_amount),
                     'rate' => $this->money($detail->rate), 'amount' => $this->money($detail->amount),

@@ -19,6 +19,28 @@ class RestoredReportsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_report_pdf_view_uses_the_shared_signature_layout_for_legacy_trip_reports(): void
+    {
+        $html = view('reports.pdf', [
+            'report' => [],
+            'pdf' => [
+                'rows' => [],
+                'columns' => ['stt' => 'STT'],
+                'legacy_trip_layout' => true,
+            ],
+            'title' => 'BÁO CÁO KIỂM TRA',
+            'fromDate' => '01/11/2026',
+            'toDate' => '08/11/2026',
+        ])->render();
+
+        $this->assertStringContainsString('class="signature-date"', $html);
+        $this->assertMatchesRegularExpression(
+            '/class="director".*GIÁM ĐỐC.*class="accountant".*KẾ TOÁN.*class="preparer".*NGƯỜI LẬP/s',
+            $html,
+        );
+        $this->assertStringNotContainsString('legacy-signatures', $html);
+    }
+
     public function test_restored_reports_use_the_new_vehicle_operation_sources(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -80,6 +102,54 @@ class RestoredReportsTest extends TestCase
             $this->assertStringContainsString('.pdf', (string) $response->headers->get('content-disposition'));
             $this->assertNotEmpty($response->getContent());
             $this->assertStringStartsWith('%PDF', (string) $response->getContent());
+        }
+    }
+
+    public function test_driver_payroll_detail_report_hides_the_internal_calculation_type(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(AuthDatabaseSeeder::class);
+        $user = User::query()->where('user_name', 'admin')->firstOrFail();
+        $payroll = Payroll::query()->firstOrFail();
+
+        $response = $this->actingAs($user, 'api')->getJson('/api/other/reports/driver-payroll-details?'.http_build_query([
+            'from_date' => now()->subDays(90)->toDateString(),
+            'to_date' => now()->toDateString(),
+            'payroll_id' => $payroll->id,
+        ]));
+
+        $response->assertOk()
+            ->assertJsonPath('metadata.rows.0.driver_name', $payroll->items()->firstOrFail()->driver->full_name)
+            ->assertJsonMissingPath('metadata.rows.0.calculation_type')
+            ->assertJsonStructure(['metadata' => ['rows' => [[
+                'driver_name', 'date', 'worker_run_no', 'tourist_run_no', 'journey', 'base_amount', 'rate', 'amount',
+            ]]]]);
+    }
+
+    public function test_debt_detail_reports_only_return_actual_transactions(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(AuthDatabaseSeeder::class);
+        $user = User::query()->where('user_name', 'admin')->firstOrFail();
+        $dates = ['from_date' => now()->subDays(90)->toDateString(), 'to_date' => now()->toDateString()];
+
+        foreach ([
+            'customer-debt-details' => [...$dates, 'customer_id' => Customer::query()->firstOrFail()->id],
+            'partner-debt-details' => [...$dates, 'partner_id' => Partner::query()->firstOrFail()->id],
+        ] as $slug => $filters) {
+            $report = $this->actingAs($user, 'api')->getJson('/api/other/reports/'.$slug.'?'.http_build_query($filters))
+                ->assertOk()
+                ->json('metadata');
+
+            $this->assertArrayHasKey('opening_balance', $report);
+            $this->assertArrayHasKey('closing_balance', $report);
+            $this->assertNotEmpty($report['rows']);
+            $this->assertSame(1, $report['rows'][0]['stt']);
+            $this->assertFalse(collect($report['rows'])->contains(fn (array $row): bool => ($row['type'] ?? null) === 'Nợ đầu kỳ' || ($row['stt'] ?? null) === 0));
+            $this->assertSame(
+                number_format((float) $report['opening_balance'] + (float) $report['rows'][0]['debit'] - (float) $report['rows'][0]['credit'], 2, '.', ''),
+                $report['rows'][0]['balance'],
+            );
         }
     }
 

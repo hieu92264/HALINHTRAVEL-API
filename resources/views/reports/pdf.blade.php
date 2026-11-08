@@ -22,8 +22,6 @@
         .letterhead .nation { float: right; width: 48%; text-align: center; }
         .clear { clear: both; }
         .legacy-company { width: 35%; margin: 4px 0 12px; font-family: DejaVu Serif, serif; font-size: 10px; font-weight: bold; text-align: center; }
-        .legacy-signatures { margin-left: auto; width: 34%; }
-        .legacy-signatures td { width: 100%; }
 
         .period {
             text-align: center;
@@ -82,6 +80,24 @@
             width: 33%;
             font-weight: bold
         }
+
+        .signatures .director {
+            text-align: left;
+        }
+
+        .signatures .accountant {
+            text-align: center;
+        }
+
+        .signatures .preparer {
+            text-align: right;
+        }
+
+        .signature-date td {
+            padding-bottom: 12px;
+            font-style: italic;
+            font-weight: normal;
+        }
     </style>
 </head>
 
@@ -132,17 +148,18 @@
             @endif
         </tbody>
     </table>
-    @if (!empty($pdf['legacy_trip_layout']))
-        <table class="signatures legacy-signatures"><tr><td>{{ config('reports.city', 'Hải Phòng') }}, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}<br><br>NGƯỜI LẬP</td></tr></table>
-    @else
-        <table class="signatures">
-            <tr>
-                <td>GIÁM ĐỐC</td>
-                <td>KẾ TOÁN</td>
-                <td>NGƯỜI LẬP</td>
-            </tr>
-        </table>
-    @endif
+    <table class="signatures">
+        <tr class="signature-date">
+            <td class="director">{{ config('reports.city', 'Hải Phòng') }}, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td class="director">GIÁM ĐỐC</td>
+            <td class="accountant">KẾ TOÁN</td>
+            <td class="preparer">NGƯỜI LẬP</td>
+        </tr>
+    </table>
 </body>
 
 </html>

@@ -99,7 +99,7 @@ class RestoredReportController extends Controller
             'partner-debts' => ['stt' => 'STT', 'code' => 'Mã chủ xe', 'name' => 'Chủ xe', 'opening_balance' => 'Nợ đầu kỳ', 'partner_vehicle_cost' => 'Tiền thuê xe', 'incurred_amount' => 'Nợ phát sinh', 'paid_amount' => 'Đã chi trả', 'closing_balance' => 'Nợ cuối kỳ'],
             'customer-debt-details', 'partner-debt-details' => ['stt' => 'STT', 'date' => 'Ngày', 'document_no' => 'Số chứng từ', 'type' => 'Diễn giải', 'journey' => 'Hành trình', 'vehicle_plate' => 'Biển số', 'pickup_time' => 'Giờ đón', 'return_time' => 'Giờ về', 'note' => 'Ghi chú', 'debit' => 'Nợ phát sinh', 'credit' => 'Có phát sinh', 'balance' => 'Nợ cuối kỳ'],
             'driver-payroll' => ['stt' => 'STT', 'payroll_code' => 'Mã kỳ lương', 'driver_name' => 'Họ và tên', 'responsibility_allowance' => 'Lương trách nhiệm', 'fixed_trip_wage' => 'Lương lái công nhân', 'tourism_commission' => 'Lương lái du lịch', 'gross_salary' => 'Tổng cộng', 'advance_amount' => 'Tạm ứng', 'driver_collected_amount' => 'Lái xe thu', 'driver_remitted_amount' => 'Lái xe nộp', 'driver_expense_amount' => 'Lái xe chi', 'net_salary' => 'Thực lĩnh'],
-            'driver-payroll-details' => ['stt' => 'STT', 'driver_name' => 'Lái xe', 'date' => 'Ngày', 'calculation_type' => 'Loại khoản', 'worker_run_no' => 'Lệnh xe CN', 'tourist_run_no' => 'Lệnh xe DL', 'journey' => 'Hành trình/Diễn giải', 'base_amount' => 'Cơ sở tính', 'rate' => 'Tỷ lệ', 'amount' => 'Số tiền'],
+            'driver-payroll-details' => ['stt' => 'STT', 'driver_name' => 'Lái xe', 'date' => 'Ngày', 'worker_run_no' => 'Lệnh xe CN', 'tourist_run_no' => 'Lệnh xe DL', 'journey' => 'Hành trình/Diễn giải', 'base_amount' => 'Cơ sở tính', 'rate' => 'Tỷ lệ %', 'amount' => 'Số tiền'],
             'vehicle-profit' => ['stt' => 'STT', 'vehicle_plate' => 'Biển số', 'vehicle_type' => 'Loại xe', 'revenue' => 'Thu cước', 'driver_wage' => 'Chi lương lái xe', 'partner_vehicle_cost' => 'Chi thuê xe', 'external_driver_cost' => 'Chi thuê lái', 'fuel_cost' => 'Chi phí dầu', 'repair_cost' => 'Chi sửa chữa', 'insurance_registration_cost' => 'Chi BH, ĐK', 'other_cost' => 'Chi khác', 'general_cost_allocated' => 'Chi phí chung PB', 'total_cost' => 'Tổng chi', 'profit' => 'Lợi nhuận'],
             default => [],
         };
@@ -113,7 +113,7 @@ class RestoredReportController extends Controller
                 } elseif ($key === 'date' && $value !== '') {
                     $value = Carbon::parse($value)->format('d/m/Y');
                 } elseif (in_array($key, ['rate', 'driver_wage_rate'], true) && $value !== '') {
-                    $value = number_format((float) $value * 100, 2, ',', '.').'%';
+                    $value = $this->percentage($value);
                 }
                 $result[$key] = (string) $value;
             }
@@ -128,5 +128,12 @@ class RestoredReportController extends Controller
         }
 
         return [...compact('columns', 'rows', 'totals'), 'legacy_trip_layout' => in_array($filename, ['business-trips', 'tourism-trips'], true)];
+    }
+
+    private function percentage(mixed $value): string
+    {
+        $percentage = number_format((float) $value * 100, 2, ',', '');
+
+        return rtrim(rtrim($percentage, '0'), ',').'%';
     }
 }

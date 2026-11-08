@@ -25,7 +25,10 @@ class FinanceApiTest extends TestCase
         $this->postJson("/api/finance/receipts/{$receiptId}/lock")->assertOk();
         $this->patchJson("/api/finance/receipts/{$receiptId}", ['amount' => '600000'])->assertConflict();
 
-        $this->postJson('/api/finance/partner-payments', ['partner_id' => $partner->id, 'paid_at' => '2026-10-02', 'amount' => '300000', 'payment_method' => 'bank_transfer'])->assertCreated();
+        $payment = ['partner_id' => $partner->id, 'paid_at' => '2026-10-02', 'amount' => '300000', 'payment_method' => 'bank_transfer', 'recipient_name' => 'Nguyễn Văn Minh'];
+        $paymentId = $this->postJson('/api/finance/partner-payments', $payment)->assertCreated()->assertJsonPath('metadata.recipient_name', 'Nguyễn Văn Minh')->json('metadata.id');
+        $this->patchJson("/api/finance/partner-payments/{$paymentId}", [...$payment, 'recipient_name' => 'Trần Thị Lan'])->assertOk()->assertJsonPath('metadata.recipient_name', 'Trần Thị Lan');
+        $this->postJson('/api/finance/partner-payments', [...$payment, 'recipient_name' => ''])->assertUnprocessable()->assertJsonStructure(['metadata' => ['recipient_name']]);
     }
 
     public function test_hired_driver_expense_requires_the_hired_driver_name(): void

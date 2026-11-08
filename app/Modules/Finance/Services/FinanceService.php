@@ -174,6 +174,6 @@ class FinanceService implements FinanceServiceInterface
 
     private function partnerPaymentData(PartnerPayment $item): array
     {
-        return [...$item->only(['id', 'payment_no', 'partner_id', 'paid_at', 'amount', 'payment_method', 'description', 'is_locked', 'is_active']), 'payment_method' => $item->payment_method?->value, 'partner_name' => $item->partner?->name];
+        return [...$item->only(['id', 'payment_no', 'partner_id', 'paid_at', 'amount', 'payment_method', 'recipient_name', 'description', 'is_locked', 'is_active']), 'payment_method' => $item->payment_method?->value, 'partner_name' => $item->partner?->name];
     }
 }
