@@ -33,6 +33,7 @@ Route::prefix('driver-payroll')->group(function () {
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::PAYROLLS_MANAGE->value])->group(function (): void {
         Route::post('/payrolls', [PayrollController::class, 'store']);
         Route::patch('/payrolls/{payroll}', [PayrollController::class, 'update']);
+        Route::post('/payrolls/{payroll}/cancel', [PayrollController::class, 'cancel']);
         Route::post('/payrolls/{payroll}/calculate', [PayrollController::class, 'calculate']);
         Route::patch('/payrolls/{payroll}/items/{payrollItem}', [PayrollController::class, 'updateItem']);
         Route::post('/payrolls/{payroll}/approve', [PayrollController::class, 'approve']);

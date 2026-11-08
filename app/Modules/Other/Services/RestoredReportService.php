@@ -71,10 +71,12 @@ class RestoredReportService
             'driver_name' => $item->driver?->full_name, 'responsibility_allowance' => $this->money($item->responsibility_allowance),
             'fixed_trip_wage' => $this->money($item->fixed_trip_wage), 'tourism_commission' => $this->money($item->tourism_commission),
             'gross_salary' => $this->money($item->gross_salary), 'advance_amount' => $this->money($item->advance_amount),
+            'driver_collected_amount' => $this->money($item->driver_collected_amount), 'driver_remitted_amount' => $this->money($item->driver_remitted_amount),
+            'driver_expense_amount' => $this->money($item->driver_expense_amount),
             'net_salary' => $this->money($item->net_salary),
         ]));
 
-        return $this->report($filters, $rows, ['responsibility_allowance', 'fixed_trip_wage', 'tourism_commission', 'gross_salary', 'advance_amount', 'net_salary']);
+        return $this->report($filters, $rows, ['responsibility_allowance', 'fixed_trip_wage', 'tourism_commission', 'gross_salary', 'advance_amount', 'driver_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'net_salary']);
     }
 
     public function driverPayrollDetails(array $filters): array

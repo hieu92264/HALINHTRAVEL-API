@@ -19,9 +19,9 @@ class PayrollController extends Controller
 
     public function __construct(private readonly DriverPayrollServiceInterface $service) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return $this->success($this->service->payrolls(), 'Lấy danh sách kỳ lương thành công.');
+        return $this->success($this->service->payrolls($request->boolean('include_cancelled')), 'Lấy danh sách kỳ lương thành công.');
     }
 
     public function show(Payroll $payroll): JsonResponse
@@ -37,6 +37,11 @@ class PayrollController extends Controller
     public function update(PayrollRequest $request, Payroll $payroll): JsonResponse
     {
         return $this->success($this->service->updatePayroll($payroll, $request->validated()), 'Cập nhật kỳ lương thành công.');
+    }
+
+    public function cancel(Payroll $payroll): JsonResponse
+    {
+        return $this->success($this->service->cancel($payroll), 'Đã hủy kỳ lương nháp.');
     }
 
     public function calculate(Payroll $payroll): JsonResponse

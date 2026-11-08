@@ -108,9 +108,12 @@ class DriverPayrollService implements DriverPayrollServiceInterface
         return $this->attendance($attendance->fresh());
     }
 
-    public function payrolls(): array
+    public function payrolls(bool $includeCancelled = false): array
     {
-        return Payroll::query()->withCount('items')->where('is_active', true)->orderByDesc('year')->orderByDesc('month')->orderByDesc('revision')->get()->map(fn (Payroll $item) => $this->payrollData($item))->all();
+        return Payroll::query()->withCount('items')
+            ->when($includeCancelled, fn ($query) => $query->where(fn ($history) => $history->where('is_active', true)->orWhere('status', PayrollStatusEnum::CANCELLED)), fn ($query) => $query->where('is_active', true))
+            ->orderByDesc('year')->orderByDesc('month')->orderByDesc('revision')->get()
+            ->map(fn (Payroll $item) => $this->payrollData($item))->all();
     }
 
     public function payroll(Payroll $payroll): array
@@ -127,7 +130,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
                 abort(409, 'Tháng lương đã thanh toán hoặc khóa, không thể tạo bản tổng hợp mới.');
             }
             $revision = ((int) $monthPayrolls->clone()->max('revision')) + 1;
-            $monthPayrolls->update(['is_current' => false, 'status' => PayrollStatusEnum::SUPERSEDED]);
+            $monthPayrolls->clone()->where('is_current', true)->where('status', '!=', PayrollStatusEnum::CANCELLED)->update(['is_current' => false, 'status' => PayrollStatusEnum::SUPERSEDED]);
             $item = Payroll::create([...$data, 'revision' => $revision, 'is_current' => true, 'code' => sprintf('LUONG-%04d-%02d-B%02d', $data['year'], $data['month'], $revision), 'status' => PayrollStatusEnum::DRAFT]);
 
             return $this->payroll($item);
@@ -145,6 +148,24 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             $month = $data['month'] ?? $locked->month;
             $this->assertValidPeriod($year, $month, $data['from_date'] ?? $locked->from_date, $data['to_date'] ?? $locked->to_date);
             $locked->fill($data)->save();
+
+            return $this->payroll($locked->fresh());
+        });
+    }
+
+    public function cancel(Payroll $payroll): array
+    {
+        return DB::transaction(function () use ($payroll): array {
+            $locked = Payroll::query()->lockForUpdate()->findOrFail($payroll->id);
+            if ($locked->status !== PayrollStatusEnum::DRAFT) {
+                abort(409, 'Chỉ kỳ lương nháp mới được hủy.');
+            }
+
+            $locked->forceFill([
+                'status' => PayrollStatusEnum::CANCELLED,
+                'is_current' => false,
+                'is_active' => false,
+            ])->save();
 
             return $this->payroll($locked->fresh());
         });
@@ -171,7 +192,7 @@ class DriverPayrollService implements DriverPayrollServiceInterface
                 $remitted = (float) ($settlement?->remitted ?? 0);
                 $expense = (float) ($settlement?->expense ?? 0);
                 $gross = (float) $driver->responsibility_allowance + (float) $fixed + (float) $tourism;
-                $item = PayrollItem::create(['payroll_id' => $locked->id, 'driver_id' => $driver->id, 'base_salary' => 0, 'responsibility_allowance' => $driver->responsibility_allowance ?? 0, 'fixed_trip_wage' => $fixed, 'tourism_commission' => $tourism, 'other_allowance' => 0, 'advance_amount' => $advance, 'driver_collected_amount' => $collected, 'driver_remitted_amount' => $remitted, 'driver_expense_amount' => $expense, 'deduction_amount' => 0, 'gross_salary' => $gross, 'net_salary' => $gross - (float) $advance - $collected + $remitted + $expense]);
+                $item = PayrollItem::create(['payroll_id' => $locked->id, 'driver_id' => $driver->id, 'base_salary' => 0, 'responsibility_allowance' => $driver->responsibility_allowance ?? 0, 'fixed_trip_wage' => $fixed, 'tourism_commission' => $tourism, 'other_allowance' => 0, 'advance_amount' => $advance, 'driver_collected_amount' => $collected, 'driver_remitted_amount' => $remitted, 'driver_expense_amount' => $expense, 'deduction_amount' => 0, 'gross_salary' => $gross, 'net_salary' => $this->netSalary($gross, $advance, $collected, $remitted, $expense)]);
                 foreach ($attendances->whereIn('work_type', [WorkTypeEnum::FIXED_TRIP, WorkTypeEnum::TOURISM_TRIP]) as $attendance) {
                     PayrollItemDetail::create(['payroll_item_id' => $item->id, 'driver_attendance_id' => $attendance->id, 'worker_vehicle_id' => $attendance->worker_vehicle_id, 'tourist_vehicle_id' => $attendance->tourist_vehicle_id, 'calculation_type' => $attendance->work_type === WorkTypeEnum::TOURISM_TRIP ? PayrollCalculationTypeEnum::TOURISM_COMMISSION : PayrollCalculationTypeEnum::FIXED_TRIP, 'base_amount' => $attendance->base_amount, 'rate' => $attendance->rate, 'amount' => $attendance->calculated_wage]);
                 }
@@ -188,8 +209,8 @@ class DriverPayrollService implements DriverPayrollServiceInterface
             abort(409, 'Chỉ có thể điều chỉnh item của kỳ lương đã tính.');
         }
         $item->fill($data);
-        $gross = (float) $item->responsibility_allowance + (float) $item->fixed_trip_wage + (float) $item->tourism_commission + (float) $item->other_allowance;
-        $item->forceFill(['gross_salary' => $gross, 'net_salary' => $gross - (float) $item->advance_amount - (float) $item->driver_collected_amount + (float) $item->driver_remitted_amount + (float) $item->driver_expense_amount - (float) $item->deduction_amount])->save();
+        $gross = (float) $item->responsibility_allowance + (float) $item->fixed_trip_wage + (float) $item->tourism_commission;
+        $item->forceFill(['gross_salary' => $gross, 'net_salary' => $this->netSalary($gross, $item->advance_amount, $item->driver_collected_amount, $item->driver_remitted_amount, $item->driver_expense_amount)])->save();
 
         return $this->payroll($payroll->fresh());
     }
@@ -222,6 +243,11 @@ class DriverPayrollService implements DriverPayrollServiceInterface
         if (Carbon::parse($from)->toDateString() !== $start->toDateString() || Carbon::parse($to)->toDateString() !== $start->copy()->endOfMonth()->toDateString()) {
             abort(422, 'Khoảng ngày kỳ lương phải trùng với toàn bộ tháng và năm của kỳ.');
         }
+    }
+
+    private function netSalary(mixed $gross, mixed $advance, mixed $driverCollected, mixed $driverRemitted, mixed $driverExpense): float
+    {
+        return (float) $gross - (float) $advance - (float) $driverCollected + (float) $driverRemitted + (float) $driverExpense;
     }
 
     public function lock(Payroll $payroll): array

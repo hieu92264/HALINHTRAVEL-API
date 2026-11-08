@@ -53,4 +53,20 @@ class VehicleApiTest extends TestCase
             'license_plate' => '15B-123.45',
         ])->assertUnprocessable()->assertJsonStructure(['metadata' => ['license_plate', 'vehicle_type_id', 'default_driver_id']]);
     }
+
+    public function test_vehicle_type_keeps_tourism_wage_rate_as_a_decimal_factor(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $admin = User::query()->where('user_name', 'admin')->firstOrFail();
+        $type = VehicleType::query()->where('code', 'Xe04')->firstOrFail();
+
+        $this->actingAs($admin, 'api')->patchJson('/api/master-data/vehicle-types/'.$type->id, [
+            'tourism_wage_rate' => '0.1000',
+        ])->assertOk()
+            ->assertJsonPath('metadata.tourism_wage_rate', '0.1000');
+
+        $this->actingAs($admin, 'api')->getJson('/api/master-data/vehicle-types')
+            ->assertOk()
+            ->assertJsonPath('metadata.0.tourism_wage_rate', '0.1000');
+    }
 }
