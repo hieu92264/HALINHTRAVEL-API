@@ -402,19 +402,36 @@ class VehicleOperationService
     private function validatedRun(string $kind, array $input, bool $create): array
     {
         $input = $this->normalizeTimeInput($input, ['pickup_time', 'return_time']);
+        if ($kind === 'worker' && filter_var($input['is_company_vehicle'] ?? null, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === true && empty($input['vehicle_id'])) {
+            throw ValidationException::withMessages(['vehicle_id' => 'Xe công ty phải được chọn từ danh mục xe.']);
+        }
         if ($kind === 'worker' && ! empty($input['route_id'])) {
             $this->applyWorkerRouteSnapshot($input);
         }
         $rules = ['vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')], 'vehicle_type_id' => ['nullable', 'integer', Rule::exists('vehicle_types', 'id')], 'customer_id' => ['nullable', 'integer', Rule::exists('customers', 'id')], 'run_date' => ['required', 'date'], 'return_date' => ['nullable', 'date', 'after_or_equal:run_date'], 'pickup_time' => ['required', 'date_format:H:i'], 'return_time' => ['nullable', 'date_format:H:i'], 'pickup_location' => ['required', 'string', 'max:500'], 'dropoff_location' => ['required', 'string', 'max:500'], 'is_company_vehicle' => ['nullable', 'boolean', 'required_without:vehicle_id'], 'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id')], 'license_plate' => ['nullable', 'string', 'max:50', 'required_without:vehicle_id'], 'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')], 'is_hired_driver' => ['required', 'boolean'], 'hired_driver_name' => ['nullable', 'string', 'max:255'], 'hired_driver_cost' => ['nullable', 'numeric', 'min:0'], 'partner_vehicle_cost' => ['nullable', 'numeric', 'min:0'], 'freight_amount' => ['nullable', 'numeric', 'min:0'], 'driver_wage' => ['nullable', 'numeric', 'min:0'], 'status' => ['nullable', Rule::in(['planned', 'in_progress', 'completed', 'cancelled'])], 'completed_at' => ['nullable', 'date'], 'note' => ['nullable', 'string']];
         if ($kind === 'worker') {
+            $rules['is_company_vehicle'] = ['required', 'boolean'];
             $rules += ['route_id' => ['required', 'integer', Rule::exists('routes', 'id')], 'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')], 'shift_name' => ['required', 'string', 'max:100'], 'schedule_rule_id' => ['nullable', 'integer', Rule::exists('worker_vehicle_schedule_rules', 'id')]];
         } else {
             $rules += ['customer_name' => ['required', 'string', 'max:255'], 'journey' => ['required', 'string', 'max:1000'], 'driver_collected_amount' => ['nullable', 'numeric', 'min:0'], 'company_collected_amount' => ['nullable', 'numeric', 'min:0'], 'driver_remitted_amount' => ['nullable', 'numeric', 'min:0'], 'driver_expense_amount' => ['nullable', 'numeric', 'min:0']];
-        } $data = Validator::make($input, $rules)->validate();
+        }
+        $data = Validator::make($input, $rules)->validate();
+        if ($kind === 'worker') {
+            if ($data['is_company_vehicle'] && empty($data['vehicle_id'])) {
+                throw ValidationException::withMessages(['vehicle_id' => 'Xe công ty phải được chọn từ danh mục xe.']);
+            }
+            if (! $data['is_company_vehicle'] && ! empty($data['vehicle_id'])) {
+                throw ValidationException::withMessages(['vehicle_id' => 'Xe ngoài không được liên kết xe trong danh mục.']);
+            }
+        }
         $this->applyVehicleSnapshot($data, false);
+        if ($kind === 'worker' && ! $data['is_company_vehicle'] && ! empty($data['vehicle_id'])) {
+            throw ValidationException::withMessages(['vehicle_id' => 'Xe công ty phải được chọn từ danh mục xe.']);
+        }
         if (! $data['is_company_vehicle'] && empty($data['partner_id'])) {
             throw ValidationException::withMessages(['partner_id' => 'Xe đối tác phải có đối tác.']);
-        } if ($data['is_hired_driver'] && (empty($data['hired_driver_name']) || (float) ($data['hired_driver_cost'] ?? 0) <= 0)) {
+        }
+        if ($data['is_hired_driver'] && (empty($data['hired_driver_name']) || (float) ($data['hired_driver_cost'] ?? 0) <= 0)) {
             throw ValidationException::withMessages(['hired_driver_name' => 'Thuê lái phải có tên và chi phí thuê.']);
         }
 

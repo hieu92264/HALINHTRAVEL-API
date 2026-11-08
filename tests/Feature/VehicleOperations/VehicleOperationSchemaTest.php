@@ -9,7 +9,9 @@ use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Driver;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Models\Route;
+use App\Modules\MasterData\Models\RouteVehicleTypeRate;
 use App\Modules\MasterData\Models\Vehicle;
+use App\Modules\MasterData\Models\VehicleType;
 use App\Modules\Other\Services\OperationalReportService;
 use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
@@ -189,5 +191,73 @@ class VehicleOperationSchemaTest extends TestCase
         $service->completeTouristRun(TouristVehicle::query()->findOrFail($hiredRun['id']));
 
         $this->assertDatabaseCount('driver_attendances', 0);
+    }
+
+    public function test_worker_run_uses_route_snapshot_and_requires_a_catalog_company_vehicle(): void
+    {
+        $routeCustomer = Customer::query()->create(['code' => 'KH-ROUTE-SNAPSHOT', 'type' => 'company', 'name' => 'Khách tuyến']);
+        $otherCustomer = Customer::query()->create(['code' => 'KH-CLIENT-SNAPSHOT', 'type' => 'company', 'name' => 'Khách client']);
+        $type = VehicleType::query()->create(['code' => 'XE-SNAPSHOT', 'name' => 'Xe snapshot', 'tourism_wage_rate' => 0]);
+        $route = Route::query()->create(['code' => 'T-SNAPSHOT', 'customer_id' => $routeCustomer->id, 'name' => 'Tuyến snapshot', 'shift_name' => 'Ca tuyến', 'pickup_location' => 'Điểm tuyến đón', 'dropoff_location' => 'Điểm tuyến trả', 'default_pickup_time' => '06:30', 'default_return_time' => '17:30']);
+        RouteVehicleTypeRate::query()->create(['route_id' => $route->id, 'vehicle_type_id' => $type->id, 'freight_amount' => 1500000, 'driver_wage' => 250000]);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-ROUTE-SNAPSHOT', 'license_plate' => '15B-777.77', 'seat_count' => 29, 'ownership_type' => 'company', 'vehicle_type_id' => $type->id]);
+
+        $run = app(VehicleOperationService::class)->createRun('worker', [
+            'route_id' => $route->id,
+            'customer_id' => $otherCustomer->id,
+            'shift_name' => 'Ca giả',
+            'run_date' => '2026-02-10',
+            'pickup_time' => '08:00',
+            'return_time' => '20:00',
+            'pickup_location' => 'Điểm giả',
+            'dropoff_location' => 'Điểm giả',
+            'freight_amount' => 1,
+            'driver_wage' => 1,
+            'is_company_vehicle' => true,
+            'vehicle_id' => $vehicle->id,
+            'license_plate' => '15B-GIA.00',
+            'is_hired_driver' => false,
+        ]);
+
+        $this->assertSame($routeCustomer->id, $run['customer_id']);
+        $this->assertSame('Ca tuyến', $run['shift_name']);
+        $this->assertSame('Điểm tuyến đón', $run['pickup_location']);
+        $this->assertSame('06:30', $run['pickup_time']);
+        $this->assertSame('15B-777.77', $run['license_plate']);
+        $this->assertSame('1500000.00', $run['freight_amount']);
+
+        $this->expectException(ValidationException::class);
+        app(VehicleOperationService::class)->createRun('worker', [
+            'route_id' => $route->id,
+            'run_date' => '2026-02-11',
+            'is_company_vehicle' => true,
+            'license_plate' => '15B-NHAP.01',
+            'is_hired_driver' => false,
+        ]);
+    }
+
+    public function test_worker_external_vehicle_requires_partner_plate_type_and_rental_cost(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-EXTERNAL-RUN', 'type' => 'company', 'name' => 'Khách xe ngoài']);
+        $partner = Partner::query()->create(['code' => 'DT-EXTERNAL-RUN', 'type' => 'transport_company', 'name' => 'Hãng xe ngoài']);
+        $type = VehicleType::query()->create(['code' => 'XE-EXTERNAL', 'name' => 'Xe ngoài', 'tourism_wage_rate' => 0]);
+        $route = Route::query()->create(['code' => 'T-EXTERNAL', 'customer_id' => $customer->id, 'name' => 'Tuyến xe ngoài', 'shift_name' => 'Ca sáng', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'default_pickup_time' => '07:00', 'default_return_time' => '16:00']);
+        RouteVehicleTypeRate::query()->create(['route_id' => $route->id, 'vehicle_type_id' => $type->id, 'freight_amount' => 2100000, 'driver_wage' => 300000]);
+
+        $run = app(VehicleOperationService::class)->createRun('worker', [
+            'route_id' => $route->id,
+            'run_date' => '2026-02-12',
+            'is_company_vehicle' => false,
+            'partner_id' => $partner->id,
+            'license_plate' => '15B-888.88',
+            'vehicle_type_id' => $type->id,
+            'partner_vehicle_cost' => 1200000,
+            'is_hired_driver' => false,
+        ]);
+
+        $this->assertFalse($run['is_company_vehicle']);
+        $this->assertSame($partner->id, $run['partner_id']);
+        $this->assertSame('15B-888.88', $run['license_plate']);
+        $this->assertSame(1200000, $run['partner_vehicle_cost']);
     }
 }
