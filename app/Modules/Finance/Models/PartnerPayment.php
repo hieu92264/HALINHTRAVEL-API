@@ -18,6 +18,7 @@ class PartnerPayment extends Model
         'paid_at',
         'amount',
         'payment_method',
+        'recipient_name',
         'description',
         'is_locked',
     ];

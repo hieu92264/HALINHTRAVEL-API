@@ -28,6 +28,7 @@ class RefreshBusinessDataSeederTest extends TestCase
         $this->assertGreaterThanOrEqual(40, DB::table('expenses')->count());
         $this->assertSame(8, DB::table('receipts')->count());
         $this->assertSame(8, DB::table('partner_payments')->count());
+        $this->assertSame(0, DB::table('partner_payments')->whereNull('recipient_name')->orWhere('recipient_name', '')->count());
 
         $this->assertSame(0, DB::table('worker_vehicles')->where('is_company_vehicle', true)->whereNull('vehicle_id')->count());
         $this->assertSame(0, DB::table('tourist_vehicles')->where('is_company_vehicle', true)->whereNull('vehicle_id')->count());
@@ -44,7 +45,8 @@ class RefreshBusinessDataSeederTest extends TestCase
             ->merge(DB::table('customers')->pluck('name'))->merge(DB::table('customers')->pluck('email'))
             ->merge(DB::table('partners')->pluck('name'))->merge(DB::table('partners')->pluck('email'))
             ->merge(DB::table('worker_vehicles')->pluck('run_no'))->merge(DB::table('tourist_vehicles')->pluck('run_no'))
-            ->merge(DB::table('expenses')->pluck('description'))->merge(DB::table('receipts')->pluck('description'));
+            ->merge(DB::table('expenses')->pluck('description'))->merge(DB::table('receipts')->pluck('description'))
+            ->merge(DB::table('partner_payments')->pluck('recipient_name'));
         $this->assertFalse($visibleText->filter()->contains(fn (string $text): bool => (bool) preg_match('/seed|test|mẫu|demo/i', $text)));
     }
 
