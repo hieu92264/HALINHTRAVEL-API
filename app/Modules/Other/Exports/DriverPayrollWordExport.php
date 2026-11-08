@@ -63,10 +63,10 @@ class DriverPayrollWordExport
      */
     private function addPayrollTable($section, array $rows): void
     {
-        $widths = [650, 2800, 1900, 1900, 1900, 1900, 1800, 1900, 1100];
+        $widths = [500, 1900, 1250, 1250, 1250, 1250, 1250, 1250, 1250, 1250, 1350, 800];
         $headers = [
             'STT', 'Họ và tên', 'Lương trách nhiệm', 'Lương lái công nhân', 'Lương lái du lịch',
-            'Tổng cộng', 'Tạm ứng', 'Còn lĩnh', 'Ký nhận',
+            'Tổng cộng', 'Tạm ứng', 'Lái xe thu', 'Lái xe nộp', 'Lái xe chi', 'Thực lĩnh', 'Ký nhận',
         ];
         $table = $section->addTable([
             'borderSize' => 4,
@@ -84,7 +84,7 @@ class DriverPayrollWordExport
         }
 
         $fields = [
-            'responsibility_allowance', 'fixed_trip_wage', 'tourism_commission', 'gross_salary', 'advance_amount', 'net_salary',
+            'responsibility_allowance', 'fixed_trip_wage', 'tourism_commission', 'gross_salary', 'advance_amount', 'driver_collected_amount', 'driver_remitted_amount', 'driver_expense_amount', 'net_salary',
         ];
         $totals = array_fill_keys($fields, 0.0);
         foreach (array_values($rows) as $index => $row) {
@@ -99,7 +99,7 @@ class DriverPayrollWordExport
             ];
             $table->addRow();
             foreach ($values as $column => $value) {
-                $alignment = $column === 0 ? Jc::CENTER : ($column === 1 ? Jc::LEFT : (in_array($column, range(2, 7), true) ? Jc::RIGHT : Jc::CENTER));
+                $alignment = $column === 0 ? Jc::CENTER : ($column === 1 ? Jc::LEFT : (in_array($column, range(2, 10), true) ? Jc::RIGHT : Jc::CENTER));
                 $table->addCell($widths[$column], ['valign' => VerticalJc::CENTER])
                     ->addText((string) $value, [], ['alignment' => $alignment]);
             }
@@ -108,8 +108,8 @@ class DriverPayrollWordExport
         $table->addRow();
         $table->addCell($widths[0], ['gridSpan' => 2, 'valign' => VerticalJc::CENTER])
             ->addText('Tổng cộng', ['bold' => true], ['alignment' => Jc::CENTER]);
-        foreach ($fields as $field) {
-            $table->addCell($widths[2], ['valign' => VerticalJc::CENTER])
+        foreach ($fields as $index => $field) {
+            $table->addCell($widths[$index + 2], ['valign' => VerticalJc::CENTER])
                 ->addText($this->money($totals[$field]), ['bold' => true], ['alignment' => Jc::RIGHT]);
         }
         $table->addCell($widths[8]);

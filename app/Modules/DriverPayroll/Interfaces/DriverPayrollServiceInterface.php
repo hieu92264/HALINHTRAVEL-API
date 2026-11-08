@@ -32,13 +32,15 @@ interface DriverPayrollServiceInterface
 
     public function confirmAttendance(DriverAttendance $attendance): array;
 
-    public function payrolls(): array;
+    public function payrolls(bool $includeCancelled = false): array;
 
     public function payroll(Payroll $payroll): array;
 
     public function createPayroll(array $data): array;
 
     public function updatePayroll(Payroll $payroll, array $data): array;
+
+    public function cancel(Payroll $payroll): array;
 
     public function calculate(Payroll $payroll): array;
 

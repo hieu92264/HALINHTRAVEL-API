@@ -4,6 +4,7 @@ namespace Tests\Feature\Other;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
+use App\Modules\DriverPayroll\Models\Payroll;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Models\Vehicle;
@@ -47,6 +48,39 @@ class RestoredReportsTest extends TestCase
 
         $this->actingAs($user, 'api')->get('/api/other/reports/business-trips?'.http_build_query([...$query, 'format' => 'pdf']))
             ->assertOk()->assertHeader('content-disposition')->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_every_restored_report_downloads_a_non_empty_pdf_with_its_filters(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(AuthDatabaseSeeder::class);
+        $user = User::query()->where('user_name', 'admin')->firstOrFail();
+        $dates = ['from_date' => now()->subDays(10)->toDateString(), 'to_date' => now()->toDateString()];
+        $customer = Customer::query()->firstOrFail();
+        $partner = Partner::query()->firstOrFail();
+        $payroll = Payroll::query()->firstOrFail();
+        $reports = [
+            'business-trips' => $dates,
+            'tourism-trips' => $dates,
+            'customer-debt-summary' => $dates,
+            'customer-debt-details' => [...$dates, 'customer_id' => $customer->id],
+            'partner-debt-summary' => $dates,
+            'partner-debt-details' => [...$dates, 'partner_id' => $partner->id],
+            'driver-payroll' => $dates,
+            'driver-payroll-details' => [...$dates, 'payroll_id' => $payroll->id],
+            'vehicle-profit' => $dates,
+        ];
+
+        foreach ($reports as $slug => $filters) {
+            $response = $this->actingAs($user, 'api')->get('/api/other/reports/'.$slug.'?'.http_build_query([...$filters, 'format' => 'pdf']));
+
+            $response->assertOk()
+                ->assertHeader('content-type', 'application/pdf')
+                ->assertHeader('content-disposition');
+            $this->assertStringContainsString('.pdf', (string) $response->headers->get('content-disposition'));
+            $this->assertNotEmpty($response->getContent());
+            $this->assertStringStartsWith('%PDF', (string) $response->getContent());
+        }
     }
 
     public function test_business_trip_report_applies_all_supported_filters_and_calculates_profit(): void

@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-/** Replaces local operational demo data while preserving master data and accounts. */
+/** Replaces all local operational and catalog data while preserving accounts and access control. */
 class ReseedBusinessDataSeeder extends Seeder
 {
     public function run(): void
@@ -25,6 +25,14 @@ class ReseedBusinessDataSeeder extends Seeder
                 'worker_vehicle_schedule_rule_days',
                 'worker_vehicle_schedule_rules',
                 'worker_vehicle_rates',
+                'route_vehicle_type_rates',
+                'vehicle_types',
+                'routes',
+                'vehicles',
+                'drivers',
+                'partners',
+                'customers',
+                'expense_types',
             ] as $table) {
                 DB::table($table)->delete();
             }

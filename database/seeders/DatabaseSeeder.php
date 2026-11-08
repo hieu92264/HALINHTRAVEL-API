@@ -10,7 +10,7 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /** Seed authentication and the compact business dataset. */
+    /** Seed authentication and the complete local operating dataset. */
     public function run(): void
     {
         $this->call([
