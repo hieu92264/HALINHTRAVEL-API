@@ -105,6 +105,40 @@ class RestoredReportsTest extends TestCase
         }
     }
 
+    public function test_every_restored_report_downloads_a_non_empty_excel_file_with_its_filters(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(AuthDatabaseSeeder::class);
+        $user = User::query()->where('user_name', 'admin')->firstOrFail();
+        $dates = ['from_date' => now()->subDays(10)->toDateString(), 'to_date' => now()->toDateString()];
+        $customer = Customer::query()->firstOrFail();
+        $partner = Partner::query()->firstOrFail();
+        $payroll = Payroll::query()->firstOrFail();
+        $reports = [
+            'business-trips' => $dates,
+            'tourism-trips' => $dates,
+            'customer-debt-summary' => $dates,
+            'customer-debt-details' => [...$dates, 'customer_id' => $customer->id],
+            'partner-debt-summary' => $dates,
+            'partner-debt-details' => [...$dates, 'partner_id' => $partner->id],
+            'driver-payroll' => $dates,
+            'driver-payroll-details' => [...$dates, 'payroll_id' => $payroll->id],
+            'vehicle-profit' => $dates,
+        ];
+
+        foreach ($reports as $slug => $filters) {
+            $response = $this->actingAs($user, 'api')->get('/api/other/reports/'.$slug.'?'.http_build_query([...$filters, 'format' => 'xlsx']));
+
+            $response->assertOk()
+                ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                ->assertHeader('content-disposition');
+            $this->assertStringContainsString('.xlsx', (string) $response->headers->get('content-disposition'));
+            $content = $response->streamedContent();
+            $this->assertNotEmpty($content);
+            $this->assertStringStartsWith('PK', $content);
+        }
+    }
+
     public function test_driver_payroll_detail_report_hides_the_internal_calculation_type(): void
     {
         $this->seed(DatabaseSeeder::class);
