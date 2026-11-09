@@ -3,21 +3,23 @@
 namespace App\Modules\Other\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
-class ReportExcelExport implements FromArray, WithEvents, WithHeadings
+class ReportExcelExport extends StringValueBinder implements FromArray, WithCustomValueBinder, WithEvents, WithHeadings
 {
     /**
-     * @param array<string, string> $columns
-     * @param array<int, array<string, string>> $rows
-     * @param array<string, string> $totals
+     * @param  array<string, string>  $columns
+     * @param  array<int, array<string, string>>  $rows
+     * @param  array<string, string>  $totals
      */
     public function __construct(
         private readonly string $title,
@@ -118,7 +120,7 @@ class ReportExcelExport implements FromArray, WithEvents, WithHeadings
             $rightStartColumn = Coordinate::stringFromColumnIndex($middleEnd + 1);
 
             $sheet->mergeCells("A{$signatureDateRow}:{$leftEndColumn}{$signatureDateRow}");
-            $sheet->setCellValue("A{$signatureDateRow}", config('reports.city', 'Hải Phòng').', ngày '.now()->format('d').' tháng '.now()->format('m').' năm '.now()->format('Y'));
+            $sheet->setCellValue("A{$signatureDateRow}", config('reports.city', 'Hải Phòng').', '.mb_strtolower($this->period));
             $sheet->getStyle("A{$signatureDateRow}")->getFont()->setItalic(true);
             $sheet->getStyle("A{$signatureDateRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
             $sheet->mergeCells("A{$signatureRow}:{$leftEndColumn}{$signatureRow}");
@@ -128,7 +130,7 @@ class ReportExcelExport implements FromArray, WithEvents, WithHeadings
             $sheet->setCellValue("{$middleStartColumn}{$signatureRow}", 'KẾ TOÁN');
             $sheet->setCellValue("{$rightStartColumn}{$signatureRow}", 'NGƯỜI LẬP');
             $sheet->getStyle("A{$signatureRow}:{$lastColumn}{$signatureRow}")->getFont()->setBold(true);
-            $sheet->getStyle("A{$signatureRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->getStyle("A{$signatureRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("{$middleStartColumn}{$signatureRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("{$rightStartColumn}{$signatureRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 

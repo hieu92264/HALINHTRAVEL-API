@@ -16,6 +16,7 @@ use App\Shared\Enums\OwnershipTypeEnum;
 use App\Shared\Enums\WorkTypeEnum;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -240,6 +241,7 @@ class VehicleOperationService
                     continue;
                 }
                 $data = ['vehicle_id' => $rule->vehicle_id, 'customer_id' => $rule->customer_id, 'route_id' => $rule->route_id, 'shift_name' => $rule->shift_name, 'run_date' => $date->toDateString(), 'return_date' => $date->toDateString(), 'pickup_time' => $day->pickup_time, 'return_time' => $day->return_time, 'pickup_location' => $rule->pickup_location, 'dropoff_location' => $rule->dropoff_location, 'is_company_vehicle' => $rule->is_company_vehicle, 'partner_id' => $rule->partner_id, 'license_plate' => $rule->license_plate, 'driver_id' => $rule->driver_id, 'is_hired_driver' => $rule->is_hired_driver, 'hired_driver_name' => $rule->hired_driver_name, 'hired_driver_cost' => $rule->hired_driver_cost, 'freight_amount' => $rate->freight_amount, 'driver_wage' => $rate->driver_wage, 'status' => 'planned'];
+                $this->applyWorkerHiredDriverRules($data);
                 try {
                     $this->assertNoConflict('worker', $data, $existing?->id);
                     if ($existing) {
@@ -445,6 +447,9 @@ class VehicleOperationService
             }
         }
         $this->applyVehicleSnapshot($data, false);
+        if ($kind === 'worker') {
+            $this->applyWorkerHiredDriverRules($data);
+        }
         if ($kind === 'worker' && ! $data['is_company_vehicle'] && ! empty($data['vehicle_id'])) {
             throw ValidationException::withMessages(['vehicle_id' => 'Xe công ty phải được chọn từ danh mục xe.']);
         }
@@ -486,6 +491,9 @@ class VehicleOperationService
         $rules = ['vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')], 'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')], 'route_id' => ['required', 'integer', Rule::exists('routes', 'id')], 'shift_name' => ['required', 'string', 'max:100'], 'effective_from' => ['required', 'date'], 'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'], 'pickup_location' => ['required', 'string', 'max:500'], 'dropoff_location' => ['required', 'string', 'max:500'], 'is_company_vehicle' => ['nullable', 'boolean', 'required_without:vehicle_id'], 'partner_id' => ['nullable', 'integer', Rule::exists('partners', 'id')], 'license_plate' => ['nullable', 'string', 'max:50', 'required_without:vehicle_id'], 'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')], 'is_hired_driver' => ['required', 'boolean'], 'hired_driver_name' => ['nullable', 'string', 'max:255'], 'hired_driver_cost' => ['nullable', 'numeric', 'min:0'], 'note' => ['nullable', 'string'], 'is_active' => ['nullable', 'boolean'], 'days' => ['required', 'array', 'min:1'], 'days.*.weekday' => ['required', 'integer', 'between:1,7'], 'days.*.pickup_time' => ['required', 'date_format:H:i'], 'days.*.return_time' => ['nullable', 'date_format:H:i']];
         $data = Validator::make($input, $rules)->validate();
         $this->applyVehicleSnapshot($data, false);
+        if ($data['is_hired_driver']) {
+            $data['driver_id'] = null;
+        }
         if (! $data['is_company_vehicle'] && empty($data['partner_id'])) {
             throw ValidationException::withMessages(['partner_id' => 'Xe đối tác phải có đối tác.']);
         } if ($data['is_hired_driver'] && (empty($data['hired_driver_name']) || (float) ($data['hired_driver_cost'] ?? 0) <= 0)) {
@@ -518,7 +526,7 @@ class VehicleOperationService
             if (str_starts_with($field, 'days.*.')) {
                 $key = substr($field, 7);
                 $days = $input['days'] ?? [];
-                if ($days instanceof \Illuminate\Support\Collection) {
+                if ($days instanceof Collection) {
                     $days = $days->all();
                 }
                 foreach ($days as $index => $day) {
@@ -592,5 +600,16 @@ class VehicleOperationService
         $data['return_time'] = substr((string) $route->default_return_time, 0, 5);
         $data['freight_amount'] = $rate->freight_amount;
         $data['driver_wage'] = $rate->driver_wage;
+    }
+
+    /** A hired driver is an external cost, never an internal-driver wage. */
+    private function applyWorkerHiredDriverRules(array &$data): void
+    {
+        if (! $data['is_hired_driver']) {
+            return;
+        }
+
+        $data['driver_id'] = null;
+        $data['driver_wage'] = 0;
     }
 }

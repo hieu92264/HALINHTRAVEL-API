@@ -262,6 +262,72 @@ class VehicleOperationSchemaTest extends TestCase
         $this->assertSame(1200000, $run['partner_vehicle_cost']);
     }
 
+    public function test_hired_worker_driver_has_no_internal_wage_or_driver_for_company_and_partner_vehicles(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-HIRED-WORKER', 'type' => 'company', 'name' => 'Khách thuê lái']);
+        $partner = Partner::query()->create(['code' => 'DT-HIRED-WORKER', 'type' => 'transport_company', 'name' => 'Đối tác thuê lái']);
+        $driver = Driver::query()->create(['code' => 'LX-HIRED-WORKER', 'type' => 'company', 'full_name' => 'Lái nội bộ', 'license_number' => 'B2-HIRED-WORKER', 'license_class' => 'B2']);
+        $type = VehicleType::query()->create(['code' => 'XE-HIRED-WORKER', 'name' => 'Xe thuê lái', 'tourism_wage_rate' => 0]);
+        $route = Route::query()->create(['code' => 'T-HIRED-WORKER', 'customer_id' => $customer->id, 'name' => 'Tuyến thuê lái', 'shift_name' => 'Ca sáng', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'default_pickup_time' => '07:00', 'default_return_time' => '16:00']);
+        RouteVehicleTypeRate::query()->create(['route_id' => $route->id, 'vehicle_type_id' => $type->id, 'freight_amount' => 2000000, 'driver_wage' => 300000]);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-HIRED-WORKER', 'license_plate' => '15B-333.33', 'seat_count' => 29, 'ownership_type' => 'company', 'vehicle_type_id' => $type->id, 'default_driver_id' => $driver->id]);
+        $service = app(VehicleOperationService::class);
+
+        $companyRun = $service->createRun('worker', ['route_id' => $route->id, 'run_date' => '2026-02-20', 'is_company_vehicle' => true, 'vehicle_id' => $vehicle->id, 'is_hired_driver' => true, 'hired_driver_name' => 'Lái thuê công ty', 'hired_driver_cost' => 350000]);
+        $partnerRun = $service->createRun('worker', ['route_id' => $route->id, 'run_date' => '2026-02-21', 'is_company_vehicle' => false, 'partner_id' => $partner->id, 'license_plate' => '15B-444.44', 'vehicle_type_id' => $type->id, 'partner_vehicle_cost' => 1200000, 'driver_id' => $driver->id, 'is_hired_driver' => true, 'hired_driver_name' => 'Lái thuê đối tác', 'hired_driver_cost' => 400000]);
+
+        foreach ([$companyRun, $partnerRun] as $run) {
+            $this->assertSame(0, (int) $run['driver_wage']);
+            $this->assertNull($run['driver_id']);
+        }
+        $this->assertSame(350000, (int) $companyRun['hired_driver_cost']);
+        $this->assertSame(400000, (int) $partnerRun['hired_driver_cost']);
+    }
+
+    public function test_worker_wage_switches_between_route_rate_and_zero_when_driver_is_hired(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-HIRED-EDIT', 'type' => 'company', 'name' => 'Khách sửa thuê lái']);
+        $driver = Driver::query()->create(['code' => 'LX-HIRED-EDIT', 'type' => 'company', 'full_name' => 'Lái nội bộ', 'license_number' => 'B2-HIRED-EDIT', 'license_class' => 'B2']);
+        $type = VehicleType::query()->create(['code' => 'XE-HIRED-EDIT', 'name' => 'Xe sửa thuê lái', 'tourism_wage_rate' => 0]);
+        $route = Route::query()->create(['code' => 'T-HIRED-EDIT', 'customer_id' => $customer->id, 'name' => 'Tuyến sửa thuê lái', 'shift_name' => 'Ca chiều', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'default_pickup_time' => '13:00', 'default_return_time' => '18:00']);
+        RouteVehicleTypeRate::query()->create(['route_id' => $route->id, 'vehicle_type_id' => $type->id, 'freight_amount' => 1800000, 'driver_wage' => 280000]);
+        $vehicle = Vehicle::query()->create(['code' => 'VX-HIRED-EDIT', 'license_plate' => '15B-555.55', 'seat_count' => 29, 'ownership_type' => 'company', 'vehicle_type_id' => $type->id, 'default_driver_id' => $driver->id]);
+        $service = app(VehicleOperationService::class);
+        $run = $service->createRun('worker', ['route_id' => $route->id, 'run_date' => '2026-02-22', 'is_company_vehicle' => true, 'vehicle_id' => $vehicle->id, 'is_hired_driver' => false]);
+
+        $this->assertSame(280000, (int) $run['driver_wage']);
+        $hired = $service->updateRun('worker', WorkerVehicle::query()->findOrFail($run['id']), ['is_hired_driver' => true, 'hired_driver_name' => 'Lái thuê', 'hired_driver_cost' => 360000]);
+        $this->assertSame(0, (int) $hired['driver_wage']);
+        $this->assertNull($hired['driver_id']);
+
+        $internal = $service->updateRun('worker', WorkerVehicle::query()->findOrFail($run['id']), ['is_hired_driver' => false, 'driver_id' => $driver->id]);
+        $this->assertSame(280000, (int) $internal['driver_wage']);
+        $this->assertSame($driver->id, $internal['driver_id']);
+    }
+
+    public function test_generated_hired_worker_run_has_zero_internal_wage(): void
+    {
+        $customer = Customer::query()->create(['code' => 'KH-HIRED-SCHEDULE', 'type' => 'company', 'name' => 'Khách lịch thuê lái']);
+        $partner = Partner::query()->create(['code' => 'DT-HIRED-SCHEDULE', 'type' => 'transport_company', 'name' => 'Đối tác lịch thuê lái']);
+        $route = Route::query()->create(['code' => 'T-HIRED-SCHEDULE', 'customer_id' => $customer->id, 'name' => 'Tuyến lịch thuê lái', 'shift_name' => 'Ca sáng', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'default_pickup_time' => '07:00', 'default_return_time' => '16:00']);
+        $service = app(VehicleOperationService::class);
+        $service->saveRate(['route_id' => $route->id, 'license_plate' => '15B-666.66', 'freight_amount' => 1900000, 'driver_wage' => 290000, 'effective_from' => '2026-01-01']);
+        $rule = WorkerVehicleScheduleRule::query()->create(['customer_id' => $customer->id, 'route_id' => $route->id, 'shift_name' => 'Ca sáng', 'effective_from' => '2026-01-01', 'pickup_location' => 'A', 'dropoff_location' => 'B', 'is_company_vehicle' => false, 'partner_id' => $partner->id, 'license_plate' => '15B-666.66', 'is_hired_driver' => true, 'hired_driver_name' => 'Lái thuê lịch', 'hired_driver_cost' => 390000]);
+        $rule->days()->create(['weekday' => 1, 'pickup_time' => '07:00', 'return_time' => '16:00']);
+
+        $generated = $service->generateRuns($rule, '2026-02-02', '2026-02-02');
+
+        $this->assertCount(1, $generated['created']);
+        $this->assertSame(0, (int) $generated['created'][0]['driver_wage']);
+        $this->assertNull($generated['created'][0]['driver_id']);
+        $this->assertDatabaseHas('worker_vehicles', ['id' => $generated['created'][0]['id'], 'driver_wage' => 0, 'driver_id' => null]);
+
+        WorkerVehicle::query()->findOrFail($generated['created'][0]['id'])->forceFill(['driver_wage' => 290000])->save();
+        $service->generateRuns($rule, '2026-02-02', '2026-02-02');
+
+        $this->assertDatabaseHas('worker_vehicles', ['id' => $generated['created'][0]['id'], 'driver_wage' => 0, 'driver_id' => null]);
+    }
+
     public function test_tourist_run_uses_the_vehicle_type_rate_instead_of_client_wage_values(): void
     {
         $customer = Customer::query()->create(['code' => 'KH-TOUR-RATE', 'type' => 'company', 'name' => 'Khách du lịch']);

@@ -4,6 +4,9 @@ namespace Tests\Feature\Finance;
 
 use App\Modules\Auth\Database\Seeds\AuthDatabaseSeeder;
 use App\Modules\Auth\Models\User;
+use App\Modules\Finance\Models\Expense;
+use App\Modules\Finance\Models\PartnerPayment;
+use App\Modules\Finance\Models\Receipt;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\ExpenseType;
 use App\Modules\MasterData\Models\Partner;
@@ -52,6 +55,28 @@ class FinanceApiTest extends TestCase
             $response->assertOk();
             $this->assertIsArray($response->json('metadata'));
             $response->assertJsonCount(0, 'metadata');
+        }
+    }
+
+    public function test_accountant_can_export_every_finance_table_as_pdf_and_excel(): void
+    {
+        $this->seed(AuthDatabaseSeeder::class);
+        $accountant = User::query()->where('user_name', 'accountant')->firstOrFail();
+        $customer = Customer::create(['code' => 'KH-FIN-EXPORT', 'type' => 'individual', 'name' => 'Khách xuất file']);
+        $partner = Partner::create(['code' => 'DT-FIN-EXPORT', 'type' => 'other', 'name' => 'Đối tác xuất file']);
+        $vehicleType = ExpenseType::create(['code' => 'CP-XE-EXPORT', 'name' => 'Chi phí xe', 'scope' => 'vehicle']);
+        $generalType = ExpenseType::create(['code' => 'CP-CHUNG-EXPORT', 'name' => 'Chi phí chung', 'scope' => 'general']);
+        Receipt::create(['receipt_no' => 'PT-EXPORT', 'customer_id' => $customer->id, 'receipt_type' => 'deposit', 'received_at' => '2026-11-01', 'amount' => 100000, 'payment_method' => 'cash', 'payer_name' => 'Người nộp']);
+        Expense::create(['expense_no' => 'PC-XE-EXPORT', 'expense_type_id' => $vehicleType->id, 'expense_date' => '2026-11-01', 'amount' => 200000, 'description' => 'Dầu xe']);
+        Expense::create(['expense_no' => 'PC-CHUNG-EXPORT', 'expense_type_id' => $generalType->id, 'expense_date' => '2026-11-01', 'amount' => 300000, 'description' => 'Văn phòng']);
+        PartnerPayment::create(['payment_no' => 'CTDT-EXPORT', 'partner_id' => $partner->id, 'paid_at' => '2026-11-01', 'amount' => 400000, 'payment_method' => 'bank_transfer', 'recipient_name' => 'Người nhận']);
+
+        foreach (['receipts', 'vehicle-expenses', 'general-expenses', 'partner-payments'] as $table) {
+            $this->actingAs($accountant, 'api')->get("/api/finance/exports/{$table}?format=pdf")
+                ->assertOk()->assertHeader('content-type', 'application/pdf');
+            $excel = $this->actingAs($accountant, 'api')->get("/api/finance/exports/{$table}?format=xlsx");
+            $excel->assertOk()->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            $this->assertStringStartsWith('PK', $excel->streamedContent());
         }
     }
 }

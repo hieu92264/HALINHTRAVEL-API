@@ -82,7 +82,7 @@
         }
 
         .signatures .director {
-            text-align: left;
+            text-align: center;
         }
 
         .signatures .accountant {
@@ -98,6 +98,10 @@
             font-style: italic;
             font-weight: normal;
         }
+
+        .signature-date .director {
+            text-align: left;
+        }
     </style>
 </head>
 
@@ -112,7 +116,7 @@
         </div>
     @endif
     <h1>{{ $title }}</h1>
-    <p class="period">Từ ngày {{ $fromDate }} đến ngày {{ $toDate }}</p>
+    <p class="period">{{ $period }}</p>
     @if (!empty($report['subject_name']))
         <p><strong>Đối tượng:</strong> {{ $report['subject_name'] }}</p>
     @endif
@@ -150,7 +154,7 @@
     </table>
     <table class="signatures">
         <tr class="signature-date">
-            <td class="director">{{ config('reports.city', 'Hải Phòng') }}, ngày {{ now()->format('d') }} tháng {{ now()->format('m') }} năm {{ now()->format('Y') }}</td>
+            <td class="director">{{ $signaturePeriod }}</td>
             <td></td>
             <td></td>
         </tr>

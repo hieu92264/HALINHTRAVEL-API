@@ -68,13 +68,14 @@ class RestoredReportController extends Controller
         $filters = $request->filters();
         $report = $this->service->{$method}($filters);
         $format = $request->validated('format');
+        $period = $this->period($filters['from_date']);
         if ($format === 'xlsx') {
             $data = $this->pdfData($filename, $report);
 
             return Excel::download(
                 new ReportExcelExport(
                     $this->title($filename),
-                    'Từ ngày '.Carbon::parse($filters['from_date'])->format('d/m/Y').' đến ngày '.Carbon::parse($filters['to_date'])->format('d/m/Y'),
+                    $period,
                     $report['subject_name'] ?? null,
                     $data['columns'],
                     $data['rows'],
@@ -87,7 +88,7 @@ class RestoredReportController extends Controller
         if ($format !== 'pdf') {
             return $this->success($report, 'Lấy báo cáo thành công.');
         }
-        $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'fromDate' => Carbon::parse($filters['from_date'])->format('d/m/Y'), 'toDate' => Carbon::parse($filters['to_date'])->format('d/m/Y')])
+        $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'period' => $period, 'signaturePeriod' => $this->signaturePeriod($filters['from_date'])])
             ->setPaper('a4', 'landscape');
 
         return $pdf->download($filename.'-'.$filters['from_date'].'-'.$filters['to_date'].'.pdf');
@@ -129,7 +130,7 @@ class RestoredReportController extends Controller
             foreach ($columns as $key => $label) {
                 $value = $key === 'stt' ? ($row['stt'] ?? $index + 1) : ($row[$key] ?? '');
                 if (in_array($key, $money, true)) {
-                    $value = number_format((float) $value, 2, ',', '.');
+                    $value = number_format((float) $value, 0, ',', '.');
                 } elseif ($key === 'date' && $value !== '') {
                     $value = Carbon::parse($value)->format('d/m/Y');
                 } elseif (in_array($key, ['rate', 'driver_wage_rate'], true) && $value !== '') {
@@ -143,7 +144,7 @@ class RestoredReportController extends Controller
         $totals = [];
         foreach ($report['totals'] ?? [] as $key => $value) {
             if (isset($columns[$key])) {
-                $totals[$key] = number_format((float) $value, 2, ',', '.');
+                $totals[$key] = number_format((float) $value, 0, ',', '.');
             }
         }
 
@@ -155,5 +156,15 @@ class RestoredReportController extends Controller
         $percentage = number_format((float) $value * 100, 2, ',', '');
 
         return rtrim(rtrim($percentage, '0'), ',').'%';
+    }
+
+    private function period(string $fromDate): string
+    {
+        return 'Tháng '.Carbon::parse($fromDate)->format('n').' năm '.Carbon::parse($fromDate)->format('Y');
+    }
+
+    private function signaturePeriod(string $fromDate): string
+    {
+        return config('reports.city', 'Hải Phòng').', '.mb_strtolower($this->period($fromDate));
     }
 }
