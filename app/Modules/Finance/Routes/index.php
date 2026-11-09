@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Finance\Controllers\ExpenseController;
+use App\Modules\Finance\Controllers\FinanceExportController;
 use App\Modules\Finance\Controllers\PartnerPaymentController;
 use App\Modules\Finance\Controllers\ReceiptController;
 use App\Shared\Enums\PermissionEnum;
@@ -8,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('finance')->group(function () {
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::RECEIPTS_VIEW->value])->group(function (): void {
+        Route::get('/exports/receipts', [FinanceExportController::class, 'receipts']);
         Route::get('/receipts', [ReceiptController::class, 'index']);
         Route::get('/receipts/{receipt}', [ReceiptController::class, 'show']);
     });
@@ -18,6 +20,8 @@ Route::prefix('finance')->group(function () {
         Route::post('/receipts/{receipt}/lock', [ReceiptController::class, 'lock']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::EXPENSES_VIEW->value])->group(function (): void {
+        Route::get('/exports/vehicle-expenses', [FinanceExportController::class, 'vehicleExpenses']);
+        Route::get('/exports/general-expenses', [FinanceExportController::class, 'generalExpenses']);
         Route::get('/expenses', [ExpenseController::class, 'index']);
         Route::get('/expenses/{expense}', [ExpenseController::class, 'show']);
     });
@@ -28,6 +32,7 @@ Route::prefix('finance')->group(function () {
         Route::post('/expenses/{expense}/lock', [ExpenseController::class, 'lock']);
     });
     Route::middleware(['auth:api', 'permission:'.PermissionEnum::PARTNER_PAYMENTS_VIEW->value])->group(function (): void {
+        Route::get('/exports/partner-payments', [FinanceExportController::class, 'partnerPayments']);
         Route::get('/partner-payments', [PartnerPaymentController::class, 'index']);
         Route::get('/partner-payments/{partnerPayment}', [PartnerPaymentController::class, 'show']);
     });

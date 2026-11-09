@@ -23,6 +23,8 @@ class RefreshBusinessDataSeederTest extends TestCase
         $this->assertSame(10, DB::table('vehicles')->where('ownership_type', 'company')->count());
         $this->assertSame(4, DB::table('routes')->count());
         $this->assertSame(24, DB::table('route_vehicle_type_rates')->count());
+        $this->assertSame(8, DB::table('worker_vehicle_rates')->count());
+        $this->assertSame(8, DB::table('worker_vehicle_schedule_rules')->count());
         $this->assertSame(30, DB::table('worker_vehicles')->count());
         $this->assertSame(24, DB::table('tourist_vehicles')->count());
         $this->assertGreaterThanOrEqual(40, DB::table('expenses')->count());
@@ -33,6 +35,7 @@ class RefreshBusinessDataSeederTest extends TestCase
         $this->assertSame(0, DB::table('worker_vehicles')->where('is_company_vehicle', true)->whereNull('vehicle_id')->count());
         $this->assertSame(0, DB::table('tourist_vehicles')->where('is_company_vehicle', true)->whereNull('vehicle_id')->count());
         $this->assertSame(0, DB::table('worker_vehicles')->where('is_company_vehicle', false)->where(fn ($query) => $query->whereNull('partner_id')->orWhereNull('vehicle_type_id')->orWhere('partner_vehicle_cost', '<=', 0))->count());
+        $this->assertSame(0, DB::table('worker_vehicle_schedule_rules')->where('is_hired_driver', true)->where(fn ($query) => $query->whereNotNull('driver_id')->orWhere('hired_driver_cost', '<=', 0))->count());
         $this->assertSame(0, DB::table('tourist_vehicles')->where('is_company_vehicle', false)->where(fn ($query) => $query->whereNull('partner_id')->orWhereNull('vehicle_type_id')->orWhere('partner_vehicle_cost', '<=', 0))->count());
         $this->assertSame(0, DB::table('tourist_vehicles')->whereNotNull('driver_id')->where('is_hired_driver', false)->whereRaw('driver_wage <> freight_amount * driver_wage_rate')->count());
         $this->assertSame(0, DB::table('tourist_vehicles')->where(fn ($query) => $query->where('is_company_vehicle', false)->orWhere('is_hired_driver', true))->where(fn ($query) => $query->where('driver_wage_rate', '!=', 0)->orWhere('driver_wage', '!=', 0))->count());

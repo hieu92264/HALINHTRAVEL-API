@@ -14,11 +14,11 @@ class ReportExcelExportTest extends TestCase
     {
         $contents = Excel::raw(new ReportExcelExport(
             'BẢNG LƯƠNG LÁI XE',
-            'Từ ngày 01/11/2026 đến ngày 08/11/2026',
+            'Tháng 11 năm 2026',
             'Nguyễn Văn Hùng',
             ['stt' => 'STT', 'driver_name' => 'Lái xe', 'rate' => 'Tỷ lệ %', 'amount' => 'Số tiền'],
-            [['stt' => '1', 'driver_name' => 'Nguyễn Văn Hùng', 'rate' => '15%', 'amount' => '300.000,00']],
-            ['amount' => '300.000,00'],
+            [['stt' => '1', 'driver_name' => 'Nguyễn Văn Hùng', 'rate' => '15%', 'amount' => '300.001']],
+            ['amount' => '300.001'],
         ), ExcelFormat::XLSX);
         $path = tempnam(sys_get_temp_dir(), 'report-excel-');
         file_put_contents($path, $contents);
@@ -27,13 +27,18 @@ class ReportExcelExportTest extends TestCase
             $sheet = IOFactory::load($path)->getActiveSheet();
 
             $this->assertSame('BẢNG LƯƠNG LÁI XE', $sheet->getCell('A2')->getValue());
+            $this->assertSame('Tháng 11 năm 2026', $sheet->getCell('A3')->getValue());
             $this->assertSame('Đối tượng: Nguyễn Văn Hùng', $sheet->getCell('A4')->getValue());
             $this->assertSame('Tỷ lệ %', $sheet->getCell('C5')->getValue());
             $this->assertSame('15%', $sheet->getCell('C6')->getValue());
             $this->assertSame('Tổng cộng', $sheet->getCell('A7')->getValue());
+            $this->assertSame('300.001', $sheet->getCell('D6')->getValue());
+            $this->assertSame('300.001', $sheet->getCell('D7')->getValue());
+            $this->assertSame('Hải Phòng, tháng 11 năm 2026', $sheet->getCell('A10')->getValue());
             $this->assertStringContainsString('GIÁM ĐỐC', (string) $sheet->getCell('A11')->getValue());
             $this->assertStringContainsString('KẾ TOÁN', (string) $sheet->getCell('B11')->getValue());
             $this->assertStringContainsString('NGƯỜI LẬP', (string) $sheet->getCell('C11')->getValue());
+            $this->assertSame('center', $sheet->getStyle('A11')->getAlignment()->getHorizontal());
         } finally {
             @unlink($path);
         }

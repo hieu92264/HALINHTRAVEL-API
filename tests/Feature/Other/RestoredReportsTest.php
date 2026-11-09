@@ -8,6 +8,7 @@ use App\Modules\DriverPayroll\Models\Payroll;
 use App\Modules\MasterData\Models\Customer;
 use App\Modules\MasterData\Models\Partner;
 use App\Modules\MasterData\Models\Vehicle;
+use App\Modules\Other\Controllers\RestoredReportController;
 use App\Modules\Other\Services\RestoredReportService;
 use App\Modules\VehicleOperations\Models\TouristVehicle;
 use App\Modules\VehicleOperations\Models\WorkerVehicle;
@@ -29,8 +30,8 @@ class RestoredReportsTest extends TestCase
                 'legacy_trip_layout' => true,
             ],
             'title' => 'BÁO CÁO KIỂM TRA',
-            'fromDate' => '01/11/2026',
-            'toDate' => '08/11/2026',
+            'period' => 'Tháng 11 năm 2026',
+            'signaturePeriod' => 'Hải Phòng, tháng 11 năm 2026',
         ])->render();
 
         $this->assertStringContainsString('class="signature-date"', $html);
@@ -39,6 +40,25 @@ class RestoredReportsTest extends TestCase
             $html,
         );
         $this->assertStringNotContainsString('legacy-signatures', $html);
+        $this->assertStringContainsString('Tháng 11 năm 2026', $html);
+        $this->assertStringContainsString('Hải Phòng, tháng 11 năm 2026', $html);
+        $this->assertStringNotContainsString('Từ ngày', $html);
+        $this->assertMatchesRegularExpression('/\.signatures \.director \{\s*text-align: center;/s', $html);
+    }
+
+    public function test_report_export_data_rounds_money_without_decimal_places(): void
+    {
+        $controller = new RestoredReportController(app(RestoredReportService::class));
+        $method = new \ReflectionMethod($controller, 'pdfData');
+        $data = $method->invoke($controller, 'business-trips', [
+            'rows' => [['revenue' => 12345.5, 'driver_wage' => 100.49]],
+            'totals' => ['revenue' => 12345.5, 'driver_wage' => 100.49],
+        ]);
+
+        $this->assertSame('12.346', $data['rows'][0]['revenue']);
+        $this->assertSame('100', $data['rows'][0]['driver_wage']);
+        $this->assertSame('12.346', $data['totals']['revenue']);
+        $this->assertSame('100', $data['totals']['driver_wage']);
     }
 
     public function test_restored_reports_use_the_new_vehicle_operation_sources(): void
