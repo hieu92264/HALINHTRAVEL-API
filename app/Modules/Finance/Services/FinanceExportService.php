@@ -57,9 +57,9 @@ class FinanceExportService
     private function partnerPayments(): array
     {
         $rows = PartnerPayment::query()->with('partner:id,name')->where('is_active', true)->latest('paid_at')->get()
-            ->map(fn (PartnerPayment $item) => ['payment_no' => $item->payment_no, 'paid_at' => $this->date($item->paid_at), 'partner_name' => $item->partner?->name ?? '—', 'recipient_name' => $item->recipient_name ?: '—', 'amount' => $this->money($item->amount), 'payment_method' => $this->paymentMethod($item->payment_method?->value)])->all();
+            ->map(fn (PartnerPayment $item) => ['payment_no' => $item->payment_no, 'paid_at' => $this->date($item->paid_at), 'partner_name' => $item->partner?->name ?? '—', 'recipient_name' => $item->recipient_name ?: '—', 'description' => $item->description ?: '—', 'amount' => $this->money($item->amount), 'payment_method' => $this->paymentMethod($item->payment_method?->value)])->all();
 
-        return ['title' => 'BẢNG CHI TRẢ CHỦ XE', 'columns' => ['payment_no' => 'Số phiếu chi', 'paid_at' => 'Ngày chi', 'partner_name' => 'Đối tác', 'recipient_name' => 'Người nhận', 'amount' => 'Số tiền', 'payment_method' => 'Phương thức'], 'rows' => $rows];
+        return ['title' => 'BẢNG CHI TRẢ CHỦ XE', 'columns' => ['payment_no' => 'Số phiếu chi', 'paid_at' => 'Ngày chi', 'partner_name' => 'Chủ xe', 'recipient_name' => 'Người nhận', 'description' => 'Diễn giải', 'amount' => 'Số tiền', 'payment_method' => 'Phương thức'], 'rows' => $rows];
     }
 
     private function date(mixed $value): string
