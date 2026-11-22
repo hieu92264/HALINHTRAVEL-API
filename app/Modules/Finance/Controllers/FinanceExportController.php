@@ -39,10 +39,18 @@ class FinanceExportController extends Controller
         $format = $request->validate(['format' => ['required', 'in:pdf,xlsx']])['format'];
         $data = $this->service->table($table);
         $filename = $table.'-'.now()->format('Ymd');
+        $signatureDate = $this->signatureDate();
         if ($format === 'xlsx') {
-            return Excel::download(new FinanceTableExport($data['title'], $data['columns'], $data['rows']), $filename.'.xlsx', ExcelFormat::XLSX);
+            return Excel::download(new FinanceTableExport($data['title'], $signatureDate, $data['columns'], $data['rows']), $filename.'.xlsx', ExcelFormat::XLSX);
         }
 
-        return Pdf::loadView('finance.export', $data)->setPaper('a4', 'landscape')->download($filename.'.pdf');
+        return Pdf::loadView('finance.export', [...$data, 'signatureDate' => $signatureDate])->setPaper('a4', 'landscape')->download($filename.'.pdf');
+    }
+
+    private function signatureDate(): string
+    {
+        $now = now();
+
+        return sprintf('%s, ngày %d tháng %d năm %d', config('reports.city', 'Hải Phòng'), $now->day, $now->month, $now->year);
     }
 }

@@ -69,6 +69,7 @@ class RestoredReportController extends Controller
         $report = $this->service->{$method}($filters);
         $format = $request->validated('format');
         $period = $this->period($filters['from_date']);
+        $signatureDate = $this->signatureDate();
         if ($format === 'xlsx') {
             $data = $this->pdfData($filename, $report);
 
@@ -76,6 +77,7 @@ class RestoredReportController extends Controller
                 new ReportExcelExport(
                     $this->title($filename),
                     $period,
+                    $signatureDate,
                     $report['subject_name'] ?? null,
                     $data['columns'],
                     $data['rows'],
@@ -88,7 +90,7 @@ class RestoredReportController extends Controller
         if ($format !== 'pdf') {
             return $this->success($report, 'Lấy báo cáo thành công.');
         }
-        $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'period' => $period, 'signaturePeriod' => $this->signaturePeriod($filters['from_date'])])
+        $pdf = Pdf::loadView('reports.pdf', ['report' => $report, 'pdf' => $this->pdfData($filename, $report), 'title' => $this->title($filename), 'period' => $period, 'signatureDate' => $signatureDate])
             ->setPaper('a4', 'landscape');
 
         return $pdf->download($filename.'-'.$filters['from_date'].'-'.$filters['to_date'].'.pdf');
@@ -163,8 +165,10 @@ class RestoredReportController extends Controller
         return 'Tháng '.Carbon::parse($fromDate)->format('n').' năm '.Carbon::parse($fromDate)->format('Y');
     }
 
-    private function signaturePeriod(string $fromDate): string
+    private function signatureDate(): string
     {
-        return config('reports.city', 'Hải Phòng').', '.mb_strtolower($this->period($fromDate));
+        $now = now();
+
+        return sprintf('%s, ngày %d tháng %d năm %d', config('reports.city', 'Hải Phòng'), $now->day, $now->month, $now->year);
     }
 }

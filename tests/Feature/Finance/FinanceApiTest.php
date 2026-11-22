@@ -18,6 +18,19 @@ class FinanceApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_finance_pdf_view_places_the_export_date_above_the_preparer(): void
+    {
+        $html = view('finance.export', [
+            'title' => 'PHIẾU THU KHÁCH HÀNG',
+            'columns' => ['receipt_no' => 'Số phiếu'],
+            'rows' => [],
+            'signatureDate' => 'Hải Phòng, ngày 22 tháng 11 năm 2026',
+        ])->render();
+
+        $this->assertStringContainsString('<div class="signature-date">Hải Phòng, ngày 22 tháng 11 năm 2026</div>', $html);
+        $this->assertStringContainsString('<div class="preparer">NGƯỜI LẬP</div>', $html);
+    }
+
     public function test_accountant_manages_independent_receipts_and_partner_payments(): void
     {
         $this->seed(AuthDatabaseSeeder::class);
