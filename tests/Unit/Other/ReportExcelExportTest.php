@@ -15,6 +15,7 @@ class ReportExcelExportTest extends TestCase
         $contents = Excel::raw(new ReportExcelExport(
             'BẢNG LƯƠNG LÁI XE',
             'Tháng 11 năm 2026',
+            'Hải Phòng, ngày 22 tháng 11 năm 2026',
             'Nguyễn Văn Hùng',
             ['stt' => 'STT', 'driver_name' => 'Lái xe', 'rate' => 'Tỷ lệ %', 'amount' => 'Số tiền'],
             [['stt' => '1', 'driver_name' => 'Nguyễn Văn Hùng', 'rate' => '15%', 'amount' => '300.001']],
@@ -34,7 +35,10 @@ class ReportExcelExportTest extends TestCase
             $this->assertSame('Tổng cộng', $sheet->getCell('A7')->getValue());
             $this->assertSame('300.001', $sheet->getCell('D6')->getValue());
             $this->assertSame('300.001', $sheet->getCell('D7')->getValue());
-            $this->assertSame('Hải Phòng, tháng 11 năm 2026', $sheet->getCell('A10')->getValue());
+            $this->assertSame('Hải Phòng, ngày 22 tháng 11 năm 2026', $sheet->getCell('C10')->getValue());
+            $this->assertNull($sheet->getCell('A10')->getValue());
+            $this->assertSame('right', $sheet->getStyle('C10')->getAlignment()->getHorizontal());
+            $this->assertTrue($sheet->getStyle('C10')->getFont()->getItalic());
             $this->assertStringContainsString('GIÁM ĐỐC', (string) $sheet->getCell('A11')->getValue());
             $this->assertStringContainsString('KẾ TOÁN', (string) $sheet->getCell('B11')->getValue());
             $this->assertStringContainsString('NGƯỜI LẬP', (string) $sheet->getCell('C11')->getValue());

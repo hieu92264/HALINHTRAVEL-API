@@ -31,7 +31,7 @@ class RestoredReportsTest extends TestCase
             ],
             'title' => 'BÁO CÁO KIỂM TRA',
             'period' => 'Tháng 11 năm 2026',
-            'signaturePeriod' => 'Hải Phòng, tháng 11 năm 2026',
+            'signatureDate' => 'Hải Phòng, ngày 22 tháng 11 năm 2026',
         ])->render();
 
         $this->assertStringContainsString('class="signature-date"', $html);
@@ -41,9 +41,10 @@ class RestoredReportsTest extends TestCase
         );
         $this->assertStringNotContainsString('legacy-signatures', $html);
         $this->assertStringContainsString('Tháng 11 năm 2026', $html);
-        $this->assertStringContainsString('Hải Phòng, tháng 11 năm 2026', $html);
+        $this->assertStringContainsString('Hải Phòng, ngày 22 tháng 11 năm 2026', $html);
         $this->assertStringNotContainsString('Từ ngày', $html);
         $this->assertMatchesRegularExpression('/\.signatures \.director \{\s*text-align: center;/s', $html);
+        $this->assertMatchesRegularExpression('/class="signature-date">\s*<td><\/td>\s*<td><\/td>\s*<td class="preparer">Hải Phòng, ngày 22 tháng 11 năm 2026/s', $html);
     }
 
     public function test_report_export_data_rounds_money_without_decimal_places(): void

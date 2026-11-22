@@ -24,6 +24,7 @@ class ReportExcelExport extends StringValueBinder implements FromArray, WithCust
     public function __construct(
         private readonly string $title,
         private readonly string $period,
+        private readonly string $signatureDate,
         private readonly ?string $subjectName,
         private readonly array $columns,
         private readonly array $rows,
@@ -119,10 +120,10 @@ class ReportExcelExport extends StringValueBinder implements FromArray, WithCust
             $middleEndColumn = Coordinate::stringFromColumnIndex($middleEnd);
             $rightStartColumn = Coordinate::stringFromColumnIndex($middleEnd + 1);
 
-            $sheet->mergeCells("A{$signatureDateRow}:{$leftEndColumn}{$signatureDateRow}");
-            $sheet->setCellValue("A{$signatureDateRow}", config('reports.city', 'Hải Phòng').', '.mb_strtolower($this->period));
-            $sheet->getStyle("A{$signatureDateRow}")->getFont()->setItalic(true);
-            $sheet->getStyle("A{$signatureDateRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->mergeCells("{$rightStartColumn}{$signatureDateRow}:{$lastColumn}{$signatureDateRow}");
+            $sheet->setCellValue("{$rightStartColumn}{$signatureDateRow}", $this->signatureDate);
+            $sheet->getStyle("{$rightStartColumn}{$signatureDateRow}")->getFont()->setItalic(true);
+            $sheet->getStyle("{$rightStartColumn}{$signatureDateRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             $sheet->mergeCells("A{$signatureRow}:{$leftEndColumn}{$signatureRow}");
             $sheet->mergeCells("{$middleStartColumn}{$signatureRow}:{$middleEndColumn}{$signatureRow}");
             $sheet->mergeCells("{$rightStartColumn}{$signatureRow}:{$lastColumn}{$signatureRow}");

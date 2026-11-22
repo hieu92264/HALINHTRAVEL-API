@@ -99,8 +99,8 @@
             font-weight: normal;
         }
 
-        .signature-date .director {
-            text-align: left;
+        .signature-date .preparer {
+            text-align: right;
         }
     </style>
 </head>
@@ -154,9 +154,9 @@
     </table>
     <table class="signatures">
         <tr class="signature-date">
-            <td class="director">{{ $signaturePeriod }}</td>
             <td></td>
             <td></td>
+            <td class="preparer">{{ $signatureDate }}</td>
         </tr>
         <tr>
             <td class="director">GIÁM ĐỐC</td>

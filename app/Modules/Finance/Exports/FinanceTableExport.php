@@ -17,7 +17,12 @@ use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 class FinanceTableExport extends StringValueBinder implements FromArray, WithCustomValueBinder, WithEvents, WithHeadings
 {
     /** @param array<string, string> $columns @param array<int, array<string, string>> $rows */
-    public function __construct(private readonly string $title, private readonly array $columns, private readonly array $rows) {}
+    public function __construct(
+        private readonly string $title,
+        private readonly string $signatureDate,
+        private readonly array $columns,
+        private readonly array $rows,
+    ) {}
 
     public function array(): array
     {
@@ -53,7 +58,12 @@ class FinanceTableExport extends StringValueBinder implements FromArray, WithCus
             $sheet->getStyle("A{$headingRow}:{$lastColumn}{$dataEndRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
             $sheet->getStyle("A{$headingRow}:{$lastColumn}{$headingRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getRowDimension($headingRow)->setRowHeight(30);
-            $signatureRow = $dataEndRow + 4;
+            $signatureDateRow = $dataEndRow + 3;
+            $signatureRow = $signatureDateRow + 1;
+            $sheet->mergeCells("A{$signatureDateRow}:{$lastColumn}{$signatureDateRow}");
+            $sheet->setCellValue("A{$signatureDateRow}", $this->signatureDate);
+            $sheet->getStyle("A{$signatureDateRow}")->getFont()->setItalic(true);
+            $sheet->getStyle("A{$signatureDateRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             $sheet->mergeCells("A{$signatureRow}:{$lastColumn}{$signatureRow}");
             $sheet->setCellValue("A{$signatureRow}", 'NGƯỜI LẬP');
             $sheet->getStyle("A{$signatureRow}")->getFont()->setBold(true);
